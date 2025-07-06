@@ -27,7 +27,7 @@ async fn main() -> Result<()> {
     // Start server
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await?;
     info!("Server listening on {}", listener.local_addr()?);
-    
+
     axum::serve(listener, app).await?;
 
     Ok(())

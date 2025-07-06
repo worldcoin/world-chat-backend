@@ -11,10 +11,10 @@ pub struct ApiResponse<T> {
 pub enum ApiError {
     #[error("Internal server error")]
     InternalError,
-    
+
     #[error("Bad request: {0}")]
     BadRequest(String),
-    
+
     #[error("Not found")]
     NotFound,
 }

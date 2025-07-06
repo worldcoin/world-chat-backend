@@ -25,7 +25,7 @@ async fn main() -> Result<()> {
     // Start server on different port
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3001").await?;
     info!("Enclave server listening on {}", listener.local_addr()?);
-    
+
     axum::serve(listener, app).await?;
 
     Ok(())
