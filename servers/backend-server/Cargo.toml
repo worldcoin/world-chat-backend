@@ -1,7 +1,7 @@
 [package]
-name = "backend-server"
-version.workspace = true
-edition.workspace = true
+edition = { workspace = true }
+name    = "backend-server"
+version = { workspace = true }
 
 [[bin]]
 name = "backend-server"
@@ -9,20 +9,23 @@ path = "src/main.rs"
 
 [dependencies]
 # Web framework
-axum.workspace = true
-tower.workspace = true
-tower-http.workspace = true
+axum       = { workspace = true }
+tower      = { workspace = true }
+tower-http = { workspace = true }
 
 # Async runtime
-tokio.workspace = true
+tokio = { workspace = true }
 
 # Services
+image-service        = { path = "../../services/image-service" }
 notification-service = { path = "../../services/notification-service" }
-image-service = { path = "../../services/image-service" }
 
 # Logging
-tracing.workspace = true
-tracing-subscriber.workspace = true
+tracing            = { workspace = true }
+tracing-subscriber = { workspace = true }
 
 # Error handling
-anyhow.workspace = true
+anyhow = { workspace = true }
+
+[lints]
+workspace = true

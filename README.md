@@ -20,12 +20,44 @@ world-chat-backend/
 ## Quick Start
 
 ```bash
+# Install development tools
+make install-dev-tools
+
 # Build
-cargo build
+make build
 
 # Run backend server
-cargo run --bin backend-server
+make run-backend
 
 # Run enclave server
-cargo run --bin enclave-server
+make run-enclave
 ```
+
+## Development
+
+```bash
+# Format code
+make fmt
+
+# Run lints
+make lint
+
+# Run all checks
+make check
+
+# Run tests
+make test
+
+# Pre-commit checks
+make pre-commit
+
+# See all commands
+make help
+```
+
+### Code Quality
+
+- **Formatting**: Enforced via `rustfmt`
+- **Linting**: Strict clippy rules with pedantic and nursery lints
+- **CI**: Automated checks on every PR
+- **Safety**: No unsafe code allowed

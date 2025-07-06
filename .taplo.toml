@@ -1,0 +1,50 @@
+# Taplo TOML formatter configuration
+
+[formatting]
+# Use inline tables for simple values
+inline_table_expand = false
+
+# Align entries in tables - this is the key setting
+align_entries = true
+
+# Align consecutive entries across sections
+align_consecutive_entries = true
+
+# Always use multi-line arrays
+array_auto_expand = true
+
+# Put trailing commas in multi-line arrays
+array_trailing_comma = true
+
+# Indent using spaces
+indent_string = "    "
+
+# Maximum column width
+column_width = 100
+
+# Reorder keys in tables
+reorder_keys = true
+
+# Keep blank lines
+allowed_blank_lines = 1
+
+# Compact arrays (keep on single line if they fit)
+compact_arrays = true
+
+# Formatting rules for Cargo.toml files
+[[rule]]
+include = ["**/Cargo.toml"]
+
+[rule.formatting]
+# Force alignment across entire document
+align_consecutive_entries = true
+align_entries             = true
+reorder_keys              = true
+
+# Apply to all tables in Cargo.toml
+[[rule]]
+include = ["**/Cargo.toml"]
+keys    = ["*"]
+
+[rule.formatting]
+align_entries = true

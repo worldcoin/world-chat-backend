@@ -1,0 +1,16 @@
+# Rust formatting configuration
+
+# Basic formatting
+edition              = "2021"
+hard_tabs            = false
+max_width            = 100
+newline_style        = "Auto"
+tab_spaces           = 4
+use_small_heuristics = "Default"
+
+# Imports
+reorder_imports = true
+reorder_modules = true
+
+# Function formatting
+fn_params_layout = "Tall"

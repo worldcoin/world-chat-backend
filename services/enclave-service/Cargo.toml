@@ -1,12 +1,15 @@
 [package]
-name = "enclave-service"
-version.workspace = true
-edition.workspace = true
+edition = { workspace = true }
+name    = "enclave-service"
+version = { workspace = true }
 
 [dependencies]
-axum.workspace = true
-tokio.workspace = true
-serde.workspace = true
-serde_json.workspace = true
-tower.workspace = true
-tracing.workspace = true
+axum       = { workspace = true }
+serde      = { workspace = true }
+serde_json = { workspace = true }
+tokio      = { workspace = true }
+tower      = { workspace = true }
+tracing    = { workspace = true }
+
+[lints]
+workspace = true
