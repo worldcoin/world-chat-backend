@@ -1,0 +1,12 @@
+[package]
+name = "notification-service"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+axum.workspace = true
+tokio.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tower.workspace = true
+tracing.workspace = true
