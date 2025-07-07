@@ -1,6 +1,12 @@
-//! Enclave service for World Chat
-//!
-//! This service provides secure enclave operations for sensitive data processing.
+//! Enclave service for secure operations
+
+#![deny(
+    clippy::all,
+    clippy::pedantic,
+    clippy::nursery,
+    missing_docs,
+    dead_code
+)]
 
 /// HTTP handlers module
 pub mod http;
