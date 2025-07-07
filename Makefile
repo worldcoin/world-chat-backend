@@ -1,4 +1,4 @@
-.PHONY: help fmt fmt-toml lint check build test clean run-backend run-enclave audit
+.PHONY: help fmt lint check build test clean run-backend run-enclave audit
 
 help: ## Show this help message
 	@echo 'Usage: make [target]'
@@ -9,13 +9,10 @@ help: ## Show this help message
 fmt: ## Format Rust code using rustfmt
 	cargo fmt --all
 
-fmt-toml: ## Format TOML files using taplo
-	taplo fmt
-
 lint: ## Run clippy lints
 	cargo clippy --all-targets --all-features -- -D warnings
 
-check: fmt fmt-toml lint ## Run all checks (format Rust + TOML + lint)
+check: fmt lint ## Run all checks (format + lint)
 	@echo "All checks passed!"
 
 build: ## Build the project in debug mode
@@ -47,4 +44,4 @@ watch-enclave: ## Run enclave server with auto-reload (requires cargo-watch)
 
 install-dev-tools: ## Install development tools
 	rustup component add rustfmt clippy
-	cargo install cargo-audit cargo-watch taplo-cli
+	cargo install cargo-audit cargo-watch

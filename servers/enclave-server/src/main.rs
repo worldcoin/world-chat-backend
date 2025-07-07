@@ -1,6 +1,5 @@
 use anyhow::Result;
 use axum::Router;
-use tower_http::cors::CorsLayer;
 use tower_http::trace::TraceLayer;
 use tracing::info;
 
@@ -19,7 +18,6 @@ async fn main() -> Result<()> {
     // Create app
     let app = Router::new()
         .nest("/", enclave_router)
-        .layer(CorsLayer::permissive())
         .layer(TraceLayer::new_for_http());
 
     // Start server on different port

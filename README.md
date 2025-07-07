@@ -48,9 +48,6 @@ make check
 # Run tests
 make test
 
-# Pre-commit checks
-make pre-commit
-
 # See all commands
 make help
 ```
@@ -58,6 +55,5 @@ make help
 ### Code Quality
 
 - **Formatting**: Enforced via `rustfmt`
-- **Linting**: Strict clippy rules with pedantic and nursery lints
+- **Linting**: Default clippy rules
 - **CI**: Automated checks on every PR
-- **Safety**: No unsafe code allowed

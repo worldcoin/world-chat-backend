@@ -1,6 +1,5 @@
 use anyhow::Result;
 use axum::Router;
-use tower_http::cors::CorsLayer;
 use tower_http::trace::TraceLayer;
 use tracing::info;
 
@@ -21,7 +20,6 @@ async fn main() -> Result<()> {
     let app = Router::new()
         .nest("/notifications", notification_router)
         .nest("/images", image_router)
-        .layer(CorsLayer::permissive())
         .layer(TraceLayer::new_for_http());
 
     // Start server
