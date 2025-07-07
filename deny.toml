@@ -4,6 +4,8 @@
 [graph]
 # Check all features
 all-features = true
+# Set targets to avoid some cross-compilation issues
+targets = ["x86_64-unknown-linux-gnu"]
 
 [sources]
 # Deny crates from unknown registries
