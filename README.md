@@ -6,15 +6,12 @@ Push notification and image services for World Chat Native.
 
 ```
 world-chat-backend/
-├── servers/                    # HTTP servers
-│   ├── backend-server/         # Main server (port 3000)
-│   └── enclave-server/         # Enclave server (port 3001)
-├── services/                   # Business logic
-│   ├── notification-service/
-│   ├── image-service/
-│   └── enclave-service/
-└── shared/
-    └── models/                 # Common types
+├── backend/            # Main HTTP server (port 3000)
+├── enclave-worker/     # Worker for enclave operations  
+├── secure-enclave/     # Secure enclave service
+└── shared/             # Shared crates
+    ├── queue/          # SQS integration
+    └── storage/        # DynamoDB integration
 ```
 
 ## Quick Start
@@ -29,8 +26,11 @@ make build
 # Run backend server
 make run-backend
 
-# Run enclave server
-make run-enclave
+# Run enclave worker
+make run-enclave-worker
+
+# Run secure enclave
+make run-secure-enclave
 ```
 
 ## Development

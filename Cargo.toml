@@ -1,11 +1,10 @@
 [workspace]
 members = [
-    "servers/backend-server",
-    "servers/enclave-server",
-    "services/notification-service",
-    "services/image-service",
-    "services/enclave-service",
-    "shared/models",
+    "backend",
+    "enclave-worker",
+    "secure-enclave",
+    "shared/queue",
+    "shared/storage",
 ]
 resolver = "2"
 
@@ -38,3 +37,8 @@ tracing-subscriber = "0.3"
 
 # HTTP
 http = "1.1"
+
+# AWS SDK
+aws-config = "1.5"
+aws-sdk-sqs = "1.64"
+aws-sdk-dynamodb = "1.82"
