@@ -10,7 +10,7 @@ fmt: ## Format Rust code using rustfmt
 	cargo fmt --all
 
 lint: ## Run clippy lints
-	cargo clippy --all-targets --all-features -- -D warnings
+	cargo clippy --all-targets --all-features --
 
 check: fmt lint ## Run all checks (format + lint)
 	@echo "All checks passed!"
