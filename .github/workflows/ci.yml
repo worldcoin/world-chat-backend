@@ -1,10 +1,7 @@
 name: CI
 
 on:
-  push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
+  - pull_request
 
 env:
   CARGO_TERM_COLOR: always
@@ -16,12 +13,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt
-      
+
       - name: Check formatting
         run: cargo fmt --all -- --check
 
@@ -30,15 +27,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy
-      
+
       - name: Cache dependencies
         uses: Swatinem/rust-cache@v2
-      
+
       - name: Run Clippy
         run: cargo clippy --all-targets --all-features -- -D warnings
 
@@ -47,16 +44,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
-      
+
       - name: Cache dependencies
         uses: Swatinem/rust-cache@v2
-      
+
       - name: Build
         run: cargo build --verbose
-      
+
       - name: Build release
         run: cargo build --release --verbose
 
@@ -65,27 +62,34 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
-      
+
       - name: Cache dependencies
         uses: Swatinem/rust-cache@v2
-      
+
       - name: Run tests
         run: cargo test --verbose
 
-  security-audit:
-    name: Security Audit
+  deny:
+    name: Cargo deny
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    strategy:
+      matrix:
+        checks:
+          - advisories
+          - bans licenses sources
+
+    continue-on-error: ${{ matrix.checks == 'advisories' }}
+
     steps:
-      - uses: actions/checkout@v4
-      
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
-      
-      - name: Install cargo-audit
-        run: cargo install cargo-audit
-      
-      - name: Run security audit
-        run: cargo audit
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - uses: EmbarkStudios/cargo-deny-action@v1
+        with:
+          command: check ${{ matrix.checks }}
+          rust-version: stable

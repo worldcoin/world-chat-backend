@@ -1,0 +1,43 @@
+# cargo-deny configuration
+# Based on https://github.com/worldcoin/bedrock/blob/main/deny.toml
+
+[graph]
+# Check all features
+all-features = true
+
+[sources]
+# Deny crates from unknown registries
+unknown-registry = "deny"
+
+[bans]
+# Deny specific crates
+deny = [
+    { name = "openssl-sys", reason = "increases complexity for foreign binding compilation and bundle size" },
+    { name = "openssl", reason = "increases complexity for foreign binding compilation and bundle size" },
+]
+
+[licenses]
+version = 2
+confidence-threshold = 1.0
+
+# List of allowed licenses
+allow = [
+    "0BSD",
+    "Apache-2.0 WITH LLVM-exception",
+    "Apache-2.0",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "BSL-1.0",
+    "CC0-1.0",
+    "ISC",
+    "MIT",
+    "MPL-2.0",
+    "Unicode-3.0",
+    "Unlicense",
+    "Zlib",
+]
+
+[advisories]
+# Security advisories to check
+# The ignore list can be used to ignore specific advisories that don't affect your project
+ignore = []

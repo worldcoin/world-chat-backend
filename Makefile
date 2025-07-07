@@ -33,8 +33,8 @@ run-backend: ## Run the backend server
 run-enclave: ## Run the enclave server
 	cargo run --bin enclave-server
 
-audit: ## Run security audit
-	cargo audit
+audit: ## Run security, license, and ban checks
+	cargo deny check
 
 watch-backend: ## Run backend server with auto-reload (requires cargo-watch)
 	cargo watch -x 'run --bin backend-server'
@@ -44,4 +44,4 @@ watch-enclave: ## Run enclave server with auto-reload (requires cargo-watch)
 
 install-dev-tools: ## Install development tools
 	rustup component add rustfmt clippy
-	cargo install cargo-audit cargo-watch
+	cargo install cargo-deny cargo-watch
