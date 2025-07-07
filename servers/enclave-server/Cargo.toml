@@ -2,6 +2,7 @@
 edition = { workspace = true }
 name    = "enclave-server"
 version = { workspace = true }
+license = { workspace = true }
 
 [[bin]]
 name = "enclave-server"
