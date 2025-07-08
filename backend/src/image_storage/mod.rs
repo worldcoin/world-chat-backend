@@ -75,6 +75,7 @@ impl ImageStorage {
     ///
     /// Returns `BucketError::S3Error` for S3 service errors
     /// Returns `BucketError::UpstreamError` for 5xx errors
+    #[allow(clippy::cognitive_complexity)]
     pub async fn check_object_exists(&self, image_id: &str) -> BucketResult<bool> {
         debug!("Checking if object exists: {}", image_id);
 
