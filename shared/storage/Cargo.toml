@@ -1,0 +1,20 @@
+[package]
+name = "storage"
+version = { workspace = true }
+edition = { workspace = true }
+license = { workspace = true }
+
+[dependencies]
+# AWS SDK
+aws-config = { workspace = true }
+aws-sdk-dynamodb = { workspace = true }
+
+# Async
+tokio = { workspace = true }
+
+# Error handling
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+
+# Logging
+tracing = { workspace = true }

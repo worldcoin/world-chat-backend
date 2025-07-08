@@ -1,0 +1,20 @@
+[package]
+name = "secure-enclave"
+version = { workspace = true }
+edition = { workspace = true }
+license = { workspace = true }
+
+[[bin]]
+name = "secure-enclave"
+path = "src/main.rs"
+
+[dependencies]
+# Async runtime
+tokio = { workspace = true }
+
+# Logging
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+
+# Error handling
+anyhow = { workspace = true }

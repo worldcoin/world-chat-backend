@@ -1,0 +1,20 @@
+[package]
+name = "enclave-worker"
+version = { workspace = true }
+edition = { workspace = true }
+license = { workspace = true }
+
+[[bin]]
+name = "enclave-worker"
+path = "src/main.rs"
+
+[dependencies]
+# Async runtime
+tokio = { workspace = true }
+
+# Logging
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+
+# Error handling
+anyhow = { workspace = true }
