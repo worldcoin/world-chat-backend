@@ -47,7 +47,7 @@ impl From<SdkError<HeadObjectError>> for BucketError {
                     // Not found is expected for deduplication check
                     BucketError::S3Error("Object not found".to_string())
                 }
-                _ => BucketError::S3Error(err.to_string()),
+                _ => BucketError::S3Error(format!("{:?}", err.err())),
             },
             _ => BucketError::AwsError(error.to_string()),
         }

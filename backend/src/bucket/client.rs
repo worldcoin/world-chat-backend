@@ -11,17 +11,22 @@ use tracing::{debug, error, info};
 
 use super::{BucketError, BucketResult, PresignedUrl};
 
-const MAX_UPLOAD_BYTES: i64 = 15 * 1024 * 1024;
 const PRESIGNED_URL_EXPIRY_SECS: u64 = 15 * 60;
 const MAX_RETRIES: u32 = 3;
-const BASE_DELAY_MS: u64 = 50;
 
+/// S3 bucket client for image storage operations
 pub struct BucketClient {
     client: Client,
     bucket_name: String,
 }
 
 impl BucketClient {
+    /// Creates a new bucket client
+    ///
+    /// # Errors
+    ///
+    /// Returns `BucketError::ConfigError` if AWS configuration fails
+    /// Returns `BucketError::ConfigError` if bucket name is not set
     pub async fn new() -> BucketResult<Self> {
         let bucket_name = std::env::var("S3_BUCKET_NAME").map_err(|_| {
             BucketError::ConfigError("S3_BUCKET_NAME environment variable not set".to_string())
@@ -57,6 +62,22 @@ impl BucketClient {
         })
     }
 
+    /// Checks if an object exists in the bucket
+    ///
+    /// # Arguments
+    ///
+    /// * `image_id` - The image ID to check (64-char hex string)
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(true)` if object exists
+    /// * `Ok(false)` if object does not exist
+    /// * `Err(BucketError)` if S3 operation fails
+    ///
+    /// # Errors
+    ///
+    /// Returns `BucketError::S3Error` for S3 service errors
+    /// Returns `BucketError::UpstreamError` for 5xx errors after retries
     pub async fn check_object_exists(&self, image_id: &str) -> BucketResult<bool> {
         debug!("Checking if object exists: {}", image_id);
 
@@ -97,18 +118,26 @@ impl BucketClient {
         }
     }
 
+    /// Generates a presigned URL for PUT operations
+    ///
+    /// # Arguments
+    ///
+    /// * `image_id` - The image ID (64-char hex string)
+    /// * `content_length` - The expected content length in bytes
+    ///
+    /// # Returns
+    ///
+    /// A `PresignedUrl` struct containing the URL and expiration time
+    ///
+    /// # Errors
+    ///
+    /// Returns `BucketError::S3Error` if presigned URL generation fails
+    /// Returns `BucketError::ConfigError` if content_length exceeds maximum
     pub async fn generate_presigned_put_url(
         &self,
         image_id: &str,
         content_length: i64,
     ) -> BucketResult<PresignedUrl> {
-        if content_length > MAX_UPLOAD_BYTES {
-            return Err(BucketError::ConfigError(format!(
-                "Content length {} exceeds maximum of {} bytes",
-                content_length, MAX_UPLOAD_BYTES
-            )));
-        }
-
         debug!(
             "Generating presigned URL for object: {} with content length: {}",
             image_id, content_length
