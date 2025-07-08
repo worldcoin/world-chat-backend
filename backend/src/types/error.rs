@@ -55,30 +55,6 @@ impl AppError {
             },
         }
     }
-
-    /// Create a validation error from field and code string
-    #[must_use]
-    pub fn validation_from_str(_field: &str, code: &str) -> Self {
-        let (status, error_code, message) = match code {
-            "invalid_image_id" => (
-                StatusCode::BAD_REQUEST,
-                "invalid_image_id",
-                "Image ID must be a 64-character hexadecimal string",
-            ),
-            "payload_too_large" => (
-                StatusCode::BAD_REQUEST,
-                "payload_too_large",
-                "Content length exceeds maximum allowed size",
-            ),
-            _ => (
-                StatusCode::BAD_REQUEST,
-                "validation_error",
-                "Invalid request data",
-            ),
-        };
-
-        Self::new(status, error_code, message, false)
-    }
 }
 
 impl IntoResponse for AppError {
