@@ -4,23 +4,48 @@ use std::sync::Arc;
 use tower_http::trace::TraceLayer;
 use tracing::info;
 
-use backend::{bucket::BucketClient, handlers, state::AppState};
+use aws_sdk_s3::Client as S3Client;
+
+use backend::{
+    handlers, image_storage::ImageStorageClient, state::AppState, types::environment::Environment,
+};
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    // Load environment configuration
+    let environment = Environment::from_env();
+
     // Initialize tracing
-    tracing_subscriber::fmt()
-        .with_max_level(tracing::Level::DEBUG)
-        .init();
+    let log_level = if environment.debug_logging() {
+        tracing::Level::DEBUG
+    } else {
+        tracing::Level::INFO
+    };
 
-    info!("Starting World Chat Backend Server");
+    tracing_subscriber::fmt().with_max_level(log_level).init();
 
-    // Initialize bucket client
-    info!("Initializing S3 bucket client");
-    let bucket_client = Arc::new(BucketClient::new(Some(15 * 60)).await?);
+    info!(
+        "Starting World Chat Backend Server in {:?} mode",
+        environment
+    );
+
+    // Configure AWS using environment configuration
+    info!("Configuring AWS SDK");
+    let s3_config = environment.s3_client_config().await;
+    let s3_client = Arc::new(S3Client::from_conf(s3_config));
+
+    // Initialize image storage client
+    info!("Initializing image storage client");
+    let image_storage_client = Arc::new(ImageStorageClient::new(
+        s3_client,
+        environment.s3_bucket(),
+        environment.presigned_url_expiry_secs(),
+    ));
 
     // Create app state
-    let app_state = AppState { bucket_client };
+    let app_state = AppState {
+        image_storage_client,
+    };
 
     // Build router
     let app = Router::new()

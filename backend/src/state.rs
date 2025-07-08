@@ -2,11 +2,11 @@
 
 use std::sync::Arc;
 
-use crate::bucket::BucketClient;
+use crate::image_storage::ImageStorageClient;
 
 /// Application state shared across handlers
 #[derive(Clone)]
 pub struct AppState {
-    /// S3 bucket client for image operations
-    pub bucket_client: Arc<BucketClient>,
+    /// Image storage client for S3 operations
+    pub image_storage_client: Arc<ImageStorageClient>,
 }

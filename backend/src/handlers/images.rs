@@ -6,7 +6,7 @@ use tracing::{debug, info, instrument};
 use validator::Validate;
 
 use crate::{
-    bucket::BucketError,
+    image_storage::BucketError,
     state::AppState,
     types::{error::AppError, extractors::ValidatedJson},
 };
@@ -46,7 +46,7 @@ pub async fn upload_image(
     // Step 2: De-duplication Probe
     debug!("Checking if object already exists");
     let exists = app_state
-        .bucket_client
+        .image_storage_client
         .check_object_exists(&payload.image_id)
         .await?;
 
@@ -59,7 +59,7 @@ pub async fn upload_image(
     // Step 3: Generate Presigned URL
     debug!("Generating presigned URL");
     let presigned_url = app_state
-        .bucket_client
+        .image_storage_client
         .generate_presigned_put_url(&payload.image_id, payload.content_length)
         .await?;
 

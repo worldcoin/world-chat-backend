@@ -7,7 +7,7 @@ use axum::{
 };
 use serde::Serialize;
 
-use crate::bucket::BucketError;
+use crate::image_storage::BucketError;
 
 /// API error response envelope that matches mobile client expectations
 #[derive(Debug, Serialize)]

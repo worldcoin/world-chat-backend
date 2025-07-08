@@ -8,8 +8,8 @@
     dead_code
 )]
 
-/// S3 bucket operations
-pub mod bucket;
+/// Image storage operations
+pub mod image_storage;
 
 /// Types
 pub mod types;
