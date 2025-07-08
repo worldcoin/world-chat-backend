@@ -2,9 +2,7 @@ use std::sync::Arc;
 
 use aws_sdk_s3::Client as S3Client;
 
-use backend::{
-    image_storage::ImageStorage, server, types::Environment,
-};
+use backend::{image_storage::ImageStorage, server, types::Environment};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {

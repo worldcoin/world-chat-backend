@@ -71,7 +71,7 @@ pub fn assert_status(response: &Response, expected: StatusCode) {
 pub async fn assert_validation_error(response: Response, expected_code: &str) {
     assert_status(&response, StatusCode::BAD_REQUEST);
     let body = parse_response_body(response).await;
-    
+
     assert_eq!(body["error"]["code"], expected_code);
     assert_eq!(body["allowRetry"], false);
 }
@@ -80,10 +80,10 @@ pub async fn assert_validation_error(response: Response, expected_code: &str) {
 pub async fn assert_upload_success(response: Response) -> serde_json::Value {
     assert_status(&response, StatusCode::OK);
     let body = parse_response_body(response).await;
-    
+
     assert!(body["presignedUrl"].is_string());
     assert!(body["expiresAt"].is_string());
-    
+
     body
 }
 

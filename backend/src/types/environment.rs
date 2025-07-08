@@ -38,9 +38,9 @@ impl Environment {
     }
 
     /// Returns the S3 bucket name for the environment
-    /// 
+    ///
     /// # Panics
-    /// 
+    ///
     /// Panics if the `S3_BUCKET_NAME` environment variable is not set
     #[must_use]
     pub fn s3_bucket(&self) -> String {

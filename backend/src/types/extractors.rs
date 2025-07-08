@@ -61,7 +61,10 @@ impl<T> OperationInput for ValidatedJson<T>
 where
     T: JsonSchema,
 {
-    fn operation_input(ctx: &mut aide::generate::GenContext, operation: &mut aide::openapi::Operation) {
+    fn operation_input(
+        ctx: &mut aide::generate::GenContext,
+        operation: &mut aide::openapi::Operation,
+    ) {
         // Delegate to Json<T>'s implementation since ValidatedJson has the same structure
         Json::<T>::operation_input(ctx, operation);
     }

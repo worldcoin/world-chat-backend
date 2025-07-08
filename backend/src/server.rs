@@ -9,9 +9,9 @@ use crate::routes;
 use crate::{image_storage::ImageStorage, types::Environment};
 
 /// Starts the server with the given environment and image storage
-/// 
+///
 /// # Errors
-/// 
+///
 /// Returns an error if the server fails to start or bind to the port
 #[allow(clippy::too_many_arguments)] // logical module separation is preferred
 pub async fn start(
