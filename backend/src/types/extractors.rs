@@ -6,7 +6,7 @@ use axum::{
 };
 use validator::Validate;
 
-use crate::error::AppError;
+use crate::types::error::AppError;
 
 /// Custom JSON extractor that validates the payload
 pub struct ValidatedJson<T>(pub T);

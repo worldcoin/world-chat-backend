@@ -17,7 +17,7 @@ async fn main() -> Result<()> {
 
     // Initialize bucket client
     info!("Initializing S3 bucket client");
-    let bucket_client = Arc::new(BucketClient::new().await?);
+    let bucket_client = Arc::new(BucketClient::new(Some(15 * 60)).await?);
 
     // Create app state
     let app_state = AppState { bucket_client };

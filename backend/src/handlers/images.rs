@@ -5,7 +5,11 @@ use serde::{Deserialize, Serialize};
 use tracing::{debug, info, instrument};
 use validator::Validate;
 
-use crate::{bucket::BucketError, error::AppError, extractors::ValidatedJson, state::AppState};
+use crate::{
+    bucket::BucketError,
+    state::AppState,
+    types::{error::AppError, extractors::ValidatedJson},
+};
 
 static IMAGE_ID_REGEX: Lazy<Regex> =
     Lazy::new(|| Regex::new(r"^[0-9a-f]{64}$").expect("Invalid regex"));
