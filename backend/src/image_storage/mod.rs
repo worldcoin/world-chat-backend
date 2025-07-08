@@ -77,8 +77,6 @@ impl ImageStorage {
     /// Returns `BucketError::UpstreamError` for 5xx errors
     #[allow(clippy::cognitive_complexity)]
     pub async fn check_object_exists(&self, image_id: &str) -> BucketResult<bool> {
-        debug!("Checking if object exists: {}", image_id);
-
         let result = self
             .s3_client
             .head_object()
@@ -88,15 +86,11 @@ impl ImageStorage {
             .await;
 
         match result {
-            Ok(_) => {
-                debug!("Object exists: {}", image_id);
-                Ok(true)
-            }
+            Ok(_) => Ok(true),
             Err(e) => {
                 // Check if it's a 404 (object not found) - this is expected for new uploads
                 if let SdkError::ServiceError(ref service_err) = e {
                     if matches!(service_err.err(), HeadObjectError::NotFound(_)) {
-                        debug!("Object does not exist: {}", image_id);
                         return Ok(false);
                     }
 
@@ -136,11 +130,6 @@ impl ImageStorage {
         image_id: &str,
         content_length: i64,
     ) -> BucketResult<PresignedUrl> {
-        debug!(
-            "Generating presigned URL for object: {} with content length: {}",
-            image_id, content_length
-        );
-
         let put_request = self
             .s3_client
             .put_object()
@@ -162,11 +151,6 @@ impl ImageStorage {
 
         let expires_at: DateTime<Utc> =
             Utc::now() + Duration::from_secs(self.presigned_url_expiry_secs);
-
-        debug!(
-            "Generated presigned URL for object: {} expires at: {}",
-            image_id, expires_at
-        );
 
         Ok(PresignedUrl {
             url: presigned_url.uri().to_string(),
