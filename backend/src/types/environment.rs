@@ -48,6 +48,11 @@ impl Environment {
         }
     }
 
+    /// Whether to show API docs
+    pub fn show_api_docs(&self) -> bool {
+        matches!(self, Self::Development | Self::Staging)
+    }
+
     /// Returns the endpoint URL to use for AWS services
     pub const fn override_aws_endpoint_url(&self) -> Option<&str> {
         match self {

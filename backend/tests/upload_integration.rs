@@ -34,7 +34,7 @@ async fn test_upload_image_valid_content_lengths() {
         let payload = create_upload_request(image_id, content_length);
 
         let response = send_post_request("/v1/images/upload", payload).await;
-        
+
         assert_eq!(
             response.status(),
             StatusCode::OK,
@@ -208,7 +208,7 @@ async fn test_upload_image_uppercase_hex_should_fail() {
     let response = send_post_request("/v1/images/upload", payload).await;
 
     assert_eq!(response.status(), StatusCode::BAD_REQUEST);
-    
+
     let body = parse_response_body(response).await;
     assert_eq!(body["error"]["code"], "invalid_image_id");
 }
@@ -225,13 +225,13 @@ async fn test_upload_image_object_already_exists() {
     // First upload should succeed
     let response1 = send_post_request("/v1/images/upload", payload.clone()).await;
     assert_eq!(response1.status(), StatusCode::OK);
-    
+
     // In a real scenario with mocking, the second upload would fail with CONFLICT
     // For now, this is commented out as it requires mock implementation
     /*
     let response2 = send_post_request("/v1/images/upload", payload).await;
     assert_eq!(response2.status(), StatusCode::CONFLICT);
-    
+
     let body = parse_response_body(response2).await;
     assert_eq!(body["allowRetry"], false);
     assert_eq!(body["error"]["code"], "already_exists");

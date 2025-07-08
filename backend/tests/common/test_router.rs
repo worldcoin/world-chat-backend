@@ -1,5 +1,5 @@
 use backend::{
-    handlers, image_storage::ImageStorageClient, state::AppState, types::environment::Environment,
+    image_storage::ImageStorage, routes, state::AppState, types::environment::Environment,
 };
 use std::sync::Arc;
 
@@ -17,7 +17,7 @@ pub async fn get_test_router() -> axum::Router {
     let s3_client = Arc::new(S3Client::from_conf(s3_config));
 
     // Create image storage client
-    let image_storage_client = Arc::new(ImageStorageClient::new(
+    let image_storage_client = Arc::new(ImageStorage::new(
         s3_client,
         environment.s3_bucket(),
         environment.presigned_url_expiry_secs(),
@@ -27,5 +27,5 @@ pub async fn get_test_router() -> axum::Router {
         image_storage_client,
     };
 
-    handlers::routes().with_state(app_state)
+    routes::routes().with_state(app_state)
 }

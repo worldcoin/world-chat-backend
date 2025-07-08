@@ -1,16 +1,18 @@
 //! Universal error handling for the API
 
+use aide::OperationOutput;
 use axum::{
     http::StatusCode,
     response::{IntoResponse, Response},
     Json,
 };
+use schemars::JsonSchema;
 use serde::Serialize;
 
 use crate::image_storage::BucketError;
 
 /// API error response envelope that matches mobile client expectations
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct ApiErrorResponse {
     /// Whether the client should retry the request
@@ -20,7 +22,7 @@ pub struct ApiErrorResponse {
 }
 
 /// Error body containing code and message
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct ErrorBody {
     /// Machine-readable error code
@@ -144,5 +146,16 @@ impl From<BucketError> for AppError {
                 )
             }
         }
+    }
+}
+
+impl OperationOutput for AppError {
+    type Inner = ApiErrorResponse;
+
+    fn operation_response(
+        ctx: &mut aide::generate::GenContext,
+        operation: &mut aide::openapi::Operation,
+    ) -> Option<aide::openapi::Response> {
+        Json::<ApiErrorResponse>::operation_response(ctx, operation)
     }
 }

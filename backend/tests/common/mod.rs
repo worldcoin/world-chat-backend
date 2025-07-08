@@ -60,7 +60,7 @@ pub fn create_upload_request(image_id: String, content_length: i64) -> serde_jso
 pub fn setup_test_env() {
     // Load test environment variables
     dotenvy::from_path(".env.example").ok();
-    
+
     // Initialize tracing for tests (following backup-service pattern)
     tracing_subscriber::fmt()
         .with_max_level(tracing::Level::DEBUG)

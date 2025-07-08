@@ -16,9 +16,16 @@ license      = "MIT"
 
 [workspace.dependencies]
 # Web framework
-axum       = "0.8.1"
+aide = { version = "0.14.2", features = [
+    "redoc",
+    "swagger",
+    "scalar",
+    "axum-json",
+    "macros",
+] }
+axum       = "0.8.4"
 tower      = "0.5.2"
-tower-http = { version = "0.6.2", features = ["trace"] }
+tower-http = { version = "0.6.2", features = ["trace", "timeout"] }
 
 # Validation
 validator = { version = "0.20.0", features = ["derive"] }
@@ -55,6 +62,9 @@ aws-config = "1.5"
 aws-sdk-sqs = "1.64"
 aws-sdk-dynamodb = "1.82"
 aws-sdk-s3 = "1.82"
+
+# Schema generation for OpenAPI
+schemars = { version = "0.8.21", features = ["derive"] }
 
 # Test dependencies
 http-body-util = "0.1.3"

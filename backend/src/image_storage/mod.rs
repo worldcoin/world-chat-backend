@@ -32,13 +32,13 @@ pub struct PresignedUrl {
 }
 
 /// Image storage client for S3 operations
-pub struct ImageStorageClient {
+pub struct ImageStorage {
     s3_client: Arc<S3Client>,
     bucket_name: String,
     presigned_url_expiry_secs: u64,
 }
 
-impl ImageStorageClient {
+impl ImageStorage {
     /// Creates a new image storage client
     ///
     /// # Arguments
