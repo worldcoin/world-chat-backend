@@ -9,7 +9,7 @@ use axum::{
 use schemars::JsonSchema;
 use serde::Serialize;
 
-use crate::image_storage::BucketError;
+use crate::media_storage::BucketError;
 
 /// API error response envelope that matches mobile client expectations
 #[derive(Debug, Serialize, JsonSchema)]
