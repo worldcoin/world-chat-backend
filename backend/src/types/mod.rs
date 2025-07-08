@@ -1,6 +1,7 @@
 mod environment;
 mod error;
-pub mod extractors;
+mod extractors;
 
 pub use environment::Environment;
 pub use error::AppError;
+pub use extractors::ValidatedJson;
