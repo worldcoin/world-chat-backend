@@ -1,19 +1,22 @@
-use axum::{extract::State, http::StatusCode, response::IntoResponse, Json};
+use axum::{extract::State, Json};
+use once_cell::sync::Lazy;
+use regex::Regex;
 use serde::{Deserialize, Serialize};
-use tracing::{debug, error, info, instrument};
+use tracing::{debug, info, instrument};
+use validator::Validate;
 
-use crate::{
-    bucket::BucketError,
-    state::AppState,
-};
+use crate::{bucket::BucketError, error::AppError, extractors::ValidatedJson, state::AppState};
 
-const MAX_UPLOAD_BYTES: i64 = 15 * 1024 * 1024; // 15 MiB
+static IMAGE_ID_REGEX: Lazy<Regex> =
+    Lazy::new(|| Regex::new(r"^[0-9a-f]{64}$").expect("Invalid regex"));
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Validate)]
 pub struct UploadRequest {
     /// 64-character lowercase hex string (Blake3 of encrypted blob)
+    #[validate(regex(path = "*IMAGE_ID_REGEX", message = "invalid_image_id"))]
     pub image_id: String,
     /// Size in bytes - max 15 MiB
+    #[validate(range(min = 1, max = 15_728_640, message = "payload_too_large"))]
     pub content_length: i64,
 }
 
@@ -23,141 +26,46 @@ pub struct UploadResponse {
     pub expires_at: String, // ISO-8601 UTC
 }
 
-#[derive(Debug, Serialize)]
-pub struct ValidationErrorResponse {
-    pub error: String,
-    pub message: String,
-}
-
-#[derive(Debug, Serialize)]
-pub struct ErrorResponse {
-    pub error: String,
-    pub message: String,
-}
-
-#[derive(Debug, Serialize)]
-pub struct AlreadyExistsResponse {
-    pub error: String,
-    pub message: String,
-    pub image_id: String,
-}
-
-#[instrument(skip(app_state), fields(image_id = %payload.image_id, content_length = %payload.content_length))]
+#[instrument(skip(app_state, payload))]
 pub async fn upload_image(
     State(app_state): State<AppState>,
-    Json(payload): Json<UploadRequest>,
-) -> impl IntoResponse {
+    ValidatedJson(payload): ValidatedJson<UploadRequest>,
+) -> Result<Json<UploadResponse>, AppError> {
+    // Log request details
+    tracing::Span::current()
+        .record("image_id", &payload.image_id)
+        .record("content_length", payload.content_length);
     info!("Received upload request");
-
-    // Step 1: Request Validation
-    if !validate_image_id(&payload.image_id) {
-        debug!("Invalid image_id format");
-        return (
-            StatusCode::BAD_REQUEST,
-            Json(ValidationErrorResponse {
-                error: "invalid_image_id".to_string(),
-                message: "Image ID must be a 64-character lowercase hexadecimal string".to_string(),
-            }),
-        )
-            .into_response();
-    }
-
-    if !validate_content_length(payload.content_length) {
-        debug!("Invalid content_length: {}", payload.content_length);
-        return (
-            StatusCode::PAYLOAD_TOO_LARGE,
-            Json(ValidationErrorResponse {
-                error: "payload_too_large".to_string(),
-                message: format!(
-                    "Content length {} exceeds maximum of {} bytes",
-                    payload.content_length, MAX_UPLOAD_BYTES
-                ),
-            }),
-        )
-            .into_response();
-    }
 
     // TODO: Add auth validation when auth is implemented
 
     // Step 2: De-duplication Probe
     debug!("Checking if object already exists");
-    match app_state.bucket_client.check_object_exists(&payload.image_id).await {
-        Ok(true) => {
-            info!("Object already exists: {}", payload.image_id);
-            return (
-                StatusCode::CONFLICT,
-                Json(AlreadyExistsResponse {
-                    error: "already_exists".to_string(),
-                    message: "Image with this ID already exists".to_string(),
-                    image_id: payload.image_id,
-                }),
-            )
-                .into_response();
-        }
-        Ok(false) => {
-            debug!("Object does not exist, proceeding with presigned URL generation");
-        }
-        Err(BucketError::UpstreamError(msg)) => {
-            error!("Upstream error during deduplication check: {}", msg);
-            return (
-                StatusCode::SERVICE_UNAVAILABLE,
-                Json(ErrorResponse {
-                    error: "upstream_error".to_string(),
-                    message: "S3 service temporarily unavailable".to_string(),
-                }),
-            )
-                .into_response();
-        }
-        Err(e) => {
-            error!("Error checking object existence: {}", e);
-            return (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse {
-                    error: "internal_error".to_string(),
-                    message: "Failed to check object existence".to_string(),
-                }),
-            )
-                .into_response();
-        }
+    let exists = app_state
+        .bucket_client
+        .check_object_exists(&payload.image_id)
+        .await?;
+
+    if exists {
+        return Err(BucketError::ObjectExists(payload.image_id).into());
     }
+
+    debug!("Object does not exist, proceeding with presigned URL generation");
 
     // Step 3: Generate Presigned URL
     debug!("Generating presigned URL");
-    match app_state.bucket_client
+    let presigned_url = app_state
+        .bucket_client
         .generate_presigned_put_url(&payload.image_id, payload.content_length)
-        .await
-    {
-        Ok(presigned_url) => {
-            info!("Successfully generated presigned URL for image_id: {}", payload.image_id);
-            Json(UploadResponse {
-                presigned_url: presigned_url.url,
-                expires_at: presigned_url.expires_at.to_rfc3339(),
-            })
-            .into_response()
-        }
-        Err(e) => {
-            error!("Failed to generate presigned URL: {}", e);
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ErrorResponse {
-                    error: "internal_error".to_string(),
-                    message: "Failed to generate presigned URL".to_string(),
-                }),
-            )
-                .into_response()
-        }
-    }
-}
+        .await?;
 
-// Helper function to validate image_id format
-fn validate_image_id(image_id: &str) -> bool {
-    image_id.len() == 64
-        && image_id
-            .chars()
-            .all(|c| c.is_ascii_hexdigit() && c.is_lowercase())
-}
+    info!(
+        "Successfully generated presigned URL for image_id: {}",
+        payload.image_id
+    );
 
-// Helper function to validate content length
-fn validate_content_length(content_length: i64) -> bool {
-    content_length > 0 && content_length <= MAX_UPLOAD_BYTES
+    Ok(Json(UploadResponse {
+        presigned_url: presigned_url.url,
+        expires_at: presigned_url.expires_at.to_rfc3339(),
+    }))
 }

@@ -4,11 +4,7 @@ use std::sync::Arc;
 use tower_http::trace::TraceLayer;
 use tracing::info;
 
-use backend::{
-    bucket::BucketClient, 
-    handlers,
-    state::AppState,
-};
+use backend::{bucket::BucketClient, handlers, state::AppState};
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -24,9 +20,7 @@ async fn main() -> Result<()> {
     let bucket_client = Arc::new(BucketClient::new().await?);
 
     // Create app state
-    let app_state = AppState {
-        bucket_client,
-    };
+    let app_state = AppState { bucket_client };
 
     // Build router
     let app = Router::new()

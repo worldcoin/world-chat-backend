@@ -35,7 +35,7 @@ pub enum BucketError {
 
 impl From<aws_sdk_s3::Error> for BucketError {
     fn from(error: aws_sdk_s3::Error) -> Self {
-        BucketError::S3Error(error.to_string())
+        Self::S3Error(error.to_string())
     }
 }
 
@@ -45,17 +45,17 @@ impl From<SdkError<HeadObjectError>> for BucketError {
             SdkError::ServiceError(err) => match err.err() {
                 HeadObjectError::NotFound(_) => {
                     // Not found is expected for deduplication check
-                    BucketError::S3Error("Object not found".to_string())
+                    Self::S3Error("Object not found".to_string())
                 }
-                _ => BucketError::S3Error(format!("{:?}", err.err())),
+                _ => Self::S3Error(format!("{:?}", err.err())),
             },
-            _ => BucketError::AwsError(error.to_string()),
+            _ => Self::AwsError(error.to_string()),
         }
     }
 }
 
 impl From<SdkError<PutObjectError>> for BucketError {
     fn from(error: SdkError<PutObjectError>) -> Self {
-        BucketError::S3Error(error.to_string())
+        Self::S3Error(error.to_string())
     }
 }

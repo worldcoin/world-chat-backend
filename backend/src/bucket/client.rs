@@ -132,7 +132,7 @@ impl BucketClient {
     /// # Errors
     ///
     /// Returns `BucketError::S3Error` if presigned URL generation fails
-    /// Returns `BucketError::ConfigError` if content_length exceeds maximum
+    /// Returns `BucketError::ConfigError` if `content_length` exceeds maximum
     pub async fn generate_presigned_put_url(
         &self,
         image_id: &str,
@@ -153,12 +153,13 @@ impl BucketClient {
 
         let presigned_config =
             PresigningConfig::expires_in(Duration::from_secs(PRESIGNED_URL_EXPIRY_SECS)).map_err(
-                |e| BucketError::ConfigError(format!("Failed to create presigning config: {}", e)),
+                |e| BucketError::ConfigError(format!("Failed to create presigning config: {e}")),
             )?;
 
-        let presigned_url = put_request.presigned(presigned_config).await.map_err(|e| {
-            BucketError::S3Error(format!("Failed to generate presigned URL: {}", e))
-        })?;
+        let presigned_url = put_request
+            .presigned(presigned_config)
+            .await
+            .map_err(|e| BucketError::S3Error(format!("Failed to generate presigned URL: {e}")))?;
 
         let expires_at: DateTime<Utc> = Utc::now() + Duration::from_secs(PRESIGNED_URL_EXPIRY_SECS);
 

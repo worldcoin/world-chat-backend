@@ -11,6 +11,12 @@
 /// S3 bucket operations
 pub mod bucket;
 
+/// Universal error handling
+pub mod error;
+
+/// Custom extractors
+pub mod extractors;
+
 /// Handler modules
 pub mod handlers;
 
