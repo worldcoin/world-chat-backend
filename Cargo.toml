@@ -35,6 +35,12 @@ thiserror = "2.0"
 tracing            = "0.1"
 tracing-subscriber = "0.3"
 
+# Time
+chrono = { version = "0.4", features = ["serde"] }
+
+# Rate limiting
+governor = "0.7"
+
 # HTTP
 http = "1.1"
 
@@ -42,3 +48,4 @@ http = "1.1"
 aws-config = "1.5"
 aws-sdk-sqs = "1.64"
 aws-sdk-dynamodb = "1.82"
+aws-sdk-s3 = "1.82"

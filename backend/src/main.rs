@@ -1,9 +1,14 @@
 use anyhow::Result;
 use axum::Router;
+use std::sync::Arc;
 use tower_http::trace::TraceLayer;
 use tracing::info;
 
-mod handlers;
+use backend::{
+    bucket::BucketClient, 
+    handlers,
+    state::AppState,
+};
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -14,10 +19,20 @@ async fn main() -> Result<()> {
 
     info!("Starting World Chat Backend Server");
 
+    // Initialize bucket client
+    info!("Initializing S3 bucket client");
+    let bucket_client = Arc::new(BucketClient::new().await?);
+
+    // Create app state
+    let app_state = AppState {
+        bucket_client,
+    };
+
     // Build router
     let app = Router::new()
         .merge(handlers::routes())
-        .layer(TraceLayer::new_for_http());
+        .layer(TraceLayer::new_for_http())
+        .with_state(app_state);
 
     // Start server
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await?;

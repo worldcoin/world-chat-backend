@@ -27,3 +27,11 @@ tracing-subscriber = { workspace = true }
 
 # Error handling
 anyhow = { workspace = true }
+thiserror = { workspace = true }
+
+# AWS SDK
+aws-config = { workspace = true }
+aws-sdk-s3 = { workspace = true }
+
+# Time
+chrono = { workspace = true }

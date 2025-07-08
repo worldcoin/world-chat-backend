@@ -8,5 +8,11 @@
     dead_code
 )]
 
+/// S3 bucket operations
+pub mod bucket;
+
 /// Handler modules
 pub mod handlers;
+
+/// Application state
+pub mod state;
