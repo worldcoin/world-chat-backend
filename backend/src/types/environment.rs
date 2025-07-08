@@ -157,6 +157,6 @@ mod tests {
     #[should_panic(expected = "Invalid environment: invalid")]
     fn test_invalid_environment() {
         env::set_var("APP_ENV", "invalid");
-        Environment::from_env();
+        let _ = Environment::from_env();
     }
 }

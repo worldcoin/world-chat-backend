@@ -5,7 +5,7 @@ mod test_router;
 pub use test_router::*;
 
 use axum::body::Body;
-use axum::http::Request;
+use axum::http::{Request, StatusCode};
 use axum::response::Response;
 use http_body_util::BodyExt;
 use serde_json::json;
@@ -54,6 +54,37 @@ pub fn create_upload_request(image_id: String, content_length: i64) -> serde_jso
         "image_id": image_id,
         "content_length": content_length
     })
+}
+
+/// Assert that response has expected status code
+pub fn assert_status(response: &Response, expected: StatusCode) {
+    assert_eq!(
+        response.status(),
+        expected,
+        "Expected status {}, got {}",
+        expected,
+        response.status()
+    );
+}
+
+/// Assert that response is a validation error with specific code
+pub async fn assert_validation_error(response: Response, expected_code: &str) {
+    assert_status(&response, StatusCode::BAD_REQUEST);
+    let body = parse_response_body(response).await;
+    
+    assert_eq!(body["error"]["code"], expected_code);
+    assert_eq!(body["allowRetry"], false);
+}
+
+/// Assert that response is a successful upload response
+pub async fn assert_upload_success(response: Response) -> serde_json::Value {
+    assert_status(&response, StatusCode::OK);
+    let body = parse_response_body(response).await;
+    
+    assert!(body["presignedUrl"].is_string());
+    assert!(body["expiresAt"].is_string());
+    
+    body
 }
 
 /// Setup test environment variables

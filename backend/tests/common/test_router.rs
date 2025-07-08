@@ -1,9 +1,7 @@
-use backend::{
-    image_storage::ImageStorage, routes, state::AppState, types::environment::Environment,
-};
-use std::sync::Arc;
-
 use aws_sdk_s3::Client as S3Client;
+use axum::Extension;
+use backend::{image_storage::ImageStorage, routes, types::Environment};
+use std::sync::Arc;
 
 /// Get test router with real dependencies (following backup-service pattern)
 pub async fn get_test_router() -> axum::Router {
@@ -23,9 +21,9 @@ pub async fn get_test_router() -> axum::Router {
         environment.presigned_url_expiry_secs(),
     ));
 
-    let app_state = AppState {
-        image_storage_client,
-    };
-
-    routes::routes().with_state(app_state)
+    // Use Extension pattern like server.rs
+    routes::handler()
+        .layer(Extension(environment))
+        .layer(Extension(image_storage_client))
+        .into()
 }

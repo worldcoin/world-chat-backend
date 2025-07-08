@@ -42,15 +42,12 @@ where
 
         // Then validate
         payload.validate().map_err(|errors| {
-            // Get the first field error and use its message as the error code
-            for (_field, field_errors) in errors.field_errors() {
+            // Get the first field error and use its code as the error code
+            for (field, field_errors) in errors.field_errors() {
                 if let Some(error) = field_errors.first() {
-                    // Use the custom message if provided, otherwise fall back to validation_error
-                    if let Some(message) = &error.message {
-                        // The message contains our error code
-                        let error_code = message.as_ref();
-                        return AppError::validation_from_str("", error_code);
-                    }
+                    // Use the error code directly
+                    let error_code = error.code.as_ref();
+                    return AppError::validation_from_str(&field, error_code);
                 }
             }
             AppError::validation_from_str("", "validation_error")
