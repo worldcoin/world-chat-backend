@@ -1,8 +1,6 @@
 use std::sync::Arc;
 
 use axum::{Extension, Json};
-use once_cell::sync::Lazy;
-use regex::Regex;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use tracing::instrument;
@@ -13,13 +11,19 @@ use crate::{
     types::{extractors::ValidatedJson, AppError},
 };
 
-static IMAGE_ID_REGEX: Lazy<Regex> =
-    Lazy::new(|| Regex::new(r"^[0-9a-f]{64}$").expect("Invalid regex"));
+fn validate_image_id(image_id: &str) -> Result<(), validator::ValidationError> {
+    let re = regex::Regex::new(r"^[0-9a-f]{64}$").expect("Invalid regex");
+    if re.is_match(image_id) {
+        Ok(())
+    } else {
+        Err(validator::ValidationError::new("invalid_image_id"))
+    }
+}
 
 #[derive(Debug, Deserialize, Validate, JsonSchema)]
 pub struct UploadRequest {
     /// 64-character lowercase hex string (Blake3 of encrypted blob)
-    #[validate(regex(path = "IMAGE_ID_REGEX", message = "invalid_image_id"))]
+    #[validate(custom(function = "validate_image_id"))]
     pub image_id: String,
     /// Size in bytes - max 15 MiB
     #[validate(range(min = 1, max = 15_728_640, message = "payload_too_large"))]

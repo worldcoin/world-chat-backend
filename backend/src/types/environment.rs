@@ -12,16 +12,17 @@ pub enum Environment {
     Production,
     /// Staging environment
     Staging,
-    /// Development environment (uses LocalStack)
+    /// Development environment (uses `LocalStack`)
     Development,
 }
 
 impl Environment {
-    /// Creates an Environment from the APP_ENV environment variable
+    /// Creates an Environment from the `APP_ENV` environment variable
     ///
     /// # Panics
     ///
-    /// Panics if APP_ENV is not set or contains an invalid value
+    /// Panics if `APP_ENV` is not set or contains an invalid value
+    #[must_use]
     pub fn from_env() -> Self {
         let env = env::var("APP_ENV")
             .unwrap_or_else(|_| "development".to_string())
@@ -32,11 +33,16 @@ impl Environment {
             "production" => Self::Production,
             "staging" => Self::Staging,
             "development" => Self::Development,
-            _ => panic!("Invalid environment: {}", env),
+            _ => panic!("Invalid environment: {env}"),
         }
     }
 
-    /// S3 bucket name for image storage
+    /// Returns the S3 bucket name for the environment
+    /// 
+    /// # Panics
+    /// 
+    /// Panics if the `S3_BUCKET_NAME` environment variable is not set
+    #[must_use]
     pub fn s3_bucket(&self) -> String {
         match self {
             Self::Production | Self::Staging => {
@@ -49,11 +55,13 @@ impl Environment {
     }
 
     /// Whether to show API docs
-    pub fn show_api_docs(&self) -> bool {
+    #[must_use]
+    pub const fn show_api_docs(&self) -> bool {
         matches!(self, Self::Development | Self::Staging)
     }
 
     /// Returns the endpoint URL to use for AWS services
+    #[must_use]
     pub const fn override_aws_endpoint_url(&self) -> Option<&str> {
         match self {
             // Regular AWS endpoints for production and staging
@@ -102,18 +110,21 @@ impl Environment {
     }
 
     /// Maximum allowed image size in bytes
+    #[must_use]
     pub const fn max_image_size(&self) -> usize {
         // 15 MiB
         15 * 1024 * 1024
     }
 
     /// Presigned URL expiry time in seconds
+    #[must_use]
     pub const fn presigned_url_expiry_secs(&self) -> u64 {
         // 15 minutes
         15 * 60
     }
 
     /// Whether to enable debug logging
+    #[must_use]
     pub const fn debug_logging(&self) -> bool {
         matches!(self, Self::Development)
     }

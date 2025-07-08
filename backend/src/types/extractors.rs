@@ -1,9 +1,12 @@
 //! Custom extractors for request validation
 
+use aide::operation::OperationInput;
+use aide::OperationOutput;
 use axum::{
     extract::{rejection::JsonRejection, FromRequest, Request},
     Json,
 };
+use schemars::JsonSchema;
 use validator::Validate;
 
 use crate::types::error::AppError;
@@ -13,7 +16,7 @@ pub struct ValidatedJson<T>(pub T);
 
 impl<T, S> FromRequest<S> for ValidatedJson<T>
 where
-    T: serde::de::DeserializeOwned + Validate,
+    T: serde::de::DeserializeOwned + Validate + JsonSchema,
     S: Send + Sync,
 {
     type Rejection = AppError;
@@ -54,5 +57,23 @@ where
         })?;
 
         Ok(Self(payload))
+    }
+}
+
+impl<T> OperationInput for ValidatedJson<T>
+where
+    T: JsonSchema,
+{
+    fn operation_input(ctx: &mut aide::generate::GenContext, operation: &mut aide::openapi::Operation) {
+        // Delegate to Json<T>'s implementation since ValidatedJson has the same structure
+        Json::<T>::operation_input(ctx, operation);
+    }
+
+    fn inferred_early_responses(
+        ctx: &mut aide::generate::GenContext,
+        operation: &mut aide::openapi::Operation,
+    ) -> Vec<(Option<u16>, aide::openapi::Response)> {
+        // Document validation error responses
+        AppError::inferred_responses(ctx, operation)
     }
 }

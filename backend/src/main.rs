@@ -1,19 +1,14 @@
-use anyhow::Result;
-use axum::Router;
-use dotenvy::dotenv;
 use std::sync::Arc;
-use tower_http::trace::TraceLayer;
-use tracing::info;
 
 use aws_sdk_s3::Client as S3Client;
 
 use backend::{
-    image_storage::ImageStorage, routes, state::AppState, types::environment::Environment,
+    image_storage::ImageStorage, server, types::Environment,
 };
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    dotenv().ok();
+    dotenvy::dotenv().ok();
     tracing_subscriber::fmt()
         .with_max_level(tracing::Level::INFO)
         .init();
@@ -27,5 +22,5 @@ async fn main() -> anyhow::Result<()> {
         environment.presigned_url_expiry_secs(),
     ));
 
-    server::start(environment, image_storage_client).await;
+    server::start(environment, image_storage_client).await
 }

@@ -46,7 +46,8 @@ impl ImageStorage {
     /// * `s3_client` - Pre-configured S3 client
     /// * `bucket_name` - S3 bucket name for image storage
     /// * `presigned_url_expiry_secs` - Optional expiry time for presigned URLs in seconds (defaults to 15 minutes)
-    pub fn new(
+    #[must_use]
+    pub const fn new(
         s3_client: Arc<S3Client>,
         bucket_name: String,
         presigned_url_expiry_secs: u64,
