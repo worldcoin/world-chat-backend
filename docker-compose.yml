@@ -1,0 +1,13 @@
+name: world-chat-backend
+services:
+  localstack:
+    image: localstack/localstack
+    ports:
+      - "4566:4566"
+    environment:
+      - SERVICES=s3
+      - DISABLE_EVENTS=1
+    volumes:
+      - /var/lib/localstack
+      - /var/run/docker.sock:/var/run/docker.sock
+      - "./aws-seed.sh:/etc/localstack/init/ready.d/aws-seed.sh"
