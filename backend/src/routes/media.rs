@@ -14,7 +14,7 @@ use crate::{
 #[derive(Debug, Deserialize, JsonSchema)]
 #[schemars(deny_unknown_fields)]
 pub struct UploadRequest {
-    /// 64-character lowercase hex string (Blake3 of encrypted blob)
+    /// 64-character lowercase hex string (SHA-256 of encrypted blob)
     #[schemars(length(equal = 64), regex(pattern = r"^[a-f0-9]{64}$"))]
     pub content_digest_sha256: String,
     /// Size in bytes - max 15 MiB
@@ -24,9 +24,12 @@ pub struct UploadRequest {
 
 #[derive(Debug, Serialize, JsonSchema)]
 pub struct UploadResponse {
+    /// S3 key of the asset, used in XMTP media message
     pub asset_id: String,
+    /// Presigned URL to upload the asset to S3
     pub presigned_url: String,
-    pub expires_at: String, // ISO-8601 UTC
+    /// ISO-8601 UTC timestamp when the presigned URL expires
+    pub expires_at: String,
 }
 
 #[instrument(skip(media_storage, payload))]
