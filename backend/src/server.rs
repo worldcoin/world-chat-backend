@@ -22,6 +22,7 @@ pub async fn start(
 
     let router = routes::handler()
         .finish_api(&mut openapi)
+        .layer(Extension(openapi))
         .layer(Extension(environment))
         .layer(Extension(media_storage))
         .layer(
