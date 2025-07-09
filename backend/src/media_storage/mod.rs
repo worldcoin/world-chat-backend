@@ -74,7 +74,7 @@ impl MediaStorage {
 
         // 1. Convert the hex string to bytes
         let digest_bytes: [u8; 32] = <[u8; 32]>::from_hex(sha256)
-            .map_err(|e| BucketError::InvalidInput(format!("Invalid hex string: {}", e)))?;
+            .map_err(|e| BucketError::InvalidInput(format!("Invalid hex string: {e}")))?;
 
         // 2. Base-64-encode those bytes for the checksum header / query param
         Ok(STANDARD.encode(digest_bytes))

@@ -18,7 +18,7 @@ pub struct ApiErrorResponse {
     /// Whether the client should retry the request
     pub allow_retry: bool,
     /// Error details
-    pub error: ErrorBody,
+    error: ErrorBody,
 }
 
 /// Error body containing code and message
@@ -82,7 +82,9 @@ impl IntoResponse for AppError {
 impl From<BucketError> for AppError {
     #[allow(clippy::cognitive_complexity)]
     fn from(err: BucketError) -> Self {
-        use BucketError::{AwsError, ConfigError, InvalidInput, ObjectExists, S3Error, UpstreamError};
+        use BucketError::{
+            AwsError, ConfigError, InvalidInput, ObjectExists, S3Error, UpstreamError,
+        };
 
         match &err {
             ObjectExists(id) => {
