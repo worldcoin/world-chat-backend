@@ -59,17 +59,25 @@ impl MediaStorage {
     }
 
     /// Maps a SHA-256 digest to a base64-encoded string
-    /// # Panics
     ///
-    /// Panics when the input is not a valid 64-char hex string
-    #[must_use]
-    pub fn map_sha256_to_b64(sha256: &str) -> String {
+    /// # Errors
+    ///
+    /// Returns `BucketError::InvalidInput` if the input is not a valid 64-character hex string
+    fn map_sha256_to_b64(sha256: &str) -> BucketResult<String> {
+        // Validate input length
+        if sha256.len() != 64 {
+            return Err(BucketError::InvalidInput(format!(
+                "SHA-256 must be exactly 64 characters, got {}",
+                sha256.len()
+            )));
+        }
+
         // 1. Convert the hex string to bytes
-        let digest_bytes: [u8; 32] =
-            <[u8; 32]>::from_hex(sha256).expect("input must be valid 64-char hex");
+        let digest_bytes: [u8; 32] = <[u8; 32]>::from_hex(sha256)
+            .map_err(|e| BucketError::InvalidInput(format!("Invalid hex string: {}", e)))?;
 
         // 2. Base-64-encode those bytes for the checksum header / query param
-        STANDARD.encode(digest_bytes)
+        Ok(STANDARD.encode(digest_bytes))
     }
 
     /// Checks if an object exists in the bucket
@@ -135,7 +143,7 @@ impl MediaStorage {
         content_length: i64,
     ) -> BucketResult<PresignedUrl> {
         let s3_key = Self::map_sha256_to_s3_key(content_digest_sha256);
-        let base64_checksum = Self::map_sha256_to_b64(content_digest_sha256);
+        let base64_checksum = Self::map_sha256_to_b64(content_digest_sha256)?;
 
         let presigned_config =
             PresigningConfig::expires_in(Duration::from_secs(self.presigned_url_expiry_secs))

@@ -31,6 +31,10 @@ pub enum BucketError {
     /// Upstream service error (5xx from S3)
     #[error("Upstream service error: {0}")]
     UpstreamError(String),
+
+    /// Invalid input provided
+    #[error("Invalid input: {0}")]
+    InvalidInput(String),
 }
 
 impl From<aws_sdk_s3::Error> for BucketError {

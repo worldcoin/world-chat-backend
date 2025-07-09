@@ -24,7 +24,7 @@ pub struct ApiErrorResponse {
 /// Error body containing code and message
 #[derive(Debug, Serialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
-pub struct ErrorBody {
+struct ErrorBody {
     /// Machine-readable error code
     pub code: &'static str,
     /// Human-readable error message
@@ -82,11 +82,11 @@ impl IntoResponse for AppError {
 impl From<BucketError> for AppError {
     #[allow(clippy::cognitive_complexity)]
     fn from(err: BucketError) -> Self {
-        use BucketError::{AwsError, ConfigError, ObjectExists, S3Error, UpstreamError};
+        use BucketError::{AwsError, ConfigError, InvalidInput, ObjectExists, S3Error, UpstreamError};
 
         match &err {
             ObjectExists(id) => {
-                tracing::info!("Object already exists: {id}");
+                tracing::debug!("Object already exists: {id}");
                 Self::new(
                     StatusCode::CONFLICT,
                     "already_exists",
@@ -118,6 +118,15 @@ impl From<BucketError> for AppError {
                     StatusCode::INTERNAL_SERVER_ERROR,
                     "internal_error",
                     "Internal server error",
+                    false,
+                )
+            }
+            InvalidInput(msg) => {
+                tracing::warn!("Invalid input: {msg}");
+                Self::new(
+                    StatusCode::BAD_REQUEST,
+                    "invalid_input",
+                    "Invalid input provided",
                     false,
                 )
             }
