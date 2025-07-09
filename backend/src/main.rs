@@ -6,7 +6,6 @@ use backend::{media_storage::MediaStorage, server, types::Environment};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    dotenvy::dotenv().ok();
     tracing_subscriber::fmt()
         .with_max_level(tracing::Level::INFO)
         .init();
