@@ -118,8 +118,15 @@ impl Environment {
 
     /// Presigned URL expiry time in seconds
     #[must_use]
-    pub const fn presigned_url_expiry_secs(&self) -> u64 {
-        // 15 minutes
+    pub fn presigned_url_expiry_secs(&self) -> u64 {
+        // Check for environment variable override (useful for testing)
+        if let Ok(custom_secs) = env::var("PRESIGNED_URL_EXPIRY_SECS") {
+            if let Ok(secs) = custom_secs.parse::<u64>() {
+                return secs;
+            }
+        }
+        
+        // Default: 15 minutes
         15 * 60
     }
 
@@ -133,8 +140,10 @@ impl Environment {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serial_test::serial;
 
     #[test]
+    #[serial]
     fn test_environment_from_env() {
         // Test development (default)
         env::remove_var("APP_ENV");
@@ -154,9 +163,31 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     #[should_panic(expected = "Invalid environment: invalid")]
     fn test_invalid_environment() {
         env::set_var("APP_ENV", "invalid");
         let _ = Environment::from_env();
+    }
+
+    #[test]
+    #[serial]
+    fn test_presigned_url_expiry_secs() {
+        let env = Environment::Development;
+        
+        // Test default value (15 minutes = 900 seconds)
+        env::remove_var("PRESIGNED_URL_EXPIRY_SECS");
+        assert_eq!(env.presigned_url_expiry_secs(), 900);
+        
+        // Test custom value
+        env::set_var("PRESIGNED_URL_EXPIRY_SECS", "30");
+        assert_eq!(env.presigned_url_expiry_secs(), 30);
+        
+        // Test invalid value falls back to default
+        env::set_var("PRESIGNED_URL_EXPIRY_SECS", "invalid");
+        assert_eq!(env.presigned_url_expiry_secs(), 900);
+        
+        // Cleanup
+        env::remove_var("PRESIGNED_URL_EXPIRY_SECS");
     }
 }
