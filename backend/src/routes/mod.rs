@@ -1,11 +1,11 @@
 mod docs;
-pub mod media;
-use aide::axum::{routing::post, ApiRouter};
+pub mod v1;
+
+use aide::axum::ApiRouter;
 
 /// Creates the router with all handler routes
 pub fn handler() -> ApiRouter {
-    ApiRouter::new().merge(docs::handler()).api_route(
-        "/v1/media/presigned-urls",
-        post(media::create_presigned_upload_url),
-    )
+    ApiRouter::new()
+        .merge(docs::handler())
+        .nest("/v1", v1::handler())
 }
