@@ -16,7 +16,7 @@ use crate::{
 pub struct UploadRequest {
     /// 64-character lowercase hex string (Blake3 of encrypted blob)
     #[schemars(length(equal = 64), regex(pattern = r"^[a-f0-9]{64}$"))]
-    pub image_id: String,
+    pub content_digest_sha256: String,
     /// Size in bytes - max 15 MiB
     #[schemars(range(min = 1, max = 15728640))]
     pub content_length: i64,
@@ -24,6 +24,7 @@ pub struct UploadRequest {
 
 #[derive(Debug, Serialize, JsonSchema)]
 pub struct UploadResponse {
+    pub asset_id: String,
     pub presigned_url: String,
     pub expires_at: String, // ISO-8601 UTC
 }
@@ -34,24 +35,22 @@ pub async fn create_presigned_upload_url(
     Json(payload): Json<UploadRequest>,
 ) -> Result<Json<UploadResponse>, AppError> {
     // TODO: Step 1:Add auth validation when auth is implemented
-
-    let lower_case_image_id = payload.image_id.to_lowercase();
+    let s3_key = MediaStorage::map_sha256_to_s3_key(&payload.content_digest_sha256);
 
     // Step 2: De-duplication Probe
-    let exists = media_storage
-        .check_object_exists(&lower_case_image_id)
-        .await?;
+    let exists = media_storage.check_object_exists(&s3_key).await?;
 
     if exists {
-        return Err(BucketError::ObjectExists(lower_case_image_id).into());
+        return Err(BucketError::ObjectExists(payload.content_digest_sha256).into());
     }
 
     // Step 3: Generate Presigned URL
     let presigned_url = media_storage
-        .generate_presigned_put_url(&lower_case_image_id, payload.content_length)
+        .generate_presigned_put_url(&payload.content_digest_sha256, payload.content_length)
         .await?;
 
     Ok(Json(UploadResponse {
+        asset_id: s3_key,
         presigned_url: presigned_url.url,
         expires_at: presigned_url.expires_at.to_rfc3339(),
     }))
