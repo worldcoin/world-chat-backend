@@ -1,5 +1,5 @@
 mod docs;
-mod media;
+pub mod media;
 use aide::axum::{routing::post, ApiRouter};
 
 /// Creates the router with all handler routes

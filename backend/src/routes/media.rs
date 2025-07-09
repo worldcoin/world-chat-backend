@@ -11,7 +11,7 @@ use crate::{
     types::AppError,
 };
 
-#[derive(Debug, Deserialize, JsonSchema)]
+#[derive(Debug, Deserialize, Serialize, JsonSchema)]
 #[schemars(deny_unknown_fields)]
 pub struct UploadRequest {
     /// 64-character lowercase hex string (SHA-256 of encrypted blob)
@@ -22,7 +22,7 @@ pub struct UploadRequest {
     pub content_length: i64,
 }
 
-#[derive(Debug, Serialize, JsonSchema)]
+#[derive(Debug, Serialize, Deserialize, JsonSchema)]
 pub struct UploadResponse {
     /// S3 key of the asset, used in XMTP media message
     pub asset_id: String,
@@ -44,6 +44,7 @@ pub async fn create_presigned_upload_url(
     let exists = media_storage.check_object_exists(&s3_key).await?;
 
     if exists {
+        // TODO: don't map to bucket error here, instead an app error maybe (?)
         return Err(BucketError::ObjectExists(payload.content_digest_sha256).into());
     }
 

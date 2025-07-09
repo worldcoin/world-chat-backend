@@ -51,6 +51,18 @@ impl MediaStorage {
         }
     }
 
+    /// Get a reference to the S3 client (for testing)
+    #[cfg(test)]
+    pub fn s3_client(&self) -> &Arc<S3Client> {
+        &self.s3_client
+    }
+
+    /// Get the bucket name (for testing)
+    #[cfg(test)]
+    pub fn bucket_name(&self) -> &str {
+        &self.bucket_name
+    }
+
     #[must_use]
     pub fn map_sha256_to_s3_key(sha256: &str) -> String {
         let ad = &sha256[0..2];
