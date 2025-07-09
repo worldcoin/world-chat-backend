@@ -1,12 +1,5 @@
-//! World Chat Backend service
+#![deny(clippy::all, clippy::pedantic, clippy::nursery, dead_code)]
 
-#![deny(
-    clippy::all,
-    clippy::pedantic,
-    clippy::nursery,
-    missing_docs,
-    dead_code
-)]
-
-/// Handler modules
 pub mod handlers;
+pub mod media_storage;
+pub mod types;
