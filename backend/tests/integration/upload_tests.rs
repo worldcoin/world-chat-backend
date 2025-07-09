@@ -1,3 +1,4 @@
+#[path = "../common/mod.rs"]
 mod common;
 
 use axum::http::StatusCode;
@@ -202,25 +203,4 @@ async fn test_upload_media_extra_fields() {
     let response = send_post_request("/v1/media/presigned-urls", payload).await;
 
     assert_eq!(response.status(), StatusCode::BAD_REQUEST);
-}
-
-// Test for duplicate upload (object already exists)
-// Note: This test demonstrates the pattern but won't work without proper mocking
-// since we can't easily simulate an existing object in LocalStack between tests
-#[tokio::test]
-#[ignore = "Requires mock implementation or state management between requests"]
-async fn test_upload_media_object_already_exists() {
-    let content_digest_sha256 = create_valid_sha256();
-    let payload = create_upload_request(content_digest_sha256.clone(), 1024);
-
-    // First upload should succeed
-    let response1 = send_post_request("/v1/media/presigned-urls", payload.clone()).await;
-    assert_eq!(response1.status(), StatusCode::OK);
-
-    // In a real scenario with mocking, the second upload would fail with CONFLICT
-    // For now, this is commented out as it requires mock implementation
-    /*
-    let response2 = send_post_request("/v1/media/presigned-urls", payload).await;
-    assert_eq!(response2.status(), StatusCode::CONFLICT);
-    */
 }
