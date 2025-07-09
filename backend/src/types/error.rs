@@ -4,8 +4,8 @@ use aide::OperationOutput;
 use axum::{
     http::StatusCode,
     response::{IntoResponse, Response},
-    Json,
 };
+use axum_jsonschema::Json;
 use schemars::JsonSchema;
 use serde::Serialize;
 
@@ -18,13 +18,13 @@ pub struct ApiErrorResponse {
     /// Whether the client should retry the request
     pub allow_retry: bool,
     /// Error details
-    error: ErrorBody,
+    pub error: ErrorBody,
 }
 
 /// Error body containing code and message
 #[derive(Debug, Serialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
-struct ErrorBody {
+pub struct ErrorBody {
     /// Machine-readable error code
     pub code: &'static str,
     /// Human-readable error message
@@ -78,6 +78,19 @@ impl IntoResponse for AppError {
     }
 }
 
+/// Convert JSON schema validation errors to application errors
+impl From<axum_jsonschema::JsonSchemaRejection> for AppError {
+    fn from(err: axum_jsonschema::JsonSchemaRejection) -> Self {
+        tracing::warn!("JSON schema validation error: {:?}", err);
+        Self::new(
+            StatusCode::BAD_REQUEST,
+            "validation_error",
+            "Request validation failed",
+            false,
+        )
+    }
+}
+
 /// Convert bucket errors to application errors
 impl From<BucketError> for AppError {
     #[allow(clippy::cognitive_complexity)]
@@ -88,7 +101,7 @@ impl From<BucketError> for AppError {
 
         match &err {
             ObjectExists(id) => {
-                tracing::debug!("Object already exists: {id}");
+                tracing::info!("Object already exists: {id}");
                 Self::new(
                     StatusCode::CONFLICT,
                     "already_exists",
@@ -140,7 +153,7 @@ impl OperationOutput for AppError {
     type Inner = ApiErrorResponse;
 
     fn operation_response(
-        ctx: &mut aide::generate::GenContext,
+        ctx: &mut aide::gen::GenContext,
         operation: &mut aide::openapi::Operation,
     ) -> Option<aide::openapi::Response> {
         Json::<ApiErrorResponse>::operation_response(ctx, operation)
