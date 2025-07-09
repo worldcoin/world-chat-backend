@@ -1,12 +1,12 @@
 #[path = "../common/mod.rs"]
 mod common;
 
+use aws_sdk_s3::Client as S3Client;
+use axum::Extension;
+use backend::{media_storage::MediaStorage, routes, types::Environment};
 use common::e2e_utils::*;
 use common::*;
 use std::sync::Arc;
-use aws_sdk_s3::Client as S3Client;
-use backend::{media_storage::MediaStorage, routes, types::Environment};
-use axum::Extension;
 
 /// E2E test setup with real dependencies
 pub struct E2ETestSetup {
@@ -66,19 +66,19 @@ impl E2ETestSetup {
 #[ignore = "E2E tests - run manually"]
 async fn test_e2e_infrastructure() {
     let setup = E2ETestSetup::new().await;
-    
+
     // Test that we can generate test data
     let (data, sha256) = generate_test_image(1024);
     assert_eq!(data.len(), 1024);
     assert_eq!(sha256.len(), 64);
-    
+
     // Test that we can calculate checksums
     let calculated_sha256 = calculate_sha256(&data);
     assert_eq!(sha256, calculated_sha256);
-    
+
     // Test that we have LocalStack setup
     assert!(setup.is_localstack());
-    
+
     println!("E2E infrastructure test passed!");
 }
 

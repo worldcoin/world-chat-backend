@@ -11,7 +11,7 @@ pub fn generate_test_image(size: usize) -> (Vec<u8>, String) {
     for i in 0..size {
         data.push((i % 256) as u8);
     }
-    
+
     let sha256 = calculate_sha256(&data);
     (data, sha256)
 }
@@ -28,13 +28,13 @@ pub async fn upload_to_s3(
     presigned_url: &str,
     data: &[u8],
     content_type: Option<&str>,
+    checksum_sha256: Option<&str>,
 ) -> Result<reqwest::Response, reqwest::Error> {
-    let mut headers = HeaderMap::new();
-    headers.insert(CONTENT_LENGTH, HeaderValue::from(data.len()));
-    
-    if let Some(ct) = content_type {
-        headers.insert(CONTENT_TYPE, HeaderValue::from_str(ct).unwrap());
-    }
+    let headers = create_upload_headers(
+        data.len(),
+        content_type.unwrap_or("application/octet-stream"),
+        checksum_sha256,
+    );
 
     let client = reqwest::Client::new();
     client
@@ -119,11 +119,18 @@ pub fn create_upload_headers(
     let mut headers = HeaderMap::new();
     headers.insert(CONTENT_LENGTH, HeaderValue::from(content_length));
     headers.insert(CONTENT_TYPE, HeaderValue::from_str(content_type).unwrap());
-    
+
     if let Some(checksum) = checksum_sha256 {
-        headers.insert("x-amz-checksum-sha256", HeaderValue::from_str(checksum).unwrap());
+        headers.insert(
+            "x-amz-checksum-sha256",
+            HeaderValue::from_str(checksum).unwrap(),
+        );
+        headers.insert(
+            "x-amz-sdk-checksum-algorithm",
+            HeaderValue::from_str("SHA256").unwrap(),
+        );
     }
-    
+
     headers
 }
 

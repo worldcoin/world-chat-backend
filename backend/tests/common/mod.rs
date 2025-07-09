@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 
-mod test_router;
 pub mod e2e_utils;
+mod test_router;
 
 pub use test_router::*;
 

@@ -125,7 +125,7 @@ impl Environment {
                 return secs;
             }
         }
-        
+
         // Default: 15 minutes
         15 * 60
     }
@@ -174,19 +174,19 @@ mod tests {
     #[serial]
     fn test_presigned_url_expiry_secs() {
         let env = Environment::Development;
-        
+
         // Test default value (15 minutes = 900 seconds)
         env::remove_var("PRESIGNED_URL_EXPIRY_SECS");
         assert_eq!(env.presigned_url_expiry_secs(), 900);
-        
+
         // Test custom value
         env::set_var("PRESIGNED_URL_EXPIRY_SECS", "30");
         assert_eq!(env.presigned_url_expiry_secs(), 30);
-        
+
         // Test invalid value falls back to default
         env::set_var("PRESIGNED_URL_EXPIRY_SECS", "invalid");
         assert_eq!(env.presigned_url_expiry_secs(), 900);
-        
+
         // Cleanup
         env::remove_var("PRESIGNED_URL_EXPIRY_SECS");
     }
