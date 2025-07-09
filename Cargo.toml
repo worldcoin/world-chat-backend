@@ -16,16 +16,15 @@ license      = "MIT"
 
 [workspace.dependencies]
 # Web framework
-aide = { version = "0.14.2", features = [
-    "redoc",
-    "swagger",
-    "scalar",
-    "axum-json",
+aide = { version = "0.13.4", features = [
+    "axum",
     "macros",
+    "scalar",
 ] }
-axum       = "0.8.4"
+axum       = "0.7.9"
 tower      = "0.5.2"
 tower-http = { version = "0.6.2", features = ["trace", "timeout"] }
+axum-jsonschema = { version = "0.8.0", features = ["aide"] }
 
 # Async runtime
 tokio = { version = "1.44.1", features = ["full"] }

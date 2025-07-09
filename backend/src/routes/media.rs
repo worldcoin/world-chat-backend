@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
-use axum::{Extension, Json};
+use axum::Extension;
+use axum_jsonschema::Json;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use tracing::instrument;
@@ -11,10 +12,13 @@ use crate::{
 };
 
 #[derive(Debug, Deserialize, JsonSchema)]
+#[schemars(deny_unknown_fields)]
 pub struct UploadRequest {
     /// 64-character lowercase hex string (Blake3 of encrypted blob)
+    #[schemars(length(equal = 64), regex(pattern = r"^[a-f0-9]{64}$"))]
     pub image_id: String,
     /// Size in bytes - max 15 MiB
+    #[schemars(range(min = 1, max = 15728640))]
     pub content_length: i64,
 }
 
