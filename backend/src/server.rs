@@ -13,7 +13,6 @@ use crate::{media_storage::MediaStorage, types::Environment};
 /// # Errors
 ///
 /// Returns an error if the server fails to start or bind to the port
-#[allow(clippy::too_many_arguments)] // logical module separation is preferred
 pub async fn start(
     environment: Environment,
     media_storage: Arc<MediaStorage>,
@@ -31,7 +30,7 @@ pub async fn start(
                 .on_response(tower_http::trace::DefaultOnResponse::new().level(Level::INFO)),
         )
         .layer(tower_http::timeout::TimeoutLayer::new(
-            std::time::Duration::from_secs(30),
+            std::time::Duration::from_secs(5),
         ));
 
     let addr = std::net::SocketAddr::from((
