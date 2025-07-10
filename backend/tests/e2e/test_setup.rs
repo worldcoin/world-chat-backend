@@ -1,20 +1,24 @@
-
-use aws_sdk_s3::Client as S3Client;
-use axum::Extension;
-use backend::{media_storage::MediaStorage, routes, types::Environment};
 use crate::common::*;
+use aws_sdk_s3::Client as S3Client;
+use axum::{body::Body, http::Request, response::Response, Extension, Router};
+use backend::{media_storage::MediaStorage, routes, types::Environment};
 use std::sync::Arc;
+use tower::ServiceExt;
 
 /// E2E test setup with real dependencies
 pub struct E2ETestSetup {
-    pub router: axum::Router,
+    pub router: Router,
     pub s3_client: Arc<S3Client>,
     pub bucket_name: String,
 }
 
 impl E2ETestSetup {
-    pub async fn new(environment: Environment) -> Self {
+    pub async fn new(presign_expiry_override: Option<u64>) -> Self {
         setup_test_env();
+
+        let environment = Environment::Development {
+            presign_expiry_override,
+        };
 
         let s3_config = environment.s3_client_config().await;
         let s3_client = Arc::new(S3Client::from_conf(s3_config));
@@ -45,11 +49,7 @@ impl E2ETestSetup {
         &self,
         route: &str,
         payload: serde_json::Value,
-    ) -> Result<axum::response::Response, Box<dyn std::error::Error>> {
-        use axum::body::Body;
-        use axum::http::Request;
-        use tower::ServiceExt;
-
+    ) -> Result<Response, Box<dyn std::error::Error>> {
         let request = Request::builder()
             .uri(route)
             .method("POST")

@@ -1,4 +1,3 @@
-
 use super::test_setup::E2ETestSetup;
 use super::utils::*;
 use backend::types::Environment;
@@ -6,10 +5,7 @@ use tokio::time::Duration;
 
 #[tokio::test]
 async fn test_e2e_upload_happy_path() {
-    let setup = E2ETestSetup::new(Environment::Development {
-        presign_expiry_override: None, // Use default presigned URL expiry
-    })
-    .await;
+    let setup = E2ETestSetup::new(None).await;
 
     // Step 1: Generate test image data with known SHA-256
     let (image_data, sha256) = generate_test_image(2048);
@@ -139,10 +135,7 @@ async fn test_e2e_upload_happy_path() {
 
 #[tokio::test]
 async fn test_e2e_upload_with_wrong_checksum() {
-    let setup = E2ETestSetup::new(Environment::Development {
-        presign_expiry_override: None, // Use default presigned URL expiry
-    })
-    .await;
+    let setup = E2ETestSetup::new(None).await;
 
     // Step 1: Generate test image data with known SHA-256
     let (image_data, sha256) = generate_test_image(2048);
@@ -232,10 +225,7 @@ async fn test_e2e_upload_with_wrong_checksum() {
 
 #[tokio::test]
 async fn test_e2e_upload_with_wrong_content_length() {
-    let setup = E2ETestSetup::new(Environment::Development {
-        presign_expiry_override: None, // Use default presigned URL expiry
-    })
-    .await;
+    let setup = E2ETestSetup::new(None).await;
 
     // Step 1: Generate test image data with known SHA-256
     let (image_data, sha256) = generate_test_image(2048);
@@ -325,10 +315,8 @@ async fn test_e2e_upload_with_wrong_content_length() {
 
 #[tokio::test]
 async fn test_e2e_upload_with_expired_presigned_url() {
-    let setup = E2ETestSetup::new(Environment::Development {
-        presign_expiry_override: Some(1), // Use default presigned URL expiry
-    })
-    .await;
+    // 1 second presigned url expiry
+    let setup = E2ETestSetup::new(Some(1)).await;
 
     // Step 1: Generate test image data with known SHA-256
     let (image_data, sha256) = generate_test_image(2048);
