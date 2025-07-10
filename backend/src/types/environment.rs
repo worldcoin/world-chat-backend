@@ -4,7 +4,6 @@ use std::env;
 use std::time::Duration;
 
 use aws_config::{retry::RetryConfig, timeout::TimeoutConfig, BehaviorVersion};
-use tracing::Level;
 
 /// Application environment configuration
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -137,17 +136,6 @@ impl Environment {
                 presign_expiry_override.unwrap_or(3 * 60)
             }
         }
-    }
-
-    #[must_use]
-    pub fn tracing_level(&self) -> Level {
-        env::var("TRACING_LEVEL")
-            .ok()
-            .and_then(|val| val.parse::<Level>().ok())
-            .unwrap_or(match self {
-                Self::Production | Self::Staging => Level::INFO,
-                Self::Development { .. } => Level::DEBUG,
-            })
     }
 }
 
