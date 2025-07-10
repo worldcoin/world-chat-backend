@@ -109,6 +109,34 @@ impl Environment {
         builder.build()
     }
 
+    /// AWS DynamoDB service configuration
+    pub async fn dynamodb_client_config(&self) -> aws_sdk_dynamodb::Config {
+        let aws_config = self.aws_config().await;
+        aws_sdk_dynamodb::Config::from(&aws_config)
+    }
+
+    /// Returns the DynamoDB table name for push subscriptions
+    ///
+    /// # Panics
+    ///
+    /// Panics if the `DYNAMODB_PUSH_TABLE_NAME` environment variable is not set in production/staging
+    #[must_use]
+    pub fn dynamodb_push_table_name(&self) -> String {
+        match self {
+            Self::Production | Self::Staging => {
+                env::var("DYNAMODB_PUSH_TABLE_NAME")
+                    .expect("DYNAMODB_PUSH_TABLE_NAME environment variable is not set")
+            }
+            Self::Development => "world-chat-push-subscriptions".to_string(),
+        }
+    }
+
+    /// Returns the DynamoDB GSI name for topic queries
+    #[must_use]
+    pub fn dynamodb_push_gsi_name(&self) -> String {
+        env::var("DYNAMODB_PUSH_GSI_NAME").unwrap_or_else(|_| "topic-index".to_string())
+    }
+
     /// Maximum allowed image size in bytes
     #[must_use]
     pub const fn max_image_size(&self) -> usize {
