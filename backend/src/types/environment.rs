@@ -122,13 +122,6 @@ impl Environment {
         builder.build()
     }
 
-    /// Maximum allowed image size in bytes
-    #[must_use]
-    pub const fn max_image_size(&self) -> usize {
-        // 15 MiB
-        15 * 1024 * 1024
-    }
-
     /// Presigned URL expiry time in seconds
     #[must_use]
     pub fn presigned_url_expiry_secs(&self) -> u64 {
