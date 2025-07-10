@@ -49,7 +49,7 @@ impl Environment {
                 env::var("S3_BUCKET_NAME").expect("S3_BUCKET_NAME environment variable is not set")
             }
             Self::Development => {
-                env::var("S3_BUCKET_NAME").unwrap_or_else(|_| "world-chat-images".to_string())
+                env::var("S3_BUCKET_NAME").unwrap_or_else(|_| "world-chat-media".to_string())
             }
         }
     }
