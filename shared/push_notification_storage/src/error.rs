@@ -40,7 +40,7 @@ pub enum PushNotificationStorageError {
     #[error("Push subscription already exists")]
     PushSubscriptionExists,
 
-    /// Serialization error for `serde_dynamo
+    /// Serialization error for `serde_dynamo`
     #[error("Serialization error: {0}")]
     SerializationError(String),
 }
