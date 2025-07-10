@@ -4,7 +4,7 @@ members = [
     "enclave-worker",
     "secure-enclave",
     "shared/queue",
-    "shared/storage",
+    "shared/push_notification_storage",
 ]
 resolver = "2"
 
