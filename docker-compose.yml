@@ -7,6 +7,8 @@ services:
     environment:
       - SERVICES=s3
       - DISABLE_EVENTS=1
+      # Localstack disables signature validation by default, but we need it for testing
+      # https://docs.localstack.cloud/aws/capabilities/config/configuration/#s3
       - S3_SKIP_SIGNATURE_VALIDATION=0
     volumes:
       - /var/lib/localstack
