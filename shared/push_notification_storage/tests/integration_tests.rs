@@ -43,6 +43,8 @@ impl Drop for TestContext {
 
 /// Creates a test setup with a unique table
 async fn setup_test() -> TestContext {
+    dotenvy::from_path(".env.example").ok();
+
     // Create unique table name
     let table_name = format!("test-push-subscriptions-{}", Uuid::new_v4());
     let gsi_name = "topic-index";

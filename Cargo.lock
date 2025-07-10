@@ -2057,6 +2057,7 @@ dependencies = [
  "aws-config",
  "aws-sdk-dynamodb",
  "chrono",
+ "dotenvy",
  "serde",
  "serde_dynamo",
  "strum",
