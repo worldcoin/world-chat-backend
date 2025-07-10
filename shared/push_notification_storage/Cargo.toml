@@ -22,5 +22,11 @@ serde = { workspace = true }
 # Time
 chrono = { workspace = true }
 
+# DynamoDB serialization
+serde_dynamo = { workspace = true }
+
 # Logging
 tracing = { workspace = true }
+
+# Strum
+strum = { workspace = true }

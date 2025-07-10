@@ -13,6 +13,7 @@ mod error;
 use std::sync::Arc;
 
 use aws_sdk_dynamodb::{
+    error::SdkError,
     types::{AttributeValue, Select},
     Client as DynamoDbClient,
 };
@@ -20,6 +21,21 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 pub use error::{PushNotificationStorageError, PushNotificationStorageResult};
+use strum::Display;
+
+/// Attribute names for push subscription table
+#[derive(Debug, Clone, Display)]
+#[strum(serialize_all = "snake_case")]
+pub enum PushSubscriptionAttribute {
+    /// HMAC identifier (Primary Key)
+    Hmac,
+    /// Topic name (Global Secondary Index)
+    Topic,
+    /// TTL timestamp
+    Ttl,
+    /// Encrypted Braze ID
+    EncryptedBrazeId,
+}
 
 /// Push subscription data structure
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -91,18 +107,34 @@ impl PushNotificationStorage {
             .ok_or(PushNotificationStorageError::InvalidTtlError)?;
         let rounded_ttl = Self::round_to_minute(timestamp);
 
+        // Create a modified subscription with rounded TTL
+        let subscription_to_store = PushSubscription {
+            ttl: rounded_ttl,
+            ..subscription.clone()
+        };
+
+        // Convert to DynamoDB item
+        let item = serde_dynamo::to_item(&subscription_to_store)
+            .map_err(|e| PushNotificationStorageError::SerializationError(e.to_string()))?;
+
         self.dynamodb_client
             .put_item()
             .table_name(&self.table_name)
-            .item("hmac", AttributeValue::S(subscription.hmac.to_string()))
-            .item("topic", AttributeValue::S(subscription.topic.to_string()))
-            .item("ttl", AttributeValue::N(rounded_ttl.to_string()))
-            .item(
-                "encrypted_braze_id",
-                AttributeValue::S(subscription.encrypted_braze_id.to_string()),
-            )
+            .set_item(Some(item))
+            .condition_expression("attribute_not_exists(#pk)")
+            .expression_attribute_names("#pk", PushSubscriptionAttribute::Hmac.to_string())
             .send()
-            .await?;
+            .await
+            .map_err(|err| {
+                if matches!(
+                    err,
+                    SdkError::ServiceError(ref svc) if svc.err().is_conditional_check_failed_exception()
+                ) {
+                    PushNotificationStorageError::PushSubscriptionExists
+                } else {
+                    err.into()
+                }
+            })?;
 
         Ok(())
     }
@@ -120,7 +152,10 @@ impl PushNotificationStorage {
         self.dynamodb_client
             .delete_item()
             .table_name(&self.table_name)
-            .key("hmac", AttributeValue::S(hmac.to_string()))
+            .key(
+                PushSubscriptionAttribute::Hmac.to_string(),
+                AttributeValue::S(hmac.to_string()),
+            )
             .send()
             .await?;
 
@@ -149,16 +184,21 @@ impl PushNotificationStorage {
             .query()
             .table_name(&self.table_name)
             .index_name(&self.gsi_name)
-            .key_condition_expression("topic = :topic")
+            .key_condition_expression("#topic = :topic")
+            .expression_attribute_names("#topic", PushSubscriptionAttribute::Topic.to_string())
             .expression_attribute_values(":topic", AttributeValue::S(topic.to_string()))
             .select(Select::AllAttributes)
             .send()
             .await?;
 
-        response
-            .items()
+        let items = response.items();
+        items
             .iter()
-            .map(Self::parse_subscription_from_item)
+            .map(|item| {
+                serde_dynamo::from_item(item.clone()).map_err(|e| {
+                    PushNotificationStorageError::ParseSubscriptionError(e.to_string())
+                })
+            })
             .collect()
     }
 
@@ -181,63 +221,14 @@ impl PushNotificationStorage {
             .dynamodb_client
             .get_item()
             .table_name(&self.table_name)
-            .key("hmac", AttributeValue::S(hmac.to_string()))
-            .projection_expression("hmac")
+            .key(
+                PushSubscriptionAttribute::Hmac.to_string(),
+                AttributeValue::S(hmac.to_string()),
+            )
+            .projection_expression(PushSubscriptionAttribute::Hmac.to_string())
             .send()
             .await?;
 
         Ok(response.item().is_some())
-    }
-
-    /// Parses a push subscription from Dynamo DB item attributes
-    fn parse_subscription_from_item(
-        item: &std::collections::HashMap<String, AttributeValue>,
-    ) -> PushNotificationStorageResult<PushSubscription> {
-        let hmac = item
-            .get("hmac")
-            .and_then(|v| v.as_s().ok())
-            .ok_or_else(|| {
-                PushNotificationStorageError::ParseSubscriptionError(
-                    "Missing hmac field".to_string(),
-                )
-            })?
-            .to_string();
-
-        let topic = item
-            .get("topic")
-            .and_then(|v| v.as_s().ok())
-            .ok_or_else(|| {
-                PushNotificationStorageError::ParseSubscriptionError(
-                    "Missing topic field".to_string(),
-                )
-            })?
-            .to_string();
-
-        let ttl = item
-            .get("ttl")
-            .and_then(|v| v.as_n().ok())
-            .and_then(|n| n.parse::<i64>().ok())
-            .ok_or_else(|| {
-                PushNotificationStorageError::ParseSubscriptionError(
-                    "Invalid ttl field".to_string(),
-                )
-            })?;
-
-        let encrypted_braze_id = item
-            .get("encrypted_braze_id")
-            .and_then(|v| v.as_s().ok())
-            .ok_or_else(|| {
-                PushNotificationStorageError::ParseSubscriptionError(
-                    "Missing encrypted_braze_id field".to_string(),
-                )
-            })?
-            .to_string();
-
-        Ok(PushSubscription {
-            hmac,
-            topic,
-            ttl,
-            encrypted_braze_id,
-        })
     }
 }
