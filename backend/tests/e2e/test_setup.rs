@@ -15,26 +15,20 @@ pub struct E2ETestSetup {
 }
 
 impl E2ETestSetup {
-    /// Create a new E2E test setup with real dependencies
     pub async fn new(environment: Environment) -> Self {
-        // Setup test environment
         setup_test_env();
 
-        // Configure AWS S3 client for LocalStack
         let s3_config = environment.s3_client_config().await;
         let s3_client = Arc::new(S3Client::from_conf(s3_config));
 
-        // Get bucket name
         let bucket_name = environment.s3_bucket();
 
-        // Create media storage client
         let media_storage = Arc::new(MediaStorage::new(
             s3_client.clone(),
             bucket_name.clone(),
             environment.presigned_url_expiry_secs(),
         ));
 
-        // Create router with extensions
         let router = routes::handler()
             .layer(Extension(environment.clone()))
             .layer(Extension(media_storage.clone()))
@@ -49,7 +43,6 @@ impl E2ETestSetup {
 }
 
 impl E2ETestSetup {
-    /// Send a POST request to the router and return the response
     pub async fn send_post_request(
         &self,
         route: &str,
@@ -69,7 +62,6 @@ impl E2ETestSetup {
         Ok(response)
     }
 
-    /// Parse response body to JSON
     pub async fn parse_response_body(
         &self,
         response: axum::response::Response,
