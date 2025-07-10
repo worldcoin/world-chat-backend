@@ -1,6 +1,5 @@
 use aws_sdk_s3::{error::SdkError, operation::head_object::HeadObjectError, Client as S3Client};
 use base64::{engine::general_purpose::STANDARD, Engine as _};
-use hex;
 use rand::RngCore;
 use reqwest::header::{HeaderMap, HeaderValue, CONTENT_LENGTH, CONTENT_TYPE};
 use sha2::{Digest, Sha256};

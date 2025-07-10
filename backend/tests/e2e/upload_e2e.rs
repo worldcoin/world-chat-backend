@@ -1,5 +1,3 @@
-#[path = "../common/mod.rs"]
-mod common;
 
 use super::test_setup::E2ETestSetup;
 use super::utils::*;

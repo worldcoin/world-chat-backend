@@ -1,10 +1,8 @@
-#[path = "../common/mod.rs"]
-mod common;
 
 use aws_sdk_s3::Client as S3Client;
 use axum::Extension;
 use backend::{media_storage::MediaStorage, routes, types::Environment};
-use common::*;
+use crate::common::*;
 use std::sync::Arc;
 
 /// E2E test setup with real dependencies
