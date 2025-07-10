@@ -81,6 +81,14 @@ jobs:
         run: curl -s http://localhost:4566/_localstack/health | jq -e '.services.s3 == "running"'
 
       - name: Run tests
+        env:
+          # LocalStack requires AWS credentials (can be dummy values)
+          AWS_ACCESS_KEY_ID: test
+          AWS_SECRET_ACCESS_KEY: test
+          AWS_DEFAULT_REGION: us-east-1
+          # Application environment
+          APP_ENV: development
+          S3_BUCKET_NAME: world-chat-media
         run: cargo test -- --nocapture
 
       - name: Clean up
