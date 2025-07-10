@@ -80,11 +80,8 @@ jobs:
       - name: Health check LocalStack
         run: curl -s http://localhost:4566/_localstack/health | jq -e '.services.s3 == "running"'
 
-      - name: Run unit tests
-        run: cargo test --lib --bins -- --nocapture
-
-      - name: Run integration tests
-        run: cargo test --test integration -- --nocapture
+      - name: Run tests
+        run: cargo test -- --nocapture
 
       - name: Clean up
         run: docker compose down

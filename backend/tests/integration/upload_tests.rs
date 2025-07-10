@@ -160,7 +160,7 @@ async fn test_upload_media_minimum_content_length() {
     let payload = create_upload_request(content_digest_sha256.clone(), 1); // Minimum allowed
 
     let response = send_post_request("/v1/media/presigned-urls", payload).await;
-    let status = response.status().clone();
+    let status = response.status();
     let body = parse_response_body(response).await;
 
     println!("{:?}", content_digest_sha256);

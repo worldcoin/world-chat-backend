@@ -1,4 +1,7 @@
 use aws_sdk_s3::Client as S3Client;
+use base64::{engine::general_purpose::STANDARD, Engine as _};
+use hex;
+use rand::RngCore;
 use reqwest::header::{HeaderMap, HeaderValue, CONTENT_LENGTH, CONTENT_TYPE};
 use sha2::{Digest, Sha256};
 use std::time::Duration;
@@ -6,11 +9,10 @@ use tokio::time::sleep;
 
 /// Generate test image data with specified size and return data + SHA-256 hash
 pub fn generate_test_image(size: usize) -> (Vec<u8>, String) {
-    // Generate random-like data using a simple pattern
-    let mut data = Vec::with_capacity(size);
-    for i in 0..size {
-        data.push((i % 256) as u8);
-    }
+    // Generate random data for each test run
+    let mut buf = vec![0u8; size]; // pre-allocate
+    rand::rngs::OsRng.fill_bytes(&mut buf); // fill in one syscall-sized burst
+    let data = buf;
 
     let sha256 = calculate_sha256(&data);
     (data, sha256)
@@ -21,6 +23,12 @@ pub fn calculate_sha256(data: &[u8]) -> String {
     let mut hasher = Sha256::new();
     hasher.update(data);
     format!("{:x}", hasher.finalize())
+}
+
+/// Convert hex SHA-256 to base64 format (required for AWS checksum headers)
+pub fn hex_sha256_to_base64(hex_sha256: &str) -> String {
+    let bytes = hex::decode(hex_sha256).expect("Invalid hex SHA-256");
+    STANDARD.encode(&bytes)
 }
 
 /// Upload data to S3 using presigned URL
