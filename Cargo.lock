@@ -2062,7 +2062,9 @@ dependencies = [
  "strum",
  "thiserror",
  "tokio",
+ "tokio-test",
  "tracing",
+ "uuid",
 ]
 
 [[package]]
