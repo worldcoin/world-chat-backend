@@ -1,29 +1,24 @@
-use anyhow::Result;
-use axum::Router;
-use tower_http::trace::TraceLayer;
-use tracing::info;
+use std::sync::Arc;
 
-mod handlers;
+use aws_sdk_s3::Client as S3Client;
+
+use backend::{media_storage::MediaStorage, server, types::Environment};
+use tracing_subscriber::EnvFilter;
 
 #[tokio::main]
-async fn main() -> Result<()> {
-    // Initialize tracing
+async fn main() -> anyhow::Result<()> {
+    let environment = Environment::from_env();
+
     tracing_subscriber::fmt()
-        .with_max_level(tracing::Level::DEBUG)
+        .with_env_filter(EnvFilter::from_default_env())
         .init();
 
-    info!("Starting World Chat Backend Server");
+    let s3_client = Arc::new(S3Client::from_conf(environment.s3_client_config().await));
+    let media_storage = Arc::new(MediaStorage::new(
+        s3_client,
+        environment.s3_bucket(),
+        environment.presigned_url_expiry_secs(),
+    ));
 
-    // Build router
-    let app = Router::new()
-        .merge(handlers::routes())
-        .layer(TraceLayer::new_for_http());
-
-    // Start server
-    let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await?;
-    info!("Server listening on {}", listener.local_addr()?);
-
-    axum::serve(listener, app).await?;
-
-    Ok(())
+    server::start(environment, media_storage).await
 }
