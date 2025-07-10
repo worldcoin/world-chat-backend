@@ -6,11 +6,11 @@ use backend::{media_storage::MediaStorage, server, types::Environment};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    tracing_subscriber::fmt()
-        .with_max_level(tracing::Level::INFO)
-        .init();
-
     let environment = Environment::from_env();
+
+    tracing_subscriber::fmt()
+        .with_max_level(environment.tracing_level())
+        .init();
 
     let s3_client = Arc::new(S3Client::from_conf(environment.s3_client_config().await));
     let media_storage = Arc::new(MediaStorage::new(

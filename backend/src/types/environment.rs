@@ -4,6 +4,7 @@ use std::env;
 use std::time::Duration;
 
 use aws_config::{retry::RetryConfig, timeout::TimeoutConfig, BehaviorVersion};
+use tracing::Level;
 
 /// Application environment configuration
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -145,10 +146,15 @@ impl Environment {
         }
     }
 
-    /// Whether to enable debug logging
     #[must_use]
-    pub const fn debug_logging(&self) -> bool {
-        matches!(self, Self::Development { .. })
+    pub fn tracing_level(&self) -> Level {
+        env::var("TRACING_LEVEL")
+            .ok()
+            .and_then(|val| val.parse::<Level>().ok())
+            .unwrap_or(match self {
+                Self::Production | Self::Staging => Level::INFO,
+                Self::Development { .. } => Level::DEBUG,
+            })
     }
 }
 
