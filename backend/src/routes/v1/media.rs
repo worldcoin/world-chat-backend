@@ -64,14 +64,12 @@ pub async fn create_presigned_upload_url(
     Extension(media_storage): Extension<Arc<MediaStorage>>,
     Json(payload): Json<UploadRequest>,
 ) -> Result<Json<UploadResponse>, AppError> {
-    // TODO: Step 1:Add auth validation when auth is implemented
     let s3_key = MediaStorage::map_sha256_to_s3_key(&payload.content_digest_sha256);
 
     // Step 2: De-duplication Probe
     let exists = media_storage.check_object_exists(&s3_key).await?;
 
     if exists {
-        // TODO: don't map to bucket error here, instead an app error maybe (?)
         return Err(BucketError::ObjectExists(payload.content_digest_sha256).into());
     }
 
