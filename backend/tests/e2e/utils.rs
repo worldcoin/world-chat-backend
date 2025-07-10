@@ -5,7 +5,7 @@ use reqwest::header::{HeaderMap, HeaderValue, CONTENT_LENGTH, CONTENT_TYPE};
 use sha2::{Digest, Sha256};
 
 /// Generate test image data with specified size and return data + SHA-256 hash
-pub fn generate_test_image(size: usize) -> (Vec<u8>, String) {
+pub fn generate_test_encrypted_image(size: usize) -> (Vec<u8>, String) {
     // Generate random data for each test run
     let mut buf = vec![0u8; size]; // pre-allocate
     rand::rngs::OsRng.fill_bytes(&mut buf); // fill in one syscall-sized burst
