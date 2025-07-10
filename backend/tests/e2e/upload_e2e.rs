@@ -1,6 +1,5 @@
 use super::test_setup::E2ETestSetup;
 use super::utils::*;
-use backend::types::Environment;
 use tokio::time::Duration;
 
 #[tokio::test]
