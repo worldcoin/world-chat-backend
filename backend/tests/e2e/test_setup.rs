@@ -1,0 +1,83 @@
+#[path = "../common/mod.rs"]
+mod common;
+
+use aws_sdk_s3::Client as S3Client;
+use axum::Extension;
+use backend::{media_storage::MediaStorage, routes, types::Environment};
+use common::*;
+use std::sync::Arc;
+
+/// E2E test setup with real dependencies
+pub struct E2ETestSetup {
+    pub router: axum::Router,
+    pub s3_client: Arc<S3Client>,
+    pub bucket_name: String,
+}
+
+impl E2ETestSetup {
+    /// Create a new E2E test setup with real dependencies
+    pub async fn new(environment: Environment) -> Self {
+        // Setup test environment
+        setup_test_env();
+
+        // Configure AWS S3 client for LocalStack
+        let s3_config = environment.s3_client_config().await;
+        let s3_client = Arc::new(S3Client::from_conf(s3_config));
+
+        // Get bucket name
+        let bucket_name = environment.s3_bucket();
+
+        // Create media storage client
+        let media_storage = Arc::new(MediaStorage::new(
+            s3_client.clone(),
+            bucket_name.clone(),
+            environment.presigned_url_expiry_secs(),
+        ));
+
+        // Create router with extensions
+        let router = routes::handler()
+            .layer(Extension(environment.clone()))
+            .layer(Extension(media_storage.clone()))
+            .into();
+
+        Self {
+            router,
+            s3_client,
+            bucket_name,
+        }
+    }
+}
+
+impl E2ETestSetup {
+    /// Send a POST request to the router and return the response
+    pub async fn send_post_request(
+        &self,
+        route: &str,
+        payload: serde_json::Value,
+    ) -> Result<axum::response::Response, Box<dyn std::error::Error>> {
+        use axum::body::Body;
+        use axum::http::Request;
+        use tower::ServiceExt;
+
+        let request = Request::builder()
+            .uri(route)
+            .method("POST")
+            .header("Content-Type", "application/json")
+            .body(Body::from(payload.to_string()))?;
+
+        let response = self.router.clone().oneshot(request).await?;
+        Ok(response)
+    }
+
+    /// Parse response body to JSON
+    pub async fn parse_response_body(
+        &self,
+        response: axum::response::Response,
+    ) -> Result<serde_json::Value, Box<dyn std::error::Error>> {
+        use http_body_util::BodyExt;
+
+        let body = response.into_body().collect().await?.to_bytes();
+        let json = serde_json::from_slice(&body)?;
+        Ok(json)
+    }
+}
