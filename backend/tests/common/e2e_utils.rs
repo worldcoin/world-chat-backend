@@ -1,4 +1,4 @@
-use aws_sdk_s3::Client as S3Client;
+use aws_sdk_s3::{error::SdkError, operation::head_object::HeadObjectError, Client as S3Client};
 use base64::{engine::general_purpose::STANDARD, Engine as _};
 use hex;
 use rand::RngCore;
@@ -78,13 +78,12 @@ pub async fn s3_object_exists(
 ) -> Result<bool, Box<dyn std::error::Error>> {
     match s3_client.head_object().bucket(bucket).key(key).send().await {
         Ok(_) => Ok(true),
-        Err(e) => {
-            if e.to_string().contains("NotFound") {
-                Ok(false)
-            } else {
-                Err(e.into())
-            }
+        Err(SdkError::ServiceError(service_err))
+            if matches!(service_err.err(), HeadObjectError::NotFound(_)) =>
+        {
+            Ok(false)
         }
+        Err(e) => Err(e.into()),
     }
 }
 

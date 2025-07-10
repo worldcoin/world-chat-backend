@@ -6,7 +6,7 @@ mod test_router;
 pub use test_router::*;
 
 use axum::body::Body;
-use axum::http::{Request, StatusCode};
+use axum::http::Request;
 use axum::response::Response;
 use http_body_util::BodyExt;
 use serde_json::json;
@@ -59,35 +59,6 @@ pub fn create_upload_request(
         "content_digest_sha256": content_digest_sha256,
         "content_length": content_length
     })
-}
-
-/// Assert that response has expected status code
-pub fn assert_status(response: &Response, expected: StatusCode) {
-    assert_eq!(
-        response.status(),
-        expected,
-        "Expected status {}, got {}",
-        expected,
-        response.status()
-    );
-}
-
-/// Assert that response is a validation error (schemars format)
-pub async fn assert_validation_error(response: Response) {
-    assert_status(&response, StatusCode::BAD_REQUEST);
-    // With schemars, we just expect 400 status - no specific error structure
-}
-
-/// Assert that response is a successful upload response
-pub async fn assert_upload_success(response: Response) -> serde_json::Value {
-    assert_status(&response, StatusCode::OK);
-    let body = parse_response_body(response).await;
-
-    assert!(body["presigned_url"].is_string());
-    assert!(body["expires_at"].is_string());
-    assert!(body["asset_id"].is_string());
-
-    body
 }
 
 /// Setup test environment variables
