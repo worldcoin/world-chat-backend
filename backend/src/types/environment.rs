@@ -6,14 +6,17 @@ use std::time::Duration;
 use aws_config::{retry::RetryConfig, timeout::TimeoutConfig, BehaviorVersion};
 
 /// Application environment configuration
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Environment {
     /// Production environment
     Production,
     /// Staging environment
     Staging,
     /// Development environment (uses `LocalStack`)
-    Development,
+    Development {
+        /// Optional override for presigned URL expiry in seconds
+        presign_expiry_override: Option<u64>,
+    },
 }
 
 impl Environment {
@@ -32,7 +35,16 @@ impl Environment {
         match env.as_str() {
             "production" => Self::Production,
             "staging" => Self::Staging,
-            "development" => Self::Development,
+            "development" => {
+                // Check for presigned URL expiry override
+                let presign_expiry_override = env::var("PRESIGNED_URL_EXPIRY_SECS")
+                    .ok()
+                    .and_then(|val| val.parse::<u64>().ok());
+
+                Self::Development {
+                    presign_expiry_override,
+                }
+            }
             _ => panic!("Invalid environment: {env}"),
         }
     }
@@ -48,7 +60,7 @@ impl Environment {
             Self::Production | Self::Staging => {
                 env::var("S3_BUCKET_NAME").expect("S3_BUCKET_NAME environment variable is not set")
             }
-            Self::Development => {
+            Self::Development { .. } => {
                 env::var("S3_BUCKET_NAME").unwrap_or_else(|_| "world-chat-media".to_string())
             }
         }
@@ -57,7 +69,7 @@ impl Environment {
     /// Whether to show API docs
     #[must_use]
     pub const fn show_api_docs(&self) -> bool {
-        matches!(self, Self::Development | Self::Staging)
+        matches!(self, Self::Development { .. } | Self::Staging)
     }
 
     /// Returns the endpoint URL to use for AWS services
@@ -67,7 +79,7 @@ impl Environment {
             // Regular AWS endpoints for production and staging
             Self::Production | Self::Staging => None,
             // LocalStack endpoint for development
-            Self::Development => Some("http://localhost:4566"),
+            Self::Development { .. } => Some("http://localhost:4566"),
         }
     }
 
@@ -102,7 +114,7 @@ impl Environment {
 
         // Override "force path style" to true for compatibility with LocalStack
         // https://github.com/awslabs/aws-sdk-rust/discussions/874
-        if matches!(self, Self::Development) {
+        if matches!(self, Self::Development { .. }) {
             builder.set_force_path_style(Some(true));
         }
 
@@ -119,21 +131,24 @@ impl Environment {
     /// Presigned URL expiry time in seconds
     #[must_use]
     pub fn presigned_url_expiry_secs(&self) -> u64 {
-        // Check for environment variable override (useful for testing)
-        if let Ok(custom_secs) = env::var("PRESIGNED_URL_EXPIRY_SECS") {
-            if let Ok(secs) = custom_secs.parse::<u64>() {
-                return secs;
+        match self {
+            Self::Production | Self::Staging => {
+                // Default: 15 minutes
+                15 * 60
+            }
+            Self::Development {
+                presign_expiry_override,
+            } => {
+                // Use override if provided, otherwise default to 15 minutes
+                presign_expiry_override.unwrap_or(15 * 60)
             }
         }
-
-        // Default: 15 minutes
-        15 * 60
     }
 
     /// Whether to enable debug logging
     #[must_use]
     pub const fn debug_logging(&self) -> bool {
-        matches!(self, Self::Development)
+        matches!(self, Self::Development { .. })
     }
 }
 
@@ -147,11 +162,22 @@ mod tests {
     fn test_environment_from_env() {
         // Test development (default)
         env::remove_var("APP_ENV");
-        assert_eq!(Environment::from_env(), Environment::Development);
+        env::remove_var("PRESIGNED_URL_EXPIRY_SECS");
+        assert_eq!(
+            Environment::from_env(),
+            Environment::Development {
+                presign_expiry_override: None
+            }
+        );
 
         // Test explicit development
         env::set_var("APP_ENV", "development");
-        assert_eq!(Environment::from_env(), Environment::Development);
+        assert_eq!(
+            Environment::from_env(),
+            Environment::Development {
+                presign_expiry_override: None
+            }
+        );
 
         // Test staging
         env::set_var("APP_ENV", "staging");
@@ -173,18 +199,51 @@ mod tests {
     #[test]
     #[serial]
     fn test_presigned_url_expiry_secs() {
-        let env = Environment::Development;
-
         // Test default value (15 minutes = 900 seconds)
-        env::remove_var("PRESIGNED_URL_EXPIRY_SECS");
+        let env = Environment::Development {
+            presign_expiry_override: None,
+        };
         assert_eq!(env.presigned_url_expiry_secs(), 900);
 
         // Test custom value
-        env::set_var("PRESIGNED_URL_EXPIRY_SECS", "30");
+        let env = Environment::Development {
+            presign_expiry_override: Some(30),
+        };
         assert_eq!(env.presigned_url_expiry_secs(), 30);
 
-        // Test invalid value falls back to default
+        // Test Production and Staging always use default
+        let env = Environment::Production;
+        assert_eq!(env.presigned_url_expiry_secs(), 900);
+
+        let env = Environment::Staging;
+        assert_eq!(env.presigned_url_expiry_secs(), 900);
+    }
+
+    #[test]
+    #[serial]
+    fn test_development_with_env_override() {
+        // Test development with environment variable override
+        env::set_var("APP_ENV", "development");
+        env::set_var("PRESIGNED_URL_EXPIRY_SECS", "120");
+
+        let env = Environment::from_env();
+        assert_eq!(
+            env,
+            Environment::Development {
+                presign_expiry_override: Some(120)
+            }
+        );
+        assert_eq!(env.presigned_url_expiry_secs(), 120);
+
+        // Test invalid environment variable falls back to None
         env::set_var("PRESIGNED_URL_EXPIRY_SECS", "invalid");
+        let env = Environment::from_env();
+        assert_eq!(
+            env,
+            Environment::Development {
+                presign_expiry_override: None
+            }
+        );
         assert_eq!(env.presigned_url_expiry_secs(), 900);
 
         // Cleanup

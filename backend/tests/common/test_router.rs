@@ -8,7 +8,9 @@ pub async fn get_test_router() -> axum::Router {
     super::setup_test_env();
 
     // Use development environment for tests
-    let environment = Environment::Development;
+    let environment = Environment::Development {
+        presign_expiry_override: None,
+    };
 
     // Configure AWS using environment
     let s3_config = environment.s3_client_config().await;

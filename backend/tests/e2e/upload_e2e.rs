@@ -7,6 +7,7 @@ use backend::{media_storage::MediaStorage, routes, types::Environment};
 use common::e2e_utils::*;
 use common::*;
 use std::sync::Arc;
+use tokio::time::Duration;
 
 /// E2E test setup with real dependencies
 pub struct E2ETestSetup {
@@ -19,12 +20,9 @@ pub struct E2ETestSetup {
 
 impl E2ETestSetup {
     /// Create a new E2E test setup with real dependencies
-    pub async fn new() -> Self {
+    pub async fn new(environment: Environment) -> Self {
         // Setup test environment
         setup_test_env();
-
-        // Use development environment for E2E tests (LocalStack)
-        let environment = Environment::Development;
 
         // Configure AWS S3 client for LocalStack
         let s3_config = environment.s3_client_config().await;
@@ -42,7 +40,7 @@ impl E2ETestSetup {
 
         // Create router with extensions
         let router = routes::handler()
-            .layer(Extension(environment))
+            .layer(Extension(environment.clone()))
             .layer(Extension(media_storage.clone()))
             .into();
 
@@ -61,31 +59,7 @@ impl E2ETestSetup {
     }
 }
 
-#[tokio::test]
-async fn test_e2e_infrastructure() {
-    let setup = E2ETestSetup::new().await;
-
-    // Test that we can generate test data
-    let (data, sha256) = generate_test_image(1024);
-    assert_eq!(data.len(), 1024);
-    assert_eq!(sha256.len(), 64);
-
-    // Test that we can calculate checksums
-    let calculated_sha256 = calculate_sha256(&data);
-    assert_eq!(sha256, calculated_sha256);
-
-    // Test that we have LocalStack setup
-    assert!(setup.is_localstack());
-
-    println!("E2E infrastructure test passed!");
-}
-
 impl E2ETestSetup {
-    /// Check if running in LocalStack environment
-    pub fn is_localstack(&self) -> bool {
-        matches!(self.environment, Environment::Development)
-    }
-
     /// Send a POST request to the router and return the response
     pub async fn send_post_request(
         &self,
@@ -121,7 +95,10 @@ impl E2ETestSetup {
 
 #[tokio::test]
 async fn test_e2e_upload_happy_path() {
-    let setup = E2ETestSetup::new().await;
+    let setup = E2ETestSetup::new(Environment::Development {
+        presign_expiry_override: None, // Use default presigned URL expiry
+    })
+    .await;
 
     // Step 1: Generate test image data with known SHA-256
     let (image_data, sha256) = generate_test_image(2048);
@@ -251,7 +228,10 @@ async fn test_e2e_upload_happy_path() {
 
 #[tokio::test]
 async fn test_e2e_upload_with_wrong_checksum() {
-    let setup = E2ETestSetup::new().await;
+    let setup = E2ETestSetup::new(Environment::Development {
+        presign_expiry_override: None, // Use default presigned URL expiry
+    })
+    .await;
 
     // Step 1: Generate test image data with known SHA-256
     let (image_data, sha256) = generate_test_image(2048);
@@ -341,7 +321,10 @@ async fn test_e2e_upload_with_wrong_checksum() {
 
 #[tokio::test]
 async fn test_e2e_upload_with_wrong_content_length() {
-    let setup = E2ETestSetup::new().await;
+    let setup = E2ETestSetup::new(Environment::Development {
+        presign_expiry_override: None, // Use default presigned URL expiry
+    })
+    .await;
 
     // Step 1: Generate test image data with known SHA-256
     let (image_data, sha256) = generate_test_image(2048);
@@ -405,6 +388,101 @@ async fn test_e2e_upload_with_wrong_content_length() {
     let upload_response = upload_to_s3(
         presigned_url,
         &image_data[..1024],
+        Some("application/octet-stream"),
+        Some(&sha256_b64), // Include SHA-256 checksum header in base64 format
+    )
+    .await
+    .expect("Failed to upload to S3");
+
+    assert_eq!(
+        upload_response.status(),
+        403,
+        "Expected 403 Forbidden error"
+    );
+
+    // Step 4: Assert that file doesnt exist
+    let file_exists = s3_object_exists(&setup.s3_client, &setup.bucket_name, asset_id)
+        .await
+        .expect("Failed to check if file exists");
+
+    assert!(!file_exists, "File should not exist");
+
+    println!("✅ File does not exist");
+
+    println!("🎉 E2E upload with wrong checksum test completed successfully!");
+}
+
+#[tokio::test]
+async fn test_e2e_upload_with_expired_presigned_url() {
+    let setup = E2ETestSetup::new(Environment::Development {
+        presign_expiry_override: Some(1), // Use default presigned URL expiry
+    })
+    .await;
+
+    // Step 1: Generate test image data with known SHA-256
+    let (image_data, sha256) = generate_test_image(2048);
+    println!(
+        "Generated test image: {} bytes, SHA-256: {}",
+        image_data.len(),
+        sha256
+    );
+
+    // Step 2: Request presigned URL from the API endpoint
+    let upload_request = serde_json::json!({
+        "content_digest_sha256": sha256,
+        "content_length": image_data.len()
+    });
+
+    let response = setup
+        .send_post_request("/v1/media/presigned-urls", upload_request)
+        .await
+        .expect("Failed to send request");
+
+    assert_eq!(
+        response.status(),
+        200,
+        "Expected 200 OK for presigned URL request"
+    );
+
+    let response_body = setup
+        .parse_response_body(response)
+        .await
+        .expect("Failed to parse response body");
+
+    println!(
+        "API Response: {}",
+        serde_json::to_string_pretty(&response_body).unwrap()
+    );
+
+    tokio::time::sleep(Duration::from_secs(1)).await;
+
+    // Extract response fields
+    let presigned_url = response_body["presigned_url"]
+        .as_str()
+        .expect("Missing presigned_url in response");
+    let asset_id = response_body["asset_id"]
+        .as_str()
+        .expect("Missing asset_id in response");
+    let expires_at = response_body["expires_at"]
+        .as_str()
+        .expect("Missing expires_at in response");
+
+    // Verify response format
+    assert!(
+        presigned_url.contains("localhost:4566"),
+        "Expected LocalStack URL"
+    );
+    assert!(!asset_id.is_empty(), "Asset ID should not be empty");
+    assert!(!expires_at.is_empty(), "Expires at should not be empty");
+
+    println!("Presigned URL obtained: {}", presigned_url);
+    println!("Asset ID: {}", asset_id);
+
+    // Step 3: Upload image to S3 using the presigned URL with checksum headers
+    let sha256_b64 = hex_sha256_to_base64(&sha256);
+    let upload_response = upload_to_s3(
+        presigned_url,
+        &image_data,
         Some("application/octet-stream"),
         Some(&sha256_b64), // Include SHA-256 checksum header in base64 format
     )
