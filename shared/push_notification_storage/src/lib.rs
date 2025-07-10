@@ -1,4 +1,4 @@
-//! Push notification storage integration using DynamoDB
+//! Push notification storage integration using Dynamo DB
 
 #![deny(
     clippy::all,
@@ -34,7 +34,7 @@ pub struct PushSubscription {
     pub encrypted_braze_id: String,
 }
 
-/// Push notification storage client for DynamoDB operations
+/// Push notification storage client for Dynamo DB operations
 pub struct PushNotificationStorage {
     dynamodb_client: Arc<DynamoDbClient>,
     table_name: String,
@@ -46,8 +46,8 @@ impl PushNotificationStorage {
     ///
     /// # Arguments
     ///
-    /// * `dynamodb_client` - Pre-configured DynamoDB client
-    /// * `table_name` - DynamoDB table name for push subscriptions
+    /// * `dynamodb_client` - Pre-configured Dynamo DB client
+    /// * `table_name` - Dynamo DB table name for push subscriptions
     /// * `gsi_name` - Global Secondary Index name for topic queries
     #[must_use]
     pub const fn new(
@@ -63,7 +63,7 @@ impl PushNotificationStorage {
     }
 
     /// Rounds a timestamp to the nearest minute for privacy
-    fn round_to_minute(timestamp: DateTime<Utc>) -> i64 {
+    const fn round_to_minute(timestamp: DateTime<Utc>) -> i64 {
         let seconds = timestamp.timestamp();
         let remainder = seconds % 60;
         if remainder >= 30 {
@@ -81,7 +81,7 @@ impl PushNotificationStorage {
     ///
     /// # Errors
     ///
-    /// Returns `PushNotificationStorageError` if the DynamoDB operation fails
+    /// Returns `PushNotificationStorageError` if the Dynamo DB operation fails
     pub async fn insert(
         &self,
         subscription: &PushSubscription,
@@ -115,7 +115,7 @@ impl PushNotificationStorage {
     ///
     /// # Errors
     ///
-    /// Returns `PushNotificationStorageError` if the DynamoDB operation fails
+    /// Returns `PushNotificationStorageError` if the Dynamo DB operation fails
     pub async fn delete_by_hmac(&self, hmac: &str) -> PushNotificationStorageResult<()> {
         self.dynamodb_client
             .delete_item()
@@ -139,7 +139,7 @@ impl PushNotificationStorage {
     ///
     /// # Errors
     ///
-    /// Returns `PushNotificationStorageError` if the DynamoDB operation fails
+    /// Returns `PushNotificationStorageError` if the Dynamo DB operation fails
     pub async fn get_all_by_topic(
         &self,
         topic: &str,
@@ -175,7 +175,7 @@ impl PushNotificationStorage {
     ///
     /// # Errors
     ///
-    /// Returns `PushNotificationStorageError` if the DynamoDB operation fails
+    /// Returns `PushNotificationStorageError` if the Dynamo DB operation fails
     pub async fn exists_by_hmac(&self, hmac: &str) -> PushNotificationStorageResult<bool> {
         let response = self
             .dynamodb_client
@@ -189,7 +189,7 @@ impl PushNotificationStorage {
         Ok(response.item().is_some())
     }
 
-    /// Parses a push subscription from DynamoDB item attributes
+    /// Parses a push subscription from Dynamo DB item attributes
     fn parse_subscription_from_item(
         item: &std::collections::HashMap<String, AttributeValue>,
     ) -> PushNotificationStorageResult<PushSubscription> {

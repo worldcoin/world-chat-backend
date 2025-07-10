@@ -2,8 +2,7 @@
 
 use aws_sdk_dynamodb::error::SdkError;
 use aws_sdk_dynamodb::operation::{
-    delete_item::DeleteItemError, get_item::GetItemError, put_item::PutItemError,
-    query::QueryError,
+    delete_item::DeleteItemError, get_item::GetItemError, put_item::PutItemError, query::QueryError,
 };
 use thiserror::Error;
 
@@ -13,23 +12,23 @@ pub type PushNotificationStorageResult<T> = Result<T, PushNotificationStorageErr
 /// Errors that can occur during push notification storage operations
 #[derive(Error, Debug)]
 pub enum PushNotificationStorageError {
-    /// Failed to insert subscription into DynamoDB
+    /// Failed to insert subscription into Dynamo DB
     #[error("Failed to insert subscription into DynamoDB: {0}")]
     DynamoDbPutError(#[from] SdkError<PutItemError>),
 
-    /// Failed to delete subscription from DynamoDB
+    /// Failed to delete subscription from Dynamo DB
     #[error("Failed to delete subscription from DynamoDB: {0}")]
     DynamoDbDeleteError(#[from] SdkError<DeleteItemError>),
 
-    /// Failed to get subscription from DynamoDB
+    /// Failed to get subscription from Dynamo DB
     #[error("Failed to get subscription from DynamoDB: {0}")]
     DynamoDbGetError(#[from] SdkError<GetItemError>),
 
-    /// Failed to query subscriptions from DynamoDB
+    /// Failed to query subscriptions from Dynamo DB
     #[error("Failed to query subscriptions from DynamoDB: {0}")]
     DynamoDbQueryError(#[from] SdkError<QueryError>),
 
-    /// Failed to parse subscription from DynamoDB item
+    /// Failed to parse subscription from Dynamo DB item
     #[error("Failed to parse subscription: {0}")]
     ParseSubscriptionError(String),
 
