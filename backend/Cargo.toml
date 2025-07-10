@@ -57,3 +57,4 @@ url = { workspace = true }
 dotenvy = { workspace = true }
 serial_test = { workspace = true }
 rand = { workspace = true }
+http = { workspace = true }

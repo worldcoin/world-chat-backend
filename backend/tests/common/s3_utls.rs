@@ -1,32 +1,5 @@
 use aws_sdk_s3::{error::SdkError, operation::head_object::HeadObjectError, Client as S3Client};
-use base64::{engine::general_purpose::STANDARD, Engine as _};
-use rand::RngCore;
 use reqwest::header::{HeaderMap, HeaderValue, CONTENT_LENGTH, CONTENT_TYPE};
-use sha2::{Digest, Sha256};
-
-/// Generate test image data with specified size and return data + SHA-256 hash
-pub fn generate_test_encrypted_image(size: usize) -> (Vec<u8>, String) {
-    // Generate random data for each test run
-    let mut buf = vec![0u8; size]; // pre-allocate
-    rand::rngs::OsRng.fill_bytes(&mut buf); // fill in one syscall-sized burst
-    let data = buf;
-
-    let sha256 = calculate_sha256(&data);
-    (data, sha256)
-}
-
-/// Calculate SHA-256 checksum of data and return as lowercase hex string
-pub fn calculate_sha256(data: &[u8]) -> String {
-    let mut hasher = Sha256::new();
-    hasher.update(data);
-    format!("{:x}", hasher.finalize())
-}
-
-/// Convert hex SHA-256 to base64 format (required for AWS checksum headers)
-pub fn hex_sha256_to_base64(hex_sha256: &str) -> String {
-    let bytes = hex::decode(hex_sha256).expect("Invalid hex SHA-256");
-    STANDARD.encode(&bytes)
-}
 
 /// Upload data to S3 using presigned URL
 pub async fn upload_to_s3(
@@ -82,11 +55,6 @@ pub async fn s3_object_exists(
         }
         Err(e) => Err(e.into()),
     }
-}
-
-/// Verify that two byte arrays are identical
-pub fn verify_data_integrity(original: &[u8], downloaded: &[u8]) -> bool {
-    original == downloaded
 }
 
 /// Create headers for S3 upload with specific content type and checksum

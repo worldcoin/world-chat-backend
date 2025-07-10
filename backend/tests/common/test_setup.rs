@@ -1,18 +1,29 @@
-use crate::common::*;
 use aws_sdk_s3::Client as S3Client;
 use axum::{body::Body, http::Request, response::Response, Extension, Router};
 use backend::{media_storage::MediaStorage, routes, types::Environment};
 use std::sync::Arc;
 use tower::ServiceExt;
 
+/// Setup test environment variables
+pub fn setup_test_env() {
+    // Load test environment variables
+    dotenvy::from_path(".env.example").ok();
+
+    // Initialize tracing for tests
+    tracing_subscriber::fmt()
+        .with_max_level(tracing::Level::DEBUG)
+        .try_init()
+        .ok();
+}
+
 /// E2E test setup with real dependencies
-pub struct E2ETestSetup {
+pub struct TestSetup {
     pub router: Router,
     pub s3_client: Arc<S3Client>,
     pub bucket_name: String,
 }
 
-impl E2ETestSetup {
+impl TestSetup {
     pub async fn new(presign_expiry_override: Option<u64>) -> Self {
         setup_test_env();
 
@@ -44,7 +55,7 @@ impl E2ETestSetup {
     }
 }
 
-impl E2ETestSetup {
+impl TestSetup {
     pub async fn send_post_request(
         &self,
         route: &str,

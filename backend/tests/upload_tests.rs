@@ -1,10 +1,300 @@
-use super::test_setup::E2ETestSetup;
-use super::utils::*;
-use tokio::time::Duration;
+mod common;
+
+use common::*;
+
+use http::StatusCode;
+use serde_json::json;
+
+pub fn create_upload_request(
+    content_digest_sha256: String,
+    content_length: i64,
+) -> serde_json::Value {
+    json!({
+        "content_digest_sha256": content_digest_sha256,
+        "content_length": content_length
+    })
+}
+
+// Happy path tests
+
+#[tokio::test]
+async fn test_upload_media_happy_path() {
+    let setup = TestSetup::new(None).await;
+
+    let content_digest_sha256 = create_valid_sha256();
+    let payload = create_upload_request(content_digest_sha256.clone(), 1024);
+
+    let response = setup
+        .send_post_request("/v1/media/presigned-urls", payload)
+        .await
+        .expect("Failed to send request");
+
+    assert_eq!(response.status(), StatusCode::OK);
+
+    let body = parse_response_body(response).await;
+    assert!(body["presigned_url"].is_string());
+    assert!(body["expires_at"].is_string());
+
+    let presigned_url = body["presigned_url"].as_str().unwrap();
+    assert!(presigned_url.contains("localhost:4566")); // LocalStack URL
+}
+
+#[tokio::test]
+async fn test_upload_media_valid_content_lengths() {
+    let setup = TestSetup::new(None).await;
+
+    // Test various valid content lengths
+    let test_cases = vec![1, 1024, 1_048_576, 15_728_640]; // 1 byte to 15 MiB
+
+    for content_length in test_cases {
+        let content_digest_sha256 = create_valid_sha256();
+        let payload = create_upload_request(content_digest_sha256, content_length);
+
+        let response = setup
+            .send_post_request("/v1/media/presigned-urls", payload)
+            .await
+            .expect("Failed to send request");
+
+        assert_eq!(
+            response.status(),
+            StatusCode::OK,
+            "Failed for content_length: {}",
+            content_length
+        );
+    }
+}
+
+// Validation error tests (schemars validation - expect 400 instead of custom errors)
+
+#[tokio::test]
+async fn test_upload_media_invalid_sha256_format() {
+    let setup = TestSetup::new(None).await;
+
+    let payload = create_upload_request("invalid_sha256_digest".to_string(), 1024);
+
+    let response = setup
+        .send_post_request("/v1/media/presigned-urls", payload)
+        .await
+        .expect("Failed to send request");
+
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+}
+
+#[tokio::test]
+async fn test_upload_media_short_sha256() {
+    let setup = TestSetup::new(None).await;
+
+    let payload = create_upload_request("abc123".to_string(), 1024);
+
+    let response = setup
+        .send_post_request("/v1/media/presigned-urls", payload)
+        .await
+        .expect("Failed to send request");
+
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+}
+
+#[tokio::test]
+async fn test_upload_media_content_length_too_large() {
+    let setup = TestSetup::new(None).await;
+
+    let content_digest_sha256 = create_valid_sha256();
+    let payload = create_upload_request(content_digest_sha256, 15_728_641); // 15 MiB + 1 byte
+
+    let response = setup
+        .send_post_request("/v1/media/presigned-urls", payload)
+        .await
+        .expect("Failed to send request");
+
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+}
+
+#[tokio::test]
+async fn test_upload_media_content_length_zero() {
+    let setup = TestSetup::new(None).await;
+
+    let content_digest_sha256 = create_valid_sha256();
+    let payload = create_upload_request(content_digest_sha256, 0);
+
+    let response = setup
+        .send_post_request("/v1/media/presigned-urls", payload)
+        .await
+        .expect("Failed to send request");
+
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+}
+
+#[tokio::test]
+async fn test_upload_media_content_length_negative() {
+    let setup = TestSetup::new(None).await;
+
+    let content_digest_sha256 = create_valid_sha256();
+    let payload = create_upload_request(content_digest_sha256, -1);
+
+    let response = setup
+        .send_post_request("/v1/media/presigned-urls", payload)
+        .await
+        .expect("Failed to send request");
+
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+}
+
+// Malformed request tests
+
+#[tokio::test]
+async fn test_upload_media_missing_sha256() {
+    let setup = TestSetup::new(None).await;
+
+    let payload = json!({
+        "content_length": 1024
+        // Missing content_digest_sha256
+    });
+
+    let response = setup
+        .send_post_request("/v1/media/presigned-urls", payload)
+        .await
+        .expect("Failed to send request");
+
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+}
+
+#[tokio::test]
+async fn test_upload_media_missing_content_length() {
+    let setup = TestSetup::new(None).await;
+
+    let payload = json!({
+        "content_digest_sha256": create_valid_sha256()
+        // Missing content_length
+    });
+
+    let response = setup
+        .send_post_request("/v1/media/presigned-urls", payload)
+        .await
+        .expect("Failed to send request");
+
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+}
+
+#[tokio::test]
+async fn test_upload_media_empty_json() {
+    let setup = TestSetup::new(None).await;
+
+    let payload = json!({});
+
+    let response = setup
+        .send_post_request("/v1/media/presigned-urls", payload)
+        .await
+        .expect("Failed to send request");
+
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+}
+
+#[tokio::test]
+async fn test_upload_media_invalid_json_types() {
+    let setup = TestSetup::new(None).await;
+
+    let payload = json!({
+        "content_digest_sha256": 12345, // Should be string
+        "content_length": "invalid" // Should be number
+    });
+
+    let response = setup
+        .send_post_request("/v1/media/presigned-urls", payload)
+        .await
+        .expect("Failed to send request");
+
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+}
+
+// Edge case tests
+
+#[tokio::test]
+async fn test_upload_media_exact_max_content_length() {
+    let setup = TestSetup::new(None).await;
+
+    let content_digest_sha256 = create_valid_sha256();
+    let payload = create_upload_request(content_digest_sha256, 15_728_640); // Exactly 15 MiB
+
+    let response = setup
+        .send_post_request("/v1/media/presigned-urls", payload)
+        .await
+        .expect("Failed to send request");
+
+    assert_eq!(response.status(), StatusCode::OK);
+}
+
+#[tokio::test]
+async fn test_upload_media_minimum_content_length() {
+    let setup = TestSetup::new(None).await;
+
+    let content_digest_sha256 = create_valid_sha256();
+    let payload = create_upload_request(content_digest_sha256.clone(), 1); // Minimum allowed
+
+    let response = setup
+        .send_post_request("/v1/media/presigned-urls", payload)
+        .await
+        .expect("Failed to send request");
+
+    let status = response.status();
+    assert_eq!(status, StatusCode::OK);
+}
+
+#[tokio::test]
+async fn test_upload_media_special_hex_characters() {
+    let setup = TestSetup::new(None).await;
+
+    // Test with all valid hex characters
+    let content_digest_sha256 = "abcdef0123456789".repeat(4); // 64 chars of valid hex
+    let payload = create_upload_request(content_digest_sha256, 1024);
+
+    let response = setup
+        .send_post_request("/v1/media/presigned-urls", payload)
+        .await
+        .expect("Failed to send request");
+
+    assert_eq!(response.status(), StatusCode::OK);
+}
+
+#[tokio::test]
+async fn test_upload_media_uppercase_hex() {
+    let setup = TestSetup::new(None).await;
+
+    // Test uppercase hex (should be rejected by schemars regex)
+    let content_digest_sha256 = "ABCDEF0123456789".repeat(4); // 64 chars of uppercase hex
+    let payload = create_upload_request(content_digest_sha256, 1024);
+
+    let response = setup
+        .send_post_request("/v1/media/presigned-urls", payload)
+        .await
+        .expect("Failed to send request");
+
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+}
+
+#[tokio::test]
+async fn test_upload_media_extra_fields() {
+    let setup = TestSetup::new(None).await;
+
+    // Test schemars deny_unknown_fields
+    let payload = json!({
+        "content_digest_sha256": create_valid_sha256(),
+        "content_length": 1024,
+        "extra_field": "should_be_rejected"
+    });
+
+    let response = setup
+        .send_post_request("/v1/media/presigned-urls", payload)
+        .await
+        .expect("Failed to send request");
+
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+}
+
+// Testing e2e upload flows
 
 #[tokio::test]
 async fn test_e2e_upload_happy_path() {
-    let setup = E2ETestSetup::new(None).await;
+    let setup = TestSetup::new(None).await;
 
     // Step 1: Generate test image data with known SHA-256
     let (image_data, sha256) = generate_test_encrypted_image(2048);
@@ -27,7 +317,7 @@ async fn test_e2e_upload_happy_path() {
 
     assert_eq!(
         response.status(),
-        200,
+        StatusCode::OK,
         "Expected 200 OK for presigned URL request"
     );
 
@@ -103,10 +393,7 @@ async fn test_e2e_upload_happy_path() {
         sha256, downloaded_sha256
     );
 
-    assert!(
-        verify_data_integrity(&image_data, &downloaded_data),
-        "Data integrity check failed"
-    );
+    assert!(image_data == downloaded_data, "Data integrity check failed");
 
     println!("✅ Data integrity verified!");
 
@@ -123,7 +410,7 @@ async fn test_e2e_upload_happy_path() {
 
     assert_eq!(
         duplicate_response.status(),
-        409,
+        StatusCode::CONFLICT,
         "Expected 409 Conflict for duplicate SHA-256"
     );
 
@@ -134,7 +421,7 @@ async fn test_e2e_upload_happy_path() {
 
 #[tokio::test]
 async fn test_e2e_upload_with_wrong_checksum() {
-    let setup = E2ETestSetup::new(None).await;
+    let setup = TestSetup::new(None).await;
 
     // Step 1: Generate test image data with known SHA-256
     let (image_data, sha256) = generate_test_encrypted_image(2048);
@@ -157,7 +444,7 @@ async fn test_e2e_upload_with_wrong_checksum() {
 
     assert_eq!(
         response.status(),
-        200,
+        StatusCode::OK,
         "Expected 200 OK for presigned URL request"
     );
 
@@ -224,7 +511,7 @@ async fn test_e2e_upload_with_wrong_checksum() {
 
 #[tokio::test]
 async fn test_e2e_upload_with_wrong_content_length() {
-    let setup = E2ETestSetup::new(None).await;
+    let setup = TestSetup::new(None).await;
 
     // Step 1: Generate test image data with known SHA-256
     let (image_data, sha256) = generate_test_encrypted_image(2048);
@@ -247,7 +534,7 @@ async fn test_e2e_upload_with_wrong_content_length() {
 
     assert_eq!(
         response.status(),
-        200,
+        StatusCode::OK,
         "Expected 200 OK for presigned URL request"
     );
 
@@ -315,7 +602,7 @@ async fn test_e2e_upload_with_wrong_content_length() {
 #[tokio::test]
 async fn test_e2e_upload_with_expired_presigned_url() {
     // 1 second presigned url expiry
-    let setup = E2ETestSetup::new(Some(1)).await;
+    let setup = TestSetup::new(Some(1)).await;
 
     // Step 1: Generate test image data with known SHA-256
     let (image_data, sha256) = generate_test_encrypted_image(2048);
@@ -338,7 +625,7 @@ async fn test_e2e_upload_with_expired_presigned_url() {
 
     assert_eq!(
         response.status(),
-        200,
+        StatusCode::OK,
         "Expected 200 OK for presigned URL request"
     );
 
@@ -352,7 +639,7 @@ async fn test_e2e_upload_with_expired_presigned_url() {
         serde_json::to_string_pretty(&response_body).unwrap()
     );
 
-    tokio::time::sleep(Duration::from_secs(1)).await;
+    tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
 
     // Extract response fields
     let presigned_url = response_body["presigned_url"]
