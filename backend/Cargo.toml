@@ -12,6 +12,7 @@ path = "src/main.rs"
 # Web framework
 aide = { workspace = true }
 axum = { workspace = true }
+axum-jsonschema = { workspace = true }
 tower = { workspace = true }
 tower-http = { workspace = true }
 
@@ -40,9 +41,6 @@ chrono = { workspace = true }
 # Schema generation for OpenAPI
 schemars = { workspace = true }
 
-# Environment loading
-dotenvy = { workspace = true }
-
 # Encoding
 base64 = { workspace = true }
 hex = { workspace = true }
@@ -53,3 +51,10 @@ tower = { workspace = true }
 tokio-test = { workspace = true }
 tempfile = { workspace = true }
 uuid = { workspace = true }
+reqwest = { workspace = true }
+sha2 = { workspace = true }
+url = { workspace = true }
+dotenvy = { workspace = true }
+serial_test = { workspace = true }
+rand = { workspace = true }
+http = { workspace = true }
