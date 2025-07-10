@@ -1,10 +1,10 @@
 #[path = "../common/mod.rs"]
 mod common;
 
+use super::utils::*;
 use aws_sdk_s3::Client as S3Client;
 use axum::Extension;
 use backend::{media_storage::MediaStorage, routes, types::Environment};
-use common::e2e_utils::*;
 use common::*;
 use std::sync::Arc;
 use tokio::time::Duration;
@@ -13,8 +13,6 @@ use tokio::time::Duration;
 pub struct E2ETestSetup {
     pub router: axum::Router,
     pub s3_client: Arc<S3Client>,
-    pub media_storage: Arc<MediaStorage>,
-    pub environment: Environment,
     pub bucket_name: String,
 }
 
@@ -47,15 +45,8 @@ impl E2ETestSetup {
         Self {
             router,
             s3_client,
-            media_storage,
-            environment,
             bucket_name,
         }
-    }
-
-    /// Get presigned URL expiry duration for testing
-    pub fn presigned_url_expiry_secs(&self) -> u64 {
-        self.environment.presigned_url_expiry_secs()
     }
 }
 

@@ -53,7 +53,6 @@ async fn test_upload_media_invalid_sha256_format() {
     let response = send_post_request("/v1/media/presigned-urls", payload).await;
 
     assert_eq!(response.status(), StatusCode::BAD_REQUEST);
-    // With schemars, we get 400 BAD_REQUEST instead of custom error structure
 }
 
 #[tokio::test]
