@@ -18,13 +18,13 @@ pub struct ApiErrorResponse {
     /// Whether the client should retry the request
     pub allow_retry: bool,
     /// Error details
-    pub error: ErrorBody,
+    error: ErrorBody,
 }
 
 /// Error body containing code and message
 #[derive(Debug, Serialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
-pub struct ErrorBody {
+struct ErrorBody {
     /// Machine-readable error code
     pub code: &'static str,
     /// Human-readable error message
@@ -101,7 +101,7 @@ impl From<BucketError> for AppError {
 
         match &err {
             ObjectExists(id) => {
-                tracing::info!("Object already exists: {id}");
+                tracing::debug!("Object already exists: {id}");
                 Self::new(
                     StatusCode::CONFLICT,
                     "already_exists",
