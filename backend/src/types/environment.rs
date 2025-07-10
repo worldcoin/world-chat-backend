@@ -133,14 +133,14 @@ impl Environment {
     pub fn presigned_url_expiry_secs(&self) -> u64 {
         match self {
             Self::Production | Self::Staging => {
-                // Default: 15 minutes
-                15 * 60
+                // Default: 3 minutes
+                3 * 60
             }
             Self::Development {
                 presign_expiry_override,
             } => {
-                // Use override if provided, otherwise default to 15 minutes
-                presign_expiry_override.unwrap_or(15 * 60)
+                // Use override if provided, otherwise default to 3 minutes
+                presign_expiry_override.unwrap_or(3 * 60)
             }
         }
     }
@@ -199,11 +199,11 @@ mod tests {
     #[test]
     #[serial]
     fn test_presigned_url_expiry_secs() {
-        // Test default value (15 minutes = 900 seconds)
+        // Test default value (3 minutes = 180 seconds)
         let env = Environment::Development {
             presign_expiry_override: None,
         };
-        assert_eq!(env.presigned_url_expiry_secs(), 900);
+        assert_eq!(env.presigned_url_expiry_secs(), 180);
 
         // Test custom value
         let env = Environment::Development {
@@ -213,10 +213,10 @@ mod tests {
 
         // Test Production and Staging always use default
         let env = Environment::Production;
-        assert_eq!(env.presigned_url_expiry_secs(), 900);
+        assert_eq!(env.presigned_url_expiry_secs(), 180);
 
         let env = Environment::Staging;
-        assert_eq!(env.presigned_url_expiry_secs(), 900);
+        assert_eq!(env.presigned_url_expiry_secs(), 180);
     }
 
     #[test]
@@ -244,7 +244,7 @@ mod tests {
                 presign_expiry_override: None
             }
         );
-        assert_eq!(env.presigned_url_expiry_secs(), 900);
+        assert_eq!(env.presigned_url_expiry_secs(), 180);
 
         // Cleanup
         env::remove_var("PRESIGNED_URL_EXPIRY_SECS");
