@@ -81,17 +81,6 @@ impl PushNotificationStorage {
         }
     }
 
-    /// Rounds a timestamp to the nearest minute for privacy
-    const fn round_to_minute(timestamp: DateTime<Utc>) -> i64 {
-        let seconds = timestamp.timestamp();
-        let remainder = seconds % 60;
-        if remainder >= 30 {
-            seconds + (60 - remainder)
-        } else {
-            seconds - remainder
-        }
-    }
-
     /// Inserts a new push subscription
     ///
     /// # Arguments
@@ -105,17 +94,12 @@ impl PushNotificationStorage {
         &self,
         subscription: &PushSubscription,
     ) -> PushNotificationStorageResult<()> {
-        // Round TTL to nearest minute for privacy
-        let timestamp = DateTime::from_timestamp(subscription.ttl, 0)
-            .ok_or(PushNotificationStorageError::InvalidTtlError)?;
-        let rounded_ttl = Self::round_to_minute(timestamp);
-
         // Add random offset: 1 minute to 24 hours (uniform distribution)
         let random_offset = {
             let mut rng = rand::thread_rng();
             rng.gen_range(60..=86400) // 60 seconds to 24 hours
         };
-        let distributed_ttl = rounded_ttl + random_offset;
+        let distributed_ttl = subscription.ttl + random_offset;
 
         // Create a modified subscription with distributed TTL
         let subscription_to_store = PushSubscription {
