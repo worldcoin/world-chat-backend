@@ -49,7 +49,7 @@ async fn setup_test() -> TestContext {
     let gsi_name = "topic-index";
 
     // Configure AWS SDK for LocalStack
-    let creds = Credentials::from_keys(
+    let credentials = Credentials::from_keys(
         "test", // AWS_ACCESS_KEY_ID
         "test", // AWS_SECRET_ACCESS_KEY
         None,   // no session token
@@ -57,13 +57,13 @@ async fn setup_test() -> TestContext {
     let config = aws_config::defaults(BehaviorVersion::latest())
         .endpoint_url(LOCALSTACK_ENDPOINT)
         .region(Region::new(TEST_REGION))
-        .credentials_provider(creds)
+        .credentials_provider(credentials)
         .load()
         .await;
 
     let dynamodb_client = Arc::new(DynamoDbClient::new(&config));
 
-    // Create table
+    // Create a table to avoid race conditions among tests
     dynamodb_client
         .create_table()
         .table_name(&table_name)

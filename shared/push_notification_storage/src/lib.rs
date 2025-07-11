@@ -19,7 +19,6 @@ use aws_sdk_dynamodb::{
     types::{AttributeValue, Select},
     Client as DynamoDbClient,
 };
-use chrono::{DateTime, Utc};
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 
@@ -32,7 +31,10 @@ use strum::Display;
 pub enum PushSubscriptionAttribute {
     /// HMAC identifier (Primary Key)
     Hmac,
-    /// Topic name (Global Secondary Index)
+    /// (Global Secondary Index)
+    /// This field references the conversation a user has enabled push notifications for.
+    /// Topic or Topic ID is interchangeably used in the XMTP docs.  
+    /// https://docs.xmtp.org/inboxes/push-notifs/understand-push-notifs  
     Topic,
     /// TTL timestamp
     Ttl,
