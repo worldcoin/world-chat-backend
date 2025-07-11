@@ -4,7 +4,7 @@ members = [
     "enclave-worker",
     "secure-enclave",
     "shared/queue",
-    "shared/storage",
+    "shared/push_notification_storage",
 ]
 resolver = "2"
 
@@ -56,9 +56,18 @@ aws-config = "1.5"
 aws-sdk-sqs = "1.64"
 aws-sdk-dynamodb = "1.82"
 aws-sdk-s3 = "1.82"
+aws-credential-types = { version = "1.2.3" , features = ["hardcoded-credentials"]}
+
 
 # Schema generation for OpenAPI
 schemars = { version = "0.8.21", features = ["derive"] }
+
+# DynamoDB serialization
+serde_dynamo = { version = "4", features = ["aws-sdk-dynamodb+1"] }
+
+# Strum
+strum = { version = "0.24.1", features = ["derive"] }
+
 
 # Test dependencies
 http-body-util = "0.1.3"

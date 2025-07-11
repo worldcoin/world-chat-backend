@@ -5,7 +5,7 @@ services:
     ports:
       - "4566:4566"
     environment:
-      - SERVICES=s3
+      - SERVICES=s3,dynamodb
       - DISABLE_EVENTS=1
       # Localstack disables signature validation by default, but we need it for testing
       # https://docs.localstack.cloud/aws/capabilities/config/configuration/#s3

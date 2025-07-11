@@ -121,6 +121,32 @@ impl Environment {
         builder.build()
     }
 
+    /// AWS Dynamo DB service configuration
+    pub async fn dynamodb_client_config(&self) -> aws_sdk_dynamodb::Config {
+        let aws_config = self.aws_config().await;
+        aws_sdk_dynamodb::Config::from(&aws_config)
+    }
+
+    /// Returns the Dynamo DB table name for push subscriptions
+    ///
+    /// # Panics
+    ///
+    /// Panics if the `DYNAMODB_PUSH_TABLE_NAME` environment variable is not set in production/staging
+    #[must_use]
+    pub fn dynamodb_push_table_name(&self) -> String {
+        match self {
+            Self::Production | Self::Staging => env::var("DYNAMODB_PUSH_TABLE_NAME")
+                .expect("DYNAMODB_PUSH_TABLE_NAME environment variable is not set"),
+            Self::Development { .. } => "world-chat-push-subscriptions".to_string(),
+        }
+    }
+
+    /// Returns the Dynamo DB GSI name for topic queries
+    #[must_use]
+    pub fn dynamodb_push_gsi_name(&self) -> String {
+        env::var("DYNAMODB_PUSH_GSI_NAME").unwrap_or_else(|_| "topic-index".to_string())
+    }
+
     /// Presigned URL expiry time in seconds
     #[must_use]
     pub fn presigned_url_expiry_secs(&self) -> u64 {

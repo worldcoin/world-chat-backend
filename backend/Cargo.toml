@@ -34,6 +34,7 @@ thiserror = { workspace = true }
 # AWS SDK
 aws-config = { workspace = true }
 aws-sdk-s3 = { workspace = true }
+aws-sdk-dynamodb = { workspace = true }
 
 # Time
 chrono = { workspace = true }
