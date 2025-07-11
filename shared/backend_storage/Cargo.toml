@@ -1,5 +1,5 @@
 [package]
-name = "push_notification_storage"
+name = "backend_storage"
 version = { workspace = true }
 edition = { workspace = true }
 license = { workspace = true }
@@ -8,7 +8,6 @@ license = { workspace = true }
 # AWS SDK
 aws-config = { workspace = true }
 aws-sdk-dynamodb = { workspace = true }
-aws-credential-types = { workspace = true }
 
 # Async
 tokio = { workspace = true }
@@ -38,3 +37,4 @@ rand = { workspace = true }
 [dev-dependencies]
 tokio-test = { workspace = true }
 uuid = { workspace = true }
+aws-credential-types = { version = "1.2.3" , features = ["hardcoded-credentials"]}
