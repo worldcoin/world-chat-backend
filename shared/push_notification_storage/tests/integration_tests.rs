@@ -7,7 +7,7 @@ use aws_sdk_dynamodb::types::{
     ProjectionType, ScalarAttributeType,
 };
 use aws_sdk_dynamodb::Client as DynamoDbClient;
-use chrono::{TimeZone, Utc};
+use chrono::Utc;
 use push_notification_storage::{
     PushNotificationStorage, PushNotificationStorageError, PushSubscription,
     PushSubscriptionAttribute,
@@ -43,6 +43,8 @@ impl Drop for TestContext {
 
 /// Creates a test setup with a unique table
 async fn setup_test() -> TestContext {
+    dotenvy::from_path(".env.example").ok();
+
     // Create unique table name
     let table_name = format!("test-push-subscriptions-{}", Uuid::new_v4());
     let gsi_name = "topic-index";
@@ -195,59 +197,6 @@ async fn test_basic_crud_operations() {
         .await
         .expect("Failed to check existence after delete");
     assert!(!exists);
-}
-
-#[tokio::test]
-async fn test_ttl_rounding() {
-    let context = setup_test().await;
-
-    // Test rounding down (< 30 seconds)
-    let mut subscription = create_test_subscription("test-topic");
-    let base_time = Utc.with_ymd_and_hms(2024, 1, 1, 12, 30, 20).unwrap();
-    subscription.ttl = base_time.timestamp();
-
-    context
-        .storage
-        .insert(&subscription)
-        .await
-        .expect("Failed to insert subscription");
-
-    let retrieved = context
-        .storage
-        .get_all_by_topic(&subscription.topic)
-        .await
-        .expect("Failed to get by topic");
-
-    // Should round down to 12:30:00
-    let expected_ttl = Utc
-        .with_ymd_and_hms(2024, 1, 1, 12, 30, 0)
-        .unwrap()
-        .timestamp();
-    assert_eq!(retrieved[0].ttl, expected_ttl);
-
-    // Test rounding up (>= 30 seconds)
-    let mut subscription2 = create_test_subscription("test-topic-2");
-    let base_time2 = Utc.with_ymd_and_hms(2024, 1, 1, 12, 30, 45).unwrap();
-    subscription2.ttl = base_time2.timestamp();
-
-    context
-        .storage
-        .insert(&subscription2)
-        .await
-        .expect("Failed to insert subscription");
-
-    let retrieved2 = context
-        .storage
-        .get_all_by_topic(&subscription2.topic)
-        .await
-        .expect("Failed to get by topic");
-
-    // Should round up to 12:31:00
-    let expected_ttl2 = Utc
-        .with_ymd_and_hms(2024, 1, 1, 12, 31, 0)
-        .unwrap()
-        .timestamp();
-    assert_eq!(retrieved2[0].ttl, expected_ttl2);
 }
 
 #[tokio::test]

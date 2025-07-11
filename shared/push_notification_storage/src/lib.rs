@@ -1,4 +1,6 @@
 //! Push notification storage integration using Dynamo DB
+//!
+//! Push Notification Storage holds subscription to topics, used by the backend and enclave worker
 
 #![deny(
     clippy::all,
@@ -18,6 +20,7 @@ use aws_sdk_dynamodb::{
     Client as DynamoDbClient,
 };
 use chrono::{DateTime, Utc};
+use rand::Rng;
 use serde::{Deserialize, Serialize};
 
 pub use error::{PushNotificationStorageError, PushNotificationStorageResult};
@@ -107,9 +110,16 @@ impl PushNotificationStorage {
             .ok_or(PushNotificationStorageError::InvalidTtlError)?;
         let rounded_ttl = Self::round_to_minute(timestamp);
 
-        // Create a modified subscription with rounded TTL
+        // Add random offset: 1 minute to 24 hours (uniform distribution)
+        let random_offset = {
+            let mut rng = rand::thread_rng();
+            rng.gen_range(60..=86400) // 60 seconds to 24 hours
+        };
+        let distributed_ttl = rounded_ttl + random_offset;
+
+        // Create a modified subscription with distributed TTL
         let subscription_to_store = PushSubscription {
-            ttl: rounded_ttl,
+            ttl: distributed_ttl,
             ..subscription.clone()
         };
 
