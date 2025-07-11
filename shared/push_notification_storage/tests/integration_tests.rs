@@ -2,6 +2,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use aws_config::{BehaviorVersion, Region};
+use aws_credential_types::Credentials;
 use aws_sdk_dynamodb::types::{
     AttributeDefinition, GlobalSecondaryIndex, KeySchemaElement, KeyType, Projection,
     ProjectionType, ScalarAttributeType,
@@ -43,16 +44,20 @@ impl Drop for TestContext {
 
 /// Creates a test setup with a unique table
 async fn setup_test() -> TestContext {
-    dotenvy::from_path(".env.example").ok();
-
     // Create unique table name
     let table_name = format!("test-push-subscriptions-{}", Uuid::new_v4());
     let gsi_name = "topic-index";
 
     // Configure AWS SDK for LocalStack
+    let creds = Credentials::from_keys(
+        "test", // AWS_ACCESS_KEY_ID
+        "test", // AWS_SECRET_ACCESS_KEY
+        None,   // no session token
+    );
     let config = aws_config::defaults(BehaviorVersion::latest())
         .endpoint_url(LOCALSTACK_ENDPOINT)
         .region(Region::new(TEST_REGION))
+        .credentials_provider(creds)
         .load()
         .await;
 

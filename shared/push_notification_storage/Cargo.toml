@@ -8,6 +8,7 @@ license = { workspace = true }
 # AWS SDK
 aws-config = { workspace = true }
 aws-sdk-dynamodb = { workspace = true }
+aws-credential-types = { workspace = true }
 
 # Async
 tokio = { workspace = true }
@@ -37,4 +38,3 @@ rand = { workspace = true }
 [dev-dependencies]
 tokio-test = { workspace = true }
 uuid = { workspace = true }
-dotenvy = { workspace = true }

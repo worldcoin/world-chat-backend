@@ -2289,9 +2289,9 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "aws-config",
+ "aws-credential-types",
  "aws-sdk-dynamodb",
  "chrono",
- "dotenvy",
  "rand 0.8.5",
  "serde",
  "serde_dynamo",
