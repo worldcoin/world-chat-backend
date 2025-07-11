@@ -31,10 +31,12 @@ use strum::Display;
 pub enum PushSubscriptionAttribute {
     /// HMAC identifier (Primary Key)
     Hmac,
-    /// (Global Secondary Index)
+    /// This field is a Global Secondary Index.
+    ///
     /// This field references the conversation a user has enabled push notifications for.
-    /// Topic or Topic ID is interchangeably used in the XMTP docs.  
-    /// https://docs.xmtp.org/inboxes/push-notifs/understand-push-notifs  
+    /// Topic or Topic ID is interchangeably used in the XMTP docs.
+    ///
+    /// Source: `https://docs.xmtp.org/inboxes/push-notifs/understand-push-notifs`
     Topic,
     /// TTL timestamp
     Ttl,
