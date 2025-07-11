@@ -8,11 +8,11 @@ use aws_sdk_dynamodb::types::{
     ProjectionType, ScalarAttributeType,
 };
 use aws_sdk_dynamodb::Client as DynamoDbClient;
-use chrono::Utc;
-use push_notification_storage::{
+use backend_storage::push_notification::{
     PushNotificationStorage, PushNotificationStorageError, PushSubscription,
     PushSubscriptionAttribute,
 };
+use chrono::Utc;
 use uuid::Uuid;
 
 /// Test configuration for LocalStack
