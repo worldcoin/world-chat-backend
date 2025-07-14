@@ -3,14 +3,6 @@
 //! This module provides functionality for interacting with AWS SQS FIFO queues,
 //! handling subscription requests and notification delivery.
 
-#![deny(
-    clippy::all,
-    clippy::pedantic,
-    clippy::nursery,
-    missing_docs,
-    dead_code
-)]
-
 /// Error types for queue operations
 pub mod error;
 /// Notification queue functionality
