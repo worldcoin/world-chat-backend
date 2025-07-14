@@ -48,7 +48,7 @@ base64 = { workspace = true }
 hex = { workspace = true }
 
 # Backend Storage
-backend_storage = { path = "../shared/backend_storage" }
+backend_storage = { workspace = true }
 
 [dev-dependencies]
 http-body-util = { workspace = true }

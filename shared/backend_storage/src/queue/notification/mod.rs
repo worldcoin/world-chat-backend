@@ -65,12 +65,6 @@ impl NotificationQueue {
 
     /// Polls messages from the queue
     ///
-    /// # Arguments
-    ///
-    /// * `max_messages` - Maximum number of messages to retrieve (uses default if None)
-    /// * `visibility_timeout` - How long messages remain invisible to other consumers (uses default if None)
-    /// * `wait_time_seconds` - Long polling wait time (uses default if None)
-    ///
     /// # Returns
     ///
     /// A vector of notification messages
