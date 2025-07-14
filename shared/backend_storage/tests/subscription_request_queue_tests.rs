@@ -25,7 +25,7 @@ async fn test_send_consume_ack_happy_path() {
         hmac: "user123".to_string(),
         encrypted_braze_id: "encrypted_abc123".to_string(),
         topic: "news_updates".to_string(),
-        ttl: Duration::from_secs(86400), // 24 hours
+        ttl: 86400, // 24 hours
     };
 
     // Send message
@@ -89,14 +89,14 @@ async fn test_fifo_message_group_ordering() {
         hmac: "user1".to_string(),
         encrypted_braze_id: "enc_1".to_string(),
         topic: "topic1".to_string(),
-        ttl: Duration::from_secs(3600),
+        ttl: 3600,
     };
 
     let msg2_user2 = SubscriptionRequest::Subscribe {
         hmac: "user2".to_string(),
         encrypted_braze_id: "enc_2".to_string(),
         topic: "topic2".to_string(),
-        ttl: Duration::from_secs(3600),
+        ttl: 3600,
     };
 
     let msg3_user1 = SubscriptionRequest::Unsubscribe {
@@ -165,14 +165,14 @@ async fn test_fifo_message_group_ordering() {
         hmac: "user1".to_string(),
         encrypted_braze_id: "enc_1".to_string(),
         topic: "topic3".to_string(),
-        ttl: Duration::from_secs(3600),
+        ttl: 3600,
     };
 
     let msg5_user1 = SubscriptionRequest::Subscribe {
         hmac: "user1".to_string(),
         encrypted_braze_id: "enc_1".to_string(),
         topic: "topic4".to_string(),
-        ttl: Duration::from_secs(3600),
+        ttl: 3600,
     };
 
     queue

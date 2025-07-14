@@ -1,5 +1,4 @@
 use serde::{Deserialize, Serialize};
-use std::time::Duration;
 
 /// Subscription request message types
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -13,8 +12,8 @@ pub enum SubscriptionRequest {
         encrypted_braze_id: String,
         /// Topic to subscribe to
         topic: String,
-        /// Time-to-live duration
-        ttl: Duration,
+        /// Time-to-live duration (unix timestamp in seconds)
+        ttl: i64,
     },
     /// Unsubscribe from a topic
     Unsubscribe {
