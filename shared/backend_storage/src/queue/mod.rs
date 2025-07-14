@@ -7,6 +7,8 @@
 pub mod error;
 /// Notification queue functionality
 pub mod notification;
+/// Generic SQS queue implementation
+pub mod sqs_queue;
 /// Subscription request queue functionality
 pub mod subscription_request;
 /// Common types for queue operations
