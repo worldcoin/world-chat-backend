@@ -2,10 +2,11 @@
 
 mod common;
 
-use backend_storage::queue::{QueueConfig, SubscriptionRequest, SubscriptionRequestQueue};
+use backend_storage::queue::{
+    QueueConfig, Recipient, SubscriptionRequest, SubscriptionRequestQueue,
+};
 use common::{assert_queue_message, QueueTestContext};
 use pretty_assertions::assert_eq;
-use std::time::Duration;
 
 #[tokio::test]
 async fn test_send_consume_ack_happy_path() {
@@ -25,7 +26,7 @@ async fn test_send_consume_ack_happy_path() {
         hmac: "user123".to_string(),
         encrypted_braze_id: "encrypted_abc123".to_string(),
         topic: "news_updates".to_string(),
-        ttl: 86400, // 24 hours
+        ttl: 86400, // 24 hours in seconds
     };
 
     // Send message
@@ -103,6 +104,7 @@ async fn test_fifo_message_group_ordering() {
         hmac: "user1".to_string(),
         encrypted_braze_id: "enc_1".to_string(),
         topic: "topic1".to_string(),
+        topic_members: vec![],
     };
 
     // Send messages
@@ -215,11 +217,21 @@ async fn test_unsubscribe_request_type() {
     };
     let queue = SubscriptionRequestQueue::new(ctx.sqs_client.clone(), config);
 
-    // Test Unsubscribe variant
+    // Test Unsubscribe variant with topic_members
     let unsubscribe_request = SubscriptionRequest::Unsubscribe {
         hmac: "user456".to_string(),
         encrypted_braze_id: "encrypted_xyz789".to_string(),
         topic: "daily_digest".to_string(),
+        topic_members: vec![
+            Recipient {
+                encrypted_braze_id: "encrypted_user1".to_string(),
+                hmac: "hmac_user1".to_string(),
+            },
+            Recipient {
+                encrypted_braze_id: "encrypted_user2".to_string(),
+                hmac: "hmac_user2".to_string(),
+            },
+        ],
     };
 
     // Send message

@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 pub enum SubscriptionRequest {
     /// Subscribe to a topic
     Subscribe {
-        /// HMAC identifier
+        /// HMAC derrived from user, topic and is installation specific
         hmac: String,
         /// Encrypted Braze ID
         encrypted_braze_id: String,
@@ -17,12 +17,14 @@ pub enum SubscriptionRequest {
     },
     /// Unsubscribe from a topic
     Unsubscribe {
-        /// HMAC identifier
+        /// HMAC derrived from user, topic and is installation specific
         hmac: String,
-        /// Encrypted Braze ID
+        /// Encrypted Braze ID of the user who is unsubscribing
         encrypted_braze_id: String,
         /// Topic to unsubscribe from
         topic: String,
+        /// Subscribers of the same topic
+        topic_members: Vec<Recipient>,
     },
 }
 
