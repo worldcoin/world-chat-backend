@@ -80,6 +80,7 @@ jobs:
       - name: Health check LocalStack
         run: |
           curl -s http://localhost:4566/_localstack/health | jq -e '.services.s3 == "running"'
+          curl -s http://localhost:4566/_localstack/health | jq -e '.services.dynamodb == "running"'
           curl -s http://localhost:4566/_localstack/health | jq -e '.services.sqs == "running"'
 
       - name: Run tests
