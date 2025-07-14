@@ -25,43 +25,4 @@ pub enum QueueError {
     /// Error serializing message to JSON
     #[error("Failed to serialize message: {0}")]
     SerializationError(#[from] serde_json::Error),
-
-    /// Error deserializing message from JSON
-    #[error("Failed to deserialize message: {0}")]
-    DeserializationError(String),
-
-    /// Invalid message format
-    #[error("Invalid message format: {0}")]
-    InvalidMessage(String),
-
-    /// Message group ID is required for FIFO queues
-    #[error("Message group ID required for FIFO queue")]
-    MissingMessageGroupId,
-
-    /// Upstream service error (5xx)
-    #[error("Upstream service error")]
-    UpstreamError,
-}
-
-impl QueueError {
-    /// Checks if this error represents an upstream (5xx) error
-    #[must_use]
-    pub fn is_upstream_error(&self) -> bool {
-        match self {
-            Self::ReceiveMessage(sdk_err) => Self::check_sdk_error_status(sdk_err),
-            Self::SendMessage(sdk_err) => Self::check_sdk_error_status(sdk_err),
-            Self::DeleteMessage(sdk_err) => Self::check_sdk_error_status(sdk_err),
-            Self::UpstreamError => true,
-            _ => false,
-        }
-    }
-
-    fn check_sdk_error_status<E>(sdk_err: &SdkError<E>) -> bool {
-        if let SdkError::ServiceError(err) = sdk_err {
-            let raw = err.raw();
-            let status = raw.status();
-            return status.as_u16() >= 500;
-        }
-        false
-    }
 }
