@@ -4,7 +4,7 @@
 
 use crate::queue::{
     error::QueueResult,
-    types::{Notification, QueueConfig, QueueMessage},
+    types::{MessageGroupId, Notification, QueueConfig, QueueMessage},
 };
 use aws_sdk_sqs::Client as SqsClient;
 use std::sync::Arc;
@@ -44,16 +44,13 @@ impl NotificationQueue {
         // Serialize the message
         let body = serde_json::to_string(message)?;
 
-        // Use topic as message group ID for FIFO ordering
-        let message_group_id = message.topic.clone();
-
         // Send to SQS
         let result = self
             .sqs_client
             .send_message()
             .queue_url(&self.config.queue_url)
             .message_body(body)
-            .message_group_id(message_group_id)
+            .message_group_id(message.message_group_id())
             .send()
             .await?;
 

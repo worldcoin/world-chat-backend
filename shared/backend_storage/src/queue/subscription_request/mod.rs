@@ -4,7 +4,7 @@
 
 use crate::queue::{
     error::QueueResult,
-    types::{QueueConfig, QueueMessage, SubscriptionRequest},
+    types::{MessageGroupId, QueueConfig, QueueMessage, SubscriptionRequest},
 };
 use aws_sdk_sqs::Client as SqsClient;
 use std::sync::Arc;
@@ -44,19 +44,13 @@ impl SubscriptionRequestQueue {
         // Serialize the message
         let body = serde_json::to_string(message)?;
 
-        // Extract message group ID from HMAC
-        let message_group_id = match message {
-            SubscriptionRequest::Subscribe { hmac, .. }
-            | SubscriptionRequest::Unsubscribe { hmac, .. } => hmac.clone(),
-        };
-
         // Send to SQS
         let result = self
             .sqs_client
             .send_message()
             .queue_url(&self.config.queue_url)
             .message_body(body)
-            .message_group_id(message_group_id)
+            .message_group_id(message.message_group_id())
             .send()
             .await?;
 
