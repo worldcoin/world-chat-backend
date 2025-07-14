@@ -28,7 +28,7 @@ pub enum SubscriptionRequest {
 }
 
 /// Notification message
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Notification {
     /// Topic for the notification
     pub topic: String,
@@ -40,7 +40,7 @@ pub struct Notification {
 }
 
 /// Notification recipient
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Recipient {
     /// Encrypted Braze ID
     pub encrypted_braze_id: String,
