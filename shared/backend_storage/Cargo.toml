@@ -8,6 +8,7 @@ license = { workspace = true }
 # AWS SDK
 aws-config = { workspace = true }
 aws-sdk-dynamodb = { workspace = true }
+aws-sdk-sqs = { workspace = true }
 
 # Async
 tokio = { workspace = true }
@@ -18,6 +19,7 @@ thiserror = { workspace = true }
 
 # Serialization
 serde = { workspace = true }
+serde_json = { workspace = true }
 
 # Time
 chrono = { workspace = true }

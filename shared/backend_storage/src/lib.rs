@@ -4,3 +4,4 @@
 //! including push notification subscriptions and SQS queue operations.
 
 pub mod push_notification;
+pub mod queue;
