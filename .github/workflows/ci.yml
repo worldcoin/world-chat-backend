@@ -78,7 +78,9 @@ jobs:
           sleep 5
 
       - name: Health check LocalStack
-        run: curl -s http://localhost:4566/_localstack/health | jq -e '.services.s3 == "running"'
+        run: |
+          curl -s http://localhost:4566/_localstack/health | jq -e '.services.s3 == "running"'
+          curl -s http://localhost:4566/_localstack/health | jq -e '.services.sqs == "running"'
 
       - name: Run tests
         run: cargo test -- --nocapture

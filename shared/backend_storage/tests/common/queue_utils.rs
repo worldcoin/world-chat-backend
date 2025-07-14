@@ -2,12 +2,16 @@
 
 #![allow(dead_code)]
 
-use aws_config::BehaviorVersion;
+use aws_config::{BehaviorVersion, Region};
 use aws_credential_types::Credentials;
 use aws_sdk_sqs::Client as SqsClient;
 use pretty_assertions::assert_eq;
 use std::sync::Arc;
 use uuid::Uuid;
+
+/// Test configuration for LocalStack
+const LOCALSTACK_ENDPOINT: &str = "http://localhost:4566";
+const TEST_REGION: &str = "us-east-1";
 
 /// Generic helper function to assert queue messages match
 pub fn assert_queue_message<T>(received: &backend_storage::queue::QueueMessage<T>, expected: &T)
@@ -40,7 +44,8 @@ impl QueueTestContext {
         );
 
         let config = aws_config::defaults(BehaviorVersion::latest())
-            .endpoint_url("http://localhost:4566")
+            .endpoint_url(LOCALSTACK_ENDPOINT)
+            .region(Region::new(TEST_REGION))
             .credentials_provider(credentials)
             .load()
             .await;
