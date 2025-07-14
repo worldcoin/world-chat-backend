@@ -14,3 +14,12 @@ services:
       - /var/lib/localstack
       - /var/run/docker.sock:/var/run/docker.sock
       - "./aws-seed.sh:/etc/localstack/init/ready.d/aws-seed.sh"
+    healthcheck:
+      test: |
+        curl -s http://localhost:4566/_localstack/health | jq -e '.services.s3 == "running"' && \
+        curl -s http://localhost:4566/_localstack/health | jq -e '.services.dynamodb == "running"' && \
+        curl -s http://localhost:4566/_localstack/health | jq -e '.services.sqs == "running"'
+      interval: 1s
+      timeout: 10s
+      retries: 10
+      start_period: 5s
