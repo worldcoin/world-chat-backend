@@ -17,6 +17,8 @@ use serde::{Deserialize, Serialize};
 pub use error::{PushNotificationStorageError, PushNotificationStorageResult};
 use strum::Display;
 
+const BATCH_SIZE: usize = 100;
+
 /// Attribute names for push subscription table
 #[derive(Debug, Clone, Display)]
 #[strum(serialize_all = "snake_case")]
@@ -220,5 +222,72 @@ impl PushNotificationStorage {
             .await?;
 
         Ok(response.item().is_some())
+    }
+
+    /// Batch check which HMACs already exist in the database
+    ///
+    /// This method efficiently checks multiple HMACs using `batch_get_item` API,
+    /// which can check up to 100 items per request. For larger lists, it automatically
+    /// splits them into multiple batch requests.
+    ///
+    /// # Arguments
+    ///
+    /// * `hmacs` - List of HMAC identifiers to check
+    ///
+    /// # Returns
+    ///
+    /// A vector containing only the HMACs that exist in the database
+    ///
+    /// # Errors
+    ///
+    /// Returns `PushNotificationStorageError` if the Dynamo DB operation fails
+    pub async fn get_by_hmacs(
+        &self,
+        hmacs: &[String],
+    ) -> PushNotificationStorageResult<Vec<String>> {
+        if hmacs.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        let mut existing_hmacs = Vec::new();
+
+        for chunk in hmacs.chunks(BATCH_SIZE) {
+            let keys: Vec<_> = chunk
+                .iter()
+                .map(|hmac| {
+                    std::collections::HashMap::from([(
+                        PushSubscriptionAttribute::Hmac.to_string(),
+                        AttributeValue::S(hmac.clone()),
+                    )])
+                })
+                .collect();
+
+            let keys_and_attributes = aws_sdk_dynamodb::types::KeysAndAttributes::builder()
+                .set_keys(Some(keys))
+                .projection_expression(PushSubscriptionAttribute::Hmac.to_string())
+                .build()?;
+
+            let response = self
+                .dynamodb_client
+                .batch_get_item()
+                .request_items(&self.table_name, keys_and_attributes)
+                .send()
+                .await?;
+
+            // Extract HMACs from the response
+            if let Some(responses) = response.responses() {
+                if let Some(items) = responses.get(&self.table_name) {
+                    for item in items {
+                        if let Some(AttributeValue::S(hmac)) =
+                            item.get(&PushSubscriptionAttribute::Hmac.to_string())
+                        {
+                            existing_hmacs.push(hmac.clone());
+                        }
+                    }
+                }
+            }
+        }
+
+        Ok(existing_hmacs)
     }
 }
