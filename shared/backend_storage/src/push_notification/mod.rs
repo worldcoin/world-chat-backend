@@ -249,15 +249,19 @@ impl PushNotificationStorage {
             return Ok(Vec::new());
         }
 
+        // Deduplicate HMACs to avoid BatchGetItem validation errors
+        let unique_hmacs: std::collections::HashSet<&String> = hmacs.iter().collect();
+        let deduplicated_hmacs: Vec<&String> = unique_hmacs.into_iter().collect();
+
         let mut existing_hmacs = Vec::new();
 
-        for chunk in hmacs.chunks(BATCH_SIZE) {
+        for chunk in deduplicated_hmacs.chunks(BATCH_SIZE) {
             let keys: Vec<_> = chunk
                 .iter()
                 .map(|hmac| {
                     std::collections::HashMap::from([(
                         PushSubscriptionAttribute::Hmac.to_string(),
-                        AttributeValue::S(hmac.clone()),
+                        AttributeValue::S((*hmac).clone()),
                     )])
                 })
                 .collect();

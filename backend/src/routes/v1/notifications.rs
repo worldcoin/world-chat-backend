@@ -22,6 +22,7 @@ pub struct Subscription {
     /// HMAC for subscription validation
     pub hmac: String,
     /// TTL as unix timestamp
+    #[schemars(range(min = 1))]
     pub ttl: i64,
 }
 

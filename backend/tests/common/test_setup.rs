@@ -6,7 +6,8 @@ use aws_sdk_sqs::Client as SqsClient;
 use axum::{body::Body, http::Request, response::Response, Extension, Router};
 use backend::{media_storage::MediaStorage, routes, types::Environment};
 use backend_storage::{
-    push_notification::PushNotificationStorage, queue::SubscriptionRequestQueue,
+    push_notification::PushNotificationStorage,
+    queue::{QueueConfig, SubscriptionRequestQueue},
 };
 use std::sync::Arc;
 use tower::ServiceExt;
@@ -32,6 +33,11 @@ pub struct TestContext {
     pub router: Router,
     pub s3_client: Arc<S3Client>,
     pub bucket_name: String,
+    pub dynamodb_client: Arc<DynamoDbClient>,
+    pub sqs_client: Arc<SqsClient>,
+    pub subscription_request_queue_url: String,
+    pub push_notification_storage: Arc<PushNotificationStorage>,
+    pub subscription_queue: Arc<SubscriptionRequestQueue>,
 }
 
 impl TestContext {
@@ -76,11 +82,39 @@ impl TestContext {
             environment.dynamodb_push_gsi_name(),
         ));
 
-        // Init subscription queue
+        // Init SQS client and create test queue
         let sqs_client = Arc::new(SqsClient::new(&aws_config));
+
+        // Create unique FIFO queue for tests
+        let test_queue_name = format!("test-subscription-queue-{}.fifo", uuid::Uuid::new_v4());
+        let create_queue_response = sqs_client
+            .create_queue()
+            .queue_name(&test_queue_name)
+            .attributes(aws_sdk_sqs::types::QueueAttributeName::FifoQueue, "true")
+            .attributes(
+                aws_sdk_sqs::types::QueueAttributeName::ContentBasedDeduplication,
+                "true",
+            )
+            .send()
+            .await
+            .expect("Failed to create test queue");
+
+        let subscription_request_queue_url = create_queue_response
+            .queue_url()
+            .expect("Queue URL not returned")
+            .to_string();
+
+        // Create subscription queue with test queue URL
+        let test_queue_config = QueueConfig {
+            queue_url: subscription_request_queue_url.clone(),
+            default_max_messages: 10,
+            default_visibility_timeout: 30,
+            default_wait_time_seconds: 0, // No wait for tests
+        };
+
         let subscription_queue = Arc::new(SubscriptionRequestQueue::new(
             sqs_client.clone(),
-            environment.subscription_queue_config(),
+            test_queue_config,
         ));
 
         let router = routes::handler()
@@ -94,6 +128,11 @@ impl TestContext {
             router,
             s3_client,
             bucket_name,
+            dynamodb_client,
+            sqs_client,
+            subscription_request_queue_url,
+            push_notification_storage,
+            subscription_queue,
         }
     }
 }
@@ -123,5 +162,21 @@ impl TestContext {
         let body = response.into_body().collect().await?.to_bytes();
         let json = serde_json::from_slice(&body)?;
         Ok(json)
+    }
+}
+
+impl Drop for TestContext {
+    fn drop(&mut self) {
+        // Clone the clients and URLs we need for cleanup
+        let sqs_client = self.sqs_client.clone();
+        let queue_url = self.subscription_request_queue_url.clone();
+
+        // Use tokio runtime to delete queue
+        let handle = tokio::runtime::Handle::try_current();
+        if let Ok(handle) = handle {
+            handle.spawn(async move {
+                let _ = sqs_client.delete_queue().queue_url(&queue_url).send().await;
+            });
+        }
     }
 }
