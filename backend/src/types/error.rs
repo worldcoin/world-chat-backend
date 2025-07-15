@@ -10,6 +10,7 @@ use schemars::JsonSchema;
 use serde::Serialize;
 
 use crate::media_storage::BucketError;
+use backend_storage::{push_notification::PushNotificationStorageError, queue::QueueError};
 
 /// API error response envelope that matches mobile client expectations
 #[derive(Debug, Serialize, JsonSchema)]
@@ -142,6 +143,100 @@ impl From<BucketError> for AppError {
                     StatusCode::BAD_REQUEST,
                     "invalid_input",
                     "Invalid input provided",
+                    false,
+                )
+            }
+        }
+    }
+}
+
+/// Convert queue errors to application errors
+impl From<QueueError> for AppError {
+    #[allow(clippy::cognitive_complexity)]
+    fn from(err: QueueError) -> Self {
+        use QueueError::{DeleteMessage, ReceiveMessage, SendMessage, SerializationError};
+
+        match &err {
+            SendMessage(_) | ReceiveMessage(_) | DeleteMessage(_) => {
+                tracing::error!("SQS error: {:?}", err);
+                Self::new(
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "internal_error",
+                    "Internal server error",
+                    true,
+                )
+            }
+
+            SerializationError(e) => {
+                tracing::error!("Queue serialization error: {e}");
+                Self::new(
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "internal_error",
+                    "Internal server error",
+                    false,
+                )
+            }
+        }
+    }
+}
+
+/// Convert push notification storage errors to application errors
+impl From<PushNotificationStorageError> for AppError {
+    #[allow(clippy::cognitive_complexity)]
+    fn from(err: PushNotificationStorageError) -> Self {
+        use PushNotificationStorageError::{
+            BuildError, DynamoDbBatchGetError, DynamoDbDeleteError, DynamoDbGetError,
+            DynamoDbPutError, DynamoDbQueryError, InvalidTtlError, ParseSubscriptionError,
+            PushSubscriptionExists, SerializationError,
+        };
+
+        match &err {
+            DynamoDbPutError(_)
+            | DynamoDbDeleteError(_)
+            | DynamoDbGetError(_)
+            | DynamoDbQueryError(_)
+            | DynamoDbBatchGetError(_) => {
+                tracing::error!("DynamoDB error: {:?}", err);
+                Self::new(
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "storage_error",
+                    "Failed to access subscription storage",
+                    true,
+                )
+            }
+            PushSubscriptionExists => {
+                tracing::debug!("Push subscription already exists");
+                Self::new(
+                    StatusCode::CONFLICT,
+                    "already_exists",
+                    "Subscription already exists",
+                    false,
+                )
+            }
+            ParseSubscriptionError(msg) | SerializationError(msg) => {
+                tracing::error!("Data error: {msg}");
+                Self::new(
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "internal_error",
+                    "Internal server error",
+                    false,
+                )
+            }
+            BuildError(e) => {
+                tracing::error!("DynamoDB request build error: {:?}", e);
+                Self::new(
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "internal_error",
+                    "Internal server error",
+                    false,
+                )
+            }
+            InvalidTtlError => {
+                tracing::warn!("Invalid TTL timestamp");
+                Self::new(
+                    StatusCode::BAD_REQUEST,
+                    "invalid_ttl",
+                    "Invalid TTL timestamp",
                     false,
                 )
             }
