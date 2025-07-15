@@ -2,6 +2,8 @@ use std::sync::Arc;
 
 use aide::openapi::OpenApi;
 use axum::Extension;
+use backend_storage::push_notification::PushNotificationStorage;
+use backend_storage::queue::SubscriptionRequestQueue;
 use tokio::net::TcpListener;
 use tracing::Level;
 
@@ -16,6 +18,8 @@ use crate::{media_storage::MediaStorage, types::Environment};
 pub async fn start(
     environment: Environment,
     media_storage: Arc<MediaStorage>,
+    push_notification_storage: Arc<PushNotificationStorage>,
+    subscription_queue: Arc<SubscriptionRequestQueue>,
 ) -> anyhow::Result<()> {
     let mut openapi = OpenApi::default();
 
@@ -24,6 +28,8 @@ pub async fn start(
         .layer(Extension(openapi))
         .layer(Extension(environment))
         .layer(Extension(media_storage))
+        .layer(Extension(push_notification_storage))
+        .layer(Extension(subscription_queue))
         .layer(
             tower_http::trace::TraceLayer::new_for_http()
                 .make_span_with(tower_http::trace::DefaultMakeSpan::new().level(Level::INFO))

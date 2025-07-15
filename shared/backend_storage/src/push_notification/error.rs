@@ -1,8 +1,9 @@
 //! Error types for push notification storage operations
 
-use aws_sdk_dynamodb::error::SdkError;
+use aws_sdk_dynamodb::error::{BuildError, SdkError};
 use aws_sdk_dynamodb::operation::{
-    delete_item::DeleteItemError, get_item::GetItemError, put_item::PutItemError, query::QueryError,
+    batch_get_item::BatchGetItemError, delete_item::DeleteItemError, get_item::GetItemError,
+    put_item::PutItemError, query::QueryError,
 };
 use thiserror::Error;
 
@@ -28,6 +29,10 @@ pub enum PushNotificationStorageError {
     #[error("Failed to query subscriptions from DynamoDB: {0}")]
     DynamoDbQueryError(#[from] SdkError<QueryError>),
 
+    /// Failed to batch get items from Dynamo DB
+    #[error("Failed to batch get items from DynamoDB: {0}")]
+    DynamoDbBatchGetError(#[from] SdkError<BatchGetItemError>),
+
     /// Failed to parse subscription from Dynamo DB item
     #[error("Failed to parse subscription: {0}")]
     ParseSubscriptionError(String),
@@ -43,4 +48,8 @@ pub enum PushNotificationStorageError {
     /// Serialization error for `serde_dynamo`
     #[error("Serialization error: {0}")]
     SerializationError(String),
+
+    /// Failed to build Dynamo DB request
+    #[error("Failed to build DynamoDB request: {0}")]
+    BuildError(#[from] BuildError),
 }
