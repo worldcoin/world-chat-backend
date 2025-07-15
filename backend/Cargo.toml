@@ -35,6 +35,7 @@ thiserror = { workspace = true }
 aws-config = { workspace = true }
 aws-sdk-s3 = { workspace = true }
 aws-sdk-dynamodb = { workspace = true }
+aws-sdk-sqs = { workspace = true }
 
 # Time
 chrono = { workspace = true }
@@ -45,6 +46,9 @@ schemars = { workspace = true }
 # Encoding
 base64 = { workspace = true }
 hex = { workspace = true }
+
+# Backend Storage
+backend_storage = { workspace = true }
 
 [dev-dependencies]
 http-body-util = { workspace = true }

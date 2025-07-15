@@ -65,6 +65,8 @@ serde_dynamo = { version = "4", features = ["aws-sdk-dynamodb+1"] }
 # Strum
 strum = { version = "0.24.1", features = ["derive"] }
 
+# Internal workspace dependencies
+backend_storage = { path = "shared/backend_storage" }
 
 # Test dependencies
 http-body-util = "0.1.3"

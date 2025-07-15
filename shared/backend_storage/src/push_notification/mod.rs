@@ -2,14 +2,6 @@
 //!
 //! Push Notification Storage holds subscription to topics, used by the backend and enclave worker
 
-#![deny(
-    clippy::all,
-    clippy::pedantic,
-    clippy::nursery,
-    missing_docs,
-    dead_code
-)]
-
 mod error;
 
 use std::sync::Arc;
