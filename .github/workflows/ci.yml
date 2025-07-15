@@ -10,7 +10,7 @@ env:
 jobs:
   format:
     name: Format
-    runs-on: arc-xlarge-arm64-runner
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
@@ -24,7 +24,7 @@ jobs:
 
   lint:
     name: Lint
-    runs-on: arc-xlarge-arm64-runner
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
@@ -41,7 +41,7 @@ jobs:
 
   build:
     name: Build
-    runs-on: arc-xlarge-arm64-runner
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
@@ -59,7 +59,7 @@ jobs:
 
   test:
     name: Tests
-    runs-on: arc-xlarge-arm64-runner
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout code
@@ -98,7 +98,7 @@ jobs:
 
   deny:
     name: Cargo deny
-    runs-on: arc-xlarge-arm64-runner
+    runs-on: ubuntu-latest
     permissions:
       contents: read
     strategy:
