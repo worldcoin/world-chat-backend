@@ -11,4 +11,8 @@ pub fn handler() -> ApiRouter {
             post(media::create_presigned_upload_url),
         )
         .api_route("/notifications/subscribe", post(notifications::subscribe))
+        .api_route(
+            "/notifications/unsubscribe",
+            post(notifications::unsubscribe),
+        )
 }
