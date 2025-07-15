@@ -337,3 +337,122 @@ async fn test_exists_by_hmac() {
         .expect("Failed to check existence");
     assert!(exists_after);
 }
+
+#[tokio::test]
+async fn test_get_by_hmacs_duplicate_filtering() {
+    let context = setup_test().await;
+
+    // Create and insert 3 unique subscriptions
+    let sub1 = create_test_subscription("topic-1");
+    let sub2 = create_test_subscription("topic-2");
+    let sub3 = create_test_subscription("topic-3");
+
+    context
+        .storage
+        .insert(&sub1)
+        .await
+        .expect("Failed to insert sub1");
+    context
+        .storage
+        .insert(&sub2)
+        .await
+        .expect("Failed to insert sub2");
+    context
+        .storage
+        .insert(&sub3)
+        .await
+        .expect("Failed to insert sub3");
+
+    // Create a list with duplicates and non-existent HMACs
+    let hmacs_with_duplicates = vec![
+        sub1.hmac.clone(),
+        sub2.hmac.clone(),
+        sub1.hmac.clone(), // duplicate
+        sub3.hmac.clone(),
+        sub2.hmac.clone(), // duplicate
+        "non-existent-1".to_string(),
+        sub3.hmac.clone(), // duplicate
+        "non-existent-2".to_string(),
+    ];
+
+    // Call get_by_hmacs
+    let existing_hmacs = context
+        .storage
+        .get_by_hmacs(&hmacs_with_duplicates)
+        .await
+        .expect("Failed to get existing HMACs");
+
+    // Verify results
+    assert_eq!(existing_hmacs.len(), 3, "Should return exactly 3 HMACs");
+
+    // Check that all existing HMACs are returned
+    let existing_set: std::collections::HashSet<_> = existing_hmacs.into_iter().collect();
+    assert!(existing_set.contains(&sub1.hmac));
+    assert!(existing_set.contains(&sub2.hmac));
+    assert!(existing_set.contains(&sub3.hmac));
+
+    // Non-existent HMACs should not be in the result
+    assert!(!existing_set.contains("non-existent-1"));
+    assert!(!existing_set.contains("non-existent-2"));
+}
+
+#[tokio::test]
+async fn test_get_by_hmacs_large_batch() {
+    let context = setup_test().await;
+
+    // Create and insert 150 subscriptions (exceeds BATCH_SIZE of 100)
+    let mut subscriptions = Vec::new();
+    let mut hmacs = Vec::new();
+
+    for i in 0..150 {
+        let sub = create_test_subscription(&format!("topic-{}", i));
+        hmacs.push(sub.hmac.clone());
+        subscriptions.push(sub);
+    }
+
+    // Insert all subscriptions
+    for sub in &subscriptions {
+        context
+            .storage
+            .insert(sub)
+            .await
+            .expect("Failed to insert subscription");
+    }
+
+    // Add some non-existent HMACs to the query
+    let mut query_hmacs = hmacs.clone();
+    query_hmacs.push("non-existent-large-1".to_string());
+    query_hmacs.push("non-existent-large-2".to_string());
+    query_hmacs.push("non-existent-large-3".to_string());
+
+    // Call get_by_hmacs with 153 HMACs (150 existing + 3 non-existing)
+    let existing_hmacs = context
+        .storage
+        .get_by_hmacs(&query_hmacs)
+        .await
+        .expect("Failed to get existing HMACs");
+
+    // Verify that all 150 existing HMACs are returned
+    assert_eq!(
+        existing_hmacs.len(),
+        150,
+        "Should return exactly 150 existing HMACs"
+    );
+
+    // Convert to set for efficient lookup
+    let existing_set: std::collections::HashSet<_> = existing_hmacs.into_iter().collect();
+
+    // Verify all inserted HMACs are in the result
+    for hmac in &hmacs {
+        assert!(
+            existing_set.contains(hmac),
+            "HMAC {} should be in the result",
+            hmac
+        );
+    }
+
+    // Verify non-existent HMACs are not returned
+    assert!(!existing_set.contains("non-existent-large-1"));
+    assert!(!existing_set.contains("non-existent-large-2"));
+    assert!(!existing_set.contains("non-existent-large-3"));
+}
