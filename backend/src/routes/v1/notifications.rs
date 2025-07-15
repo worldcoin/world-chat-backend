@@ -74,13 +74,13 @@ pub async fn subscribe(
 
     // Check which HMACs already exist in the database
     let existing_hmacs = push_storage.get_by_hmacs(&hmacs).await?;
-    let existing_set: HashSet<_> = existing_hmacs.into_iter().collect();
+    let existing_hmacs: HashSet<_> = HashSet::from_iter(existing_hmacs);
 
     // Send all new subscriptions concurrently
     let send_futures = payload
         .subscriptions
         .into_iter()
-        .filter(|s| !existing_set.contains(&s.hmac))
+        .filter(|s| !existing_hmacs.contains(&s.hmac))
         .map(|subscription| {
             let queue_clone = subscription_queue.clone();
             let encrypted_braze_id = payload.encrypted_braze_id.clone();
