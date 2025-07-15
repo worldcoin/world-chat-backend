@@ -701,6 +701,7 @@ dependencies = [
  "aide",
  "anyhow",
  "aws-config",
+ "aws-credential-types",
  "aws-sdk-dynamodb",
  "aws-sdk-s3",
  "aws-sdk-sqs",

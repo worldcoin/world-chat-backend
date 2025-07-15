@@ -64,3 +64,4 @@ dotenvy = { workspace = true }
 serial_test = { workspace = true }
 rand = { workspace = true }
 http = { workspace = true }
+aws-credential-types = { version = "1.2.3" , features = ["hardcoded-credentials"]}
