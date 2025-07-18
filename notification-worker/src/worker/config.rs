@@ -15,45 +15,44 @@ pub struct WorkerConfig {
     pub reconnect_delay_ms: u64,
     /// Maximum reconnection delay in milliseconds
     pub max_reconnect_delay_ms: u64,
+    /// Connection timeout in milliseconds
+    pub connection_timeout_ms: u64,
+    /// Connect timeout in milliseconds
+    pub connect_timeout_ms: u64,
 }
 
 impl WorkerConfig {
     /// Creates a new WorkerConfig from the given environment
     pub fn from_environment(env: &Environment) -> Self {
-        // Allow override from environment variable
-        let xmtp_endpoint = std::env::var("XMTP_GRPC_ADDRESS")
-            .unwrap_or_else(|_| env.xmtp_endpoint().to_string());
-        
-        // Allow TLS override
-        let use_tls = std::env::var("XMTP_USE_TLS")
-            .map(|v| v.to_lowercase() == "true")
-            .unwrap_or_else(|_| env.use_tls());
-        
         Self {
-            xmtp_endpoint,
-            use_tls,
+            xmtp_endpoint: env.xmtp_grpc_address(),
+            use_tls: env.use_tls_override(),
             client_version: "notification-worker-rust/0.1.0".to_string(),
             num_workers: env.default_num_workers(),
-            reconnect_delay_ms: 100,
-            max_reconnect_delay_ms: 30000,
+            reconnect_delay_ms: env.reconnect_delay_ms(),
+            max_reconnect_delay_ms: env.max_reconnect_delay_ms(),
+            connection_timeout_ms: env.connection_timeout_ms(),
+            connect_timeout_ms: env.connect_timeout_ms(),
         }
     }
-    
-    /// Creates a WorkerConfig with custom settings
-    pub fn new(xmtp_endpoint: String, num_workers: usize) -> Self {
-        // Determine TLS based on endpoint
-        let use_tls = xmtp_endpoint.starts_with("https://");
-        
-        Self {
-            xmtp_endpoint,
-            use_tls,
-            client_version: "notification-worker-rust/0.1.0".to_string(),
-            num_workers,
-            reconnect_delay_ms: 100,
-            max_reconnect_delay_ms: 30000,
-        }
-    }
-    
+
+    // /// Creates a WorkerConfig with custom settings
+    // pub fn new(xmtp_endpoint: String, num_workers: usize) -> Self {
+    //     // Determine TLS based on endpoint
+    //     let use_tls = xmtp_endpoint.starts_with("https://");
+
+    //     Self {
+    //         xmtp_endpoint,
+    //         use_tls,
+    //         client_version: "notification-worker-rust/0.1.0".to_string(),
+    //         num_workers,
+    //         reconnect_delay_ms: 100,
+    //         max_reconnect_delay_ms: 30000,
+    //         connection_timeout_ms: 30000,
+    //         connect_timeout_ms: 5000,
+    //     }
+    // }
+
     /// Returns the channel capacity (2 * num_workers)
     pub fn channel_capacity(&self) -> usize {
         self.num_workers * 2

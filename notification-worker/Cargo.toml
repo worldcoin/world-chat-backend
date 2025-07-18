@@ -30,7 +30,7 @@ tokio-util = "0.7"
 flume = "0.11"
 
 # For future XMTP integration
-tonic = { version = "0.12", features = ["transport", "tls", "tls-native-roots", "tls-webpki-roots"] }
+tonic = { version = "0.12", features = ["transport", "tls", "tls-webpki-roots"] }
 prost = "0.13"
 prost-types = "0.13"
 rustls = { version = "0.23", features = ["ring"] }

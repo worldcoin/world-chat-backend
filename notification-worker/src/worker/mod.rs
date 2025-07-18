@@ -35,17 +35,17 @@ impl XmtpWorker {
 
         // Configure TLS if needed
         if config.use_tls {
-            // Create TLS config with native roots
-            let tls_config = ClientTlsConfig::new()
-                .with_native_roots()
-                .with_webpki_roots();
+            // Create TLS config with webpki roots
+            let tls_config = ClientTlsConfig::new().with_webpki_roots();
             endpoint = endpoint.tls_config(tls_config)?;
         }
 
         // Add timeouts
         endpoint = endpoint
-            .timeout(std::time::Duration::from_secs(30))
-            .connect_timeout(std::time::Duration::from_secs(5));
+            .timeout(std::time::Duration::from_millis(
+                config.connection_timeout_ms,
+            ))
+            .connect_timeout(std::time::Duration::from_millis(config.connect_timeout_ms));
 
         let channel = endpoint.connect().await?;
 

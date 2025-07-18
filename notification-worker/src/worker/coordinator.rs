@@ -1,4 +1,3 @@
-use std::sync::Arc;
 use tokio::task::JoinHandle;
 use tokio_util::sync::CancellationToken;
 use tonic::transport::Channel;
@@ -9,12 +8,11 @@ use crate::xmtp::message_api::v1::message_api_client::MessageApiClient;
 use super::config::WorkerConfig;
 use super::processor::MessageProcessor;
 use super::stream_listener::StreamListener;
-use super::types::{Message, SharedState, WorkerResult};
+use super::types::{Message, WorkerResult};
 
 /// Coordinator manages the lifecycle of all worker components
 pub struct Coordinator {
     config: WorkerConfig,
-    shared_state: Arc<SharedState>,
     shutdown_token: CancellationToken,
 }
 
@@ -23,7 +21,6 @@ impl Coordinator {
     pub fn new(config: WorkerConfig) -> Self {
         Self {
             config,
-            shared_state: Arc::new(SharedState::new()),
             shutdown_token: CancellationToken::new(),
         }
     }
@@ -31,11 +28,6 @@ impl Coordinator {
     /// Returns a clone of the shutdown token for external control
     pub fn shutdown_token(&self) -> CancellationToken {
         self.shutdown_token.clone()
-    }
-
-    /// Returns a reference to the shared state
-    pub fn shared_state(&self) -> Arc<SharedState> {
-        self.shared_state.clone()
     }
 
     /// Starts the coordinator and all worker components
@@ -91,7 +83,7 @@ impl Coordinator {
         let mut handles = Vec::new();
 
         for i in 0..self.config.num_workers {
-            let processor = MessageProcessor::new(i, self.shared_state.clone());
+            let processor = MessageProcessor::new(i);
             let rx = receiver.clone();
             let shutdown_token = self.shutdown_token.clone();
 

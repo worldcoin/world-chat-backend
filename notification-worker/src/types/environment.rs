@@ -62,6 +62,56 @@ impl Environment {
             Self::Development => 10,
         }
     }
+
+    /// Returns the XMTP gRPC endpoint with environment variable override support
+    #[must_use]
+    pub fn xmtp_grpc_address(&self) -> String {
+        env::var("XMTP_GRPC_ADDRESS").unwrap_or_else(|_| self.xmtp_endpoint().to_string())
+    }
+
+    /// Returns whether to use TLS with environment variable override support
+    #[must_use]
+    pub fn use_tls_override(&self) -> bool {
+        env::var("XMTP_USE_TLS")
+            .map(|v| v.to_lowercase() == "true")
+            .unwrap_or_else(|_| self.use_tls())
+    }
+
+    /// Returns the initial reconnection delay in milliseconds
+    #[must_use]
+    pub fn reconnect_delay_ms(&self) -> u64 {
+        env::var("XMTP_RECONNECT_DELAY_MS")
+            .ok()
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(100)
+    }
+
+    /// Returns the maximum reconnection delay in milliseconds
+    #[must_use]
+    pub fn max_reconnect_delay_ms(&self) -> u64 {
+        env::var("XMTP_MAX_RECONNECT_DELAY_MS")
+            .ok()
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(30000)
+    }
+
+    /// Returns the connection timeout in milliseconds
+    #[must_use]
+    pub fn connection_timeout_ms(&self) -> u64 {
+        env::var("XMTP_CONNECTION_TIMEOUT_MS")
+            .ok()
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(30000)
+    }
+
+    /// Returns the connect timeout in milliseconds
+    #[must_use]
+    pub fn connect_timeout_ms(&self) -> u64 {
+        env::var("XMTP_CONNECT_TIMEOUT_MS")
+            .ok()
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(5000)
+    }
 }
 
 #[cfg(test)]
