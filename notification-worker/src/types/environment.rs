@@ -33,6 +33,26 @@ impl Environment {
             _ => panic!("Invalid environment: {env}"),
         }
     }
+    
+    /// Returns the XMTP gRPC endpoint for this environment
+    #[must_use]
+    pub fn xmtp_endpoint(&self) -> &'static str {
+        match self {
+            Self::Production => "https://grpc.production.xmtp.network:443",
+            Self::Staging => "https://grpc.dev.xmtp.network:443",
+            Self::Development => "https://grpc.dev.xmtp.network:443",
+        }
+    }
+    
+    /// Returns the default number of workers for this environment
+    #[must_use]
+    pub fn default_num_workers(&self) -> usize {
+        match self {
+            Self::Production => 50,
+            Self::Staging => 20,
+            Self::Development => 10,
+        }
+    }
 }
 
 #[cfg(test)]

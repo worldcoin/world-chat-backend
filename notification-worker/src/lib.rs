@@ -13,3 +13,10 @@ pub mod xmtp {
 
 // Re-export the client we'll use
 pub use xmtp::message_api::v1::message_api_client::MessageApiClient;
+
+pub mod generated {
+    pub use crate::xmtp;
+}
+
+pub mod types;
+pub mod worker;
