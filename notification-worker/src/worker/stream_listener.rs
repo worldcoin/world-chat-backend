@@ -1,7 +1,7 @@
 use tokio::time::{sleep, Duration};
 use tokio_util::sync::CancellationToken;
 use tonic::transport::Channel;
-use tracing::{error, info, warn};
+use tracing::{debug, error, info, warn};
 
 use crate::xmtp::message_api::v1::message_api_client::MessageApiClient;
 use crate::xmtp::message_api::v1::SubscribeAllRequest;
@@ -80,15 +80,12 @@ impl StreamListener {
         info!("Successfully established subscription stream");
 
         let mut stream = response.into_inner();
-        let mut message_count = 0;
 
         info!("Waiting for messages from XMTP stream...");
 
         while let Some(envelope) = stream.message().await? {
-            message_count += 1;
-            info!(
-                "Received message #{} - Topic: {}, Timestamp: {}, Size: {} bytes",
-                message_count,
+            debug!(
+                "Received message - Topic: {}, Timestamp: {}, Size: {} bytes",
                 envelope.content_topic,
                 envelope.timestamp_ns,
                 envelope.message.len()
@@ -97,12 +94,10 @@ impl StreamListener {
             // Send the envelope to the worker pool via the channel
             if let Err(e) = self.message_tx.send_async(envelope).await {
                 error!("Failed to send message to workers: {}", e);
-                // Channel is closed, exit
                 return Err("Message channel closed".into());
             }
         }
 
-        info!("Stream ended after {} messages", message_count);
         Ok(())
     }
 }
