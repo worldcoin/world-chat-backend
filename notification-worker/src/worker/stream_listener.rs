@@ -84,14 +84,6 @@ impl StreamListener {
         info!("Waiting for messages from XMTP stream...");
 
         while let Some(envelope) = stream.message().await? {
-            debug!(
-                "Received message - Topic: {}, Timestamp: {}, Size: {} bytes",
-                envelope.content_topic,
-                envelope.timestamp_ns,
-                envelope.message.len()
-            );
-
-            // Send the envelope to the worker pool via the channel
             if let Err(e) = self.message_tx.send_async(envelope).await {
                 error!("Failed to send message to workers: {}", e);
                 return Err("Message channel closed".into());
