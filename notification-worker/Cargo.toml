@@ -1,9 +1,8 @@
 [package]
 name = "notification-worker"
-version.workspace = true
-edition.workspace = true
-rust-version.workspace = true
-license.workspace = true
+version = { workspace = true }
+edition = { workspace = true }
+license = { workspace = true }
 
 [dependencies]
 # Workspace dependencies
@@ -33,5 +32,7 @@ tonic = { version = "0.12", features = ["transport", "tls-roots"] }
 prost = "0.13"
 prost-types = "0.13"
 
+# Build dependencies
 [build-dependencies]
-tonic-build = "0.12"
+tonic-build = "0.13"         # brings in prost-build automatically
+glob        = "0.3"          # globs proto/** recursively

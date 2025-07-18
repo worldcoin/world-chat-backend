@@ -7,6 +7,7 @@ Push notification and image services for World Chat Native.
 ```
 world-chat-backend/
 ├── backend/                # Main HTTP server (port 3000)
+├── notification-worker/    # Worker for processing incoming XMTP messages
 ├── enclave-worker/         # Worker for enclave operations
 ├── secure-enclave/         # Secure enclave service
 └── shared/                 # Shared crates
