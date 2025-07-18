@@ -1,0 +1,124 @@
+// Message API for XMTP V4
+syntax = "proto3";
+
+package xmtp.xmtpv4.message_api;
+
+import "google/api/annotations.proto";
+import "identity/associations/association.proto";
+import "xmtpv4/envelopes/envelopes.proto";
+
+option go_package = "github.com/xmtp/proto/v3/go/xmtpv4/message_api";
+
+// Query for envelopes, shared by query and subscribe endpoints
+// Either topics or originator_node_ids may be set, but not both
+message EnvelopesQuery {
+  // Client queries
+  repeated bytes topics = 1;
+  // Node queries
+  repeated uint32 originator_node_ids = 2;
+  xmtp.xmtpv4.envelopes.Cursor last_seen = 3;
+}
+
+// Batch subscribe to envelopes
+message SubscribeEnvelopesRequest {
+  EnvelopesQuery query = 1;
+}
+
+// Streamed response for batch subscribe - can be multiple envelopes at once
+message SubscribeEnvelopesResponse {
+  repeated xmtp.xmtpv4.envelopes.OriginatorEnvelope envelopes = 1;
+}
+
+// Query envelopes request
+message QueryEnvelopesRequest {
+  EnvelopesQuery query = 1;
+  uint32 limit = 2;
+}
+
+// Query envelopes response
+message QueryEnvelopesResponse {
+  repeated xmtp.xmtpv4.envelopes.OriginatorEnvelope envelopes = 1;
+}
+
+message PublishPayerEnvelopesRequest {
+  repeated xmtp.xmtpv4.envelopes.PayerEnvelope payer_envelopes = 1;
+}
+
+message PublishPayerEnvelopesResponse {
+  repeated xmtp.xmtpv4.envelopes.OriginatorEnvelope originator_envelopes = 1;
+}
+
+// Request to retrieve the XIDs for the given addresses
+message GetInboxIdsRequest {
+  // A single request for a given address
+  message Request {
+    string identifier = 1;
+    xmtp.identity.associations.IdentifierKind identifier_kind = 2;
+  }
+
+  repeated Request requests = 1;
+}
+
+// Response with the XIDs for the requested addresses
+message GetInboxIdsResponse {
+  // A single response for a given address
+  message Response {
+    string identifier = 1;
+    optional string inbox_id = 2;
+    xmtp.identity.associations.IdentifierKind identifier_kind = 3;
+  }
+
+  repeated Response responses = 1;
+}
+
+// Request to get the newest envelope for a given topic
+message GetNewestEnvelopeRequest {
+  repeated bytes topics = 1;
+}
+
+// Response to GetNewestEnvelopeRequest
+message GetNewestEnvelopeResponse {
+  message Response {
+    optional xmtp.xmtpv4.envelopes.OriginatorEnvelope originator_envelope = 1;
+  }
+  // The newest envelope for the given topic OR null if there are no envelopes on the topic
+  repeated Response results = 1;
+}
+
+service ReplicationApi {
+  rpc SubscribeEnvelopes(SubscribeEnvelopesRequest) returns (stream SubscribeEnvelopesResponse) {
+    option (google.api.http) = {
+      post: "/mls/v2/subscribe-envelopes"
+      body: "*"
+    };
+  }
+
+  rpc QueryEnvelopes(QueryEnvelopesRequest) returns (QueryEnvelopesResponse) {
+    option (google.api.http) = {
+      post: "/mls/v2/query-envelopes"
+      body: "*"
+    };
+  }
+
+  rpc PublishPayerEnvelopes(PublishPayerEnvelopesRequest) returns (PublishPayerEnvelopesResponse) {
+    option (google.api.http) = {
+      post: "/mls/v2/publish-payer-envelopes"
+      body: "*"
+    };
+  }
+
+  rpc GetInboxIds(GetInboxIdsRequest) returns (GetInboxIdsResponse) {
+    option (google.api.http) = {
+      post: "/mls/v2/get-inbox-ids"
+      body: "*"
+    };
+  }
+
+  // Get the newest envelope for each topic
+  rpc GetNewestEnvelope(GetNewestEnvelopeRequest) returns (GetNewestEnvelopeResponse) {
+    option (google.api.http) = {
+      post: "/mls/v2/get-newest-envelope"
+      body: "*"
+    };
+  }
+}
