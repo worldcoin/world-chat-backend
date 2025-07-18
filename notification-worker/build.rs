@@ -2,7 +2,7 @@ use glob::glob;
 use std::path::PathBuf;
 
 // To download the XMTP proto files, run:
-// `buf export buf.build/xmtp/proto --output proto/xmtp --path .``
+// `buf export buf.build/xmtp/proto --output proto/ --path .`
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Re-run if *any* file in proto/ changes
     println!("cargo:rerun-if-changed=proto");
@@ -17,7 +17,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .build_client(true)
         .build_server(true)
         .out_dir("src/generated")
-        .compile_protos(&protos, &["proto/xmtp", "proto"])?;
+        .compile_protos(&protos, &["proto"])?;
 
     Ok(())
 }
