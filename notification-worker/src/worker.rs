@@ -1,5 +1,3 @@
-use std::sync::Arc;
-use tokio::sync::mpsc;
 use tokio::time::{sleep, Duration};
 use tokio_util::sync::CancellationToken;
 use tonic::transport::Channel;
@@ -17,8 +15,6 @@ pub struct WorkerConfig {
     pub xmtp_endpoint: String,
     /// Number of worker tasks to spawn
     pub num_workers: usize,
-    /// Size of the message channel buffer
-    pub channel_buffer_size: usize,
     /// Initial reconnection delay in milliseconds
     pub reconnect_delay_ms: u64,
     /// Maximum reconnection delay in milliseconds
@@ -35,7 +31,6 @@ impl WorkerConfig {
         Self {
             xmtp_endpoint,
             num_workers: env.default_num_workers(),
-            channel_buffer_size: 100,
             reconnect_delay_ms: 100,
             max_reconnect_delay_ms: 30000,
         }
@@ -46,7 +41,6 @@ impl WorkerConfig {
         Self {
             xmtp_endpoint,
             num_workers,
-            channel_buffer_size: 100,
             reconnect_delay_ms: 100,
             max_reconnect_delay_ms: 30000,
         }
@@ -96,22 +90,21 @@ impl XmtpWorker {
     pub async fn start(mut self) -> Result<(), Box<dyn std::error::Error>> {
         info!("Starting XMTP worker with {} workers", self.config.num_workers);
         
-        // Create the message channel
-        let (message_tx, message_rx) = mpsc::channel::<Envelope>(self.config.channel_buffer_size);
+        // Create the message channel with capacity of 2 * num_workers
+        let channel_capacity = self.config.num_workers * 2;
+        let (message_tx, message_rx) = flume::bounded::<Envelope>(channel_capacity);
+        info!("Created flume channel with capacity: {}", channel_capacity);
         
         // Spawn worker tasks
         let mut worker_handles = Vec::new();
         
-        // Create multiple receivers by cloning the sender and having each worker own a receiver
-        let receiver = Arc::new(tokio::sync::Mutex::new(message_rx));
-        
         for i in 0..self.config.num_workers {
             let worker_id = i;
-            let receiver_clone = Arc::clone(&receiver);
+            let receiver = message_rx.clone();
             let shutdown_token = self.shutdown_token.clone();
             
             let handle = tokio::spawn(async move {
-                message_worker(worker_id, receiver_clone, shutdown_token).await;
+                message_worker(worker_id, receiver, shutdown_token).await;
             });
             
             worker_handles.push(handle);
@@ -151,7 +144,7 @@ impl XmtpWorker {
     /// Starts listening to the XMTP message stream
     async fn start_stream_listener(
         &mut self, 
-        message_tx: mpsc::Sender<Envelope>,
+        message_tx: flume::Sender<Envelope>,
         shutdown_token: CancellationToken,
     ) -> Result<(), Box<dyn std::error::Error>> {
         let mut reconnect_delay = self.config.reconnect_delay_ms;
@@ -190,7 +183,7 @@ impl XmtpWorker {
     }
     
     /// Subscribes to the message stream and processes messages
-    async fn subscribe_and_process(&mut self, message_tx: mpsc::Sender<Envelope>) -> Result<(), Box<dyn std::error::Error>> {
+    async fn subscribe_and_process(&mut self, message_tx: flume::Sender<Envelope>) -> Result<(), Box<dyn std::error::Error>> {
         info!("Subscribing to XMTP message stream");
         
         let request = SubscribeAllRequest {};
@@ -215,7 +208,7 @@ impl XmtpWorker {
             );
             
             // Send the envelope to the worker pool via the channel
-            if let Err(e) = message_tx.send(envelope).await {
+            if let Err(e) = message_tx.send_async(envelope).await {
                 error!("Failed to send message to workers: {}", e);
                 // Channel is closed, exit
                 return Err("Message channel closed".into());
@@ -258,7 +251,7 @@ impl MessageProcessor {
 /// Worker task that processes messages from the channel
 pub async fn message_worker(
     worker_id: usize,
-    receiver: Arc<tokio::sync::Mutex<mpsc::Receiver<Envelope>>>,
+    receiver: flume::Receiver<Envelope>,
     shutdown_token: CancellationToken,
 ) {
     info!("Message worker {} started", worker_id);
@@ -270,13 +263,10 @@ pub async fn message_worker(
                 info!("Message worker {} received shutdown signal", worker_id);
                 break;
             }
-            envelope = async {
-                let mut rx = receiver.lock().await;
-                rx.recv().await
-            } => {
-                match envelope {
-                    Some(env) => processor.process_envelope(env).await,
-                    None => {
+            result = receiver.recv_async() => {
+                match result {
+                    Ok(envelope) => processor.process_envelope(envelope).await,
+                    Err(flume::RecvError::Disconnected) => {
                         // Channel closed
                         info!("Message channel closed for worker {}", worker_id);
                         break;
