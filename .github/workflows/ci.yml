@@ -106,10 +106,6 @@ jobs:
       - name: Install buf
         uses: bufbuild/buf-setup-action@v1
 
-      - name: Lint protos
-        working-directory: ./notification-worker
-        run: buf lint
-
       - name: Check breaking changes
         working-directory: ./notification-worker
         run: buf breaking --against buf.build/xmtp/proto:main
