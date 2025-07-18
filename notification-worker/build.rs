@@ -17,7 +17,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .build_client(true)
         .build_server(true)
         .out_dir("src/generated")
-        .compile_protos(&protos, &["proto/xmtp"])?;
+        .compile_protos(&protos, &["proto/xmtp", "proto"])?;
 
     Ok(())
 }
