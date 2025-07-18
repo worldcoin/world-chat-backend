@@ -32,6 +32,9 @@ tonic = { version = "0.12", features = ["transport", "tls-roots"] }
 prost = "0.13"
 prost-types = "0.13"
 
+[dev-dependencies]
+serial_test = { workspace = true }
+
 # Build dependencies
 [build-dependencies]
 tonic-build = "0.12"         # brings in prost-build automatically

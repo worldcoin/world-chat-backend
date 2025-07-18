@@ -37,9 +37,12 @@ impl Environment {
 
 #[cfg(test)]
 mod tests {
+    use serial_test::serial;
+
     use super::*;
 
     #[test]
+    #[serial]
     fn test_environment_from_env() {
         // Test development (default)
         env::remove_var("APP_ENV");
@@ -62,6 +65,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     #[should_panic(expected = "Invalid environment: invalid")]
     fn test_invalid_environment() {
         env::set_var("APP_ENV", "invalid");
