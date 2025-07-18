@@ -1,7 +1,7 @@
 #![deny(clippy::all, clippy::pedantic, clippy::nursery, dead_code)]
 
 // Only include the proto modules we actually need
-mod xmtp {
+pub mod xmtp {
     pub mod message_api {
         pub mod v1 {
             include!("generated/xmtp.message_api.v1.rs");

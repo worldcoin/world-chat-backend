@@ -9,7 +9,7 @@ pub use coordinator::Coordinator;
 
 // Legacy adapter for backward compatibility
 use tokio_util::sync::CancellationToken;
-use tonic::transport::Channel;
+use tonic::transport::{Channel, ClientTlsConfig};
 use tracing::info;
 
 use crate::xmtp::message_api::v1::message_api_client::MessageApiClient;
@@ -25,13 +25,33 @@ impl XmtpWorker {
     /// Creates a new XMTP worker (legacy API)
     pub async fn new(config: WorkerConfig) -> Result<Self, Box<dyn std::error::Error>> {
         info!("Connecting to XMTP node at {}", config.xmtp_endpoint);
+        info!(
+            "TLS enabled: {}, Client version: {}",
+            config.use_tls, config.client_version
+        );
 
-        // Create the channel - tonic will handle TLS automatically
-        let channel = Channel::from_shared(config.xmtp_endpoint.clone())?
-            .connect()
-            .await?;
+        // Create the endpoint with proper configuration
+        let mut endpoint = Channel::from_shared(config.xmtp_endpoint.clone())?;
 
+        // Configure TLS if needed
+        if config.use_tls {
+            // Create TLS config with native roots
+            let tls_config = ClientTlsConfig::new()
+                .with_native_roots()
+                .with_webpki_roots();
+            endpoint = endpoint.tls_config(tls_config)?;
+        }
+
+        // Add timeouts
+        endpoint = endpoint
+            .timeout(std::time::Duration::from_secs(30))
+            .connect_timeout(std::time::Duration::from_secs(5));
+
+        let channel = endpoint.connect().await?;
+
+        // For now, create client without interceptor (will add metadata support later)
         let client = MessageApiClient::new(channel);
+
         let coordinator = Coordinator::new(config);
 
         Ok(Self {

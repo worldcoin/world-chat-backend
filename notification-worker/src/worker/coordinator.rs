@@ -1,6 +1,7 @@
 use std::sync::Arc;
 use tokio::task::JoinHandle;
 use tokio_util::sync::CancellationToken;
+use tonic::transport::Channel;
 use tracing::{error, info};
 
 use crate::xmtp::message_api::v1::message_api_client::MessageApiClient;
@@ -9,7 +10,6 @@ use super::config::WorkerConfig;
 use super::processor::MessageProcessor;
 use super::stream_listener::StreamListener;
 use super::types::{Message, SharedState, WorkerResult};
-use tonic::transport::Channel;
 
 /// Coordinator manages the lifecycle of all worker components
 pub struct Coordinator {

@@ -33,17 +33,26 @@ impl Environment {
             _ => panic!("Invalid environment: {env}"),
         }
     }
-    
+
     /// Returns the XMTP gRPC endpoint for this environment
     #[must_use]
     pub fn xmtp_endpoint(&self) -> &'static str {
         match self {
             Self::Production => "https://grpc.production.xmtp.network:443",
             Self::Staging => "https://grpc.dev.xmtp.network:443",
-            Self::Development => "https://grpc.dev.xmtp.network:443",
+            Self::Development => "http://localhost:25556", // Local Docker
         }
     }
-    
+
+    /// Returns whether to use TLS for this environment
+    #[must_use]
+    pub fn use_tls(&self) -> bool {
+        match self {
+            Self::Production | Self::Staging => true,
+            Self::Development => false,
+        }
+    }
+
     /// Returns the default number of workers for this environment
     #[must_use]
     pub fn default_num_workers(&self) -> usize {
