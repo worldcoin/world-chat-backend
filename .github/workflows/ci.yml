@@ -33,6 +33,11 @@ jobs:
         with:
           components: clippy
 
+      - name: Install protoc
+        uses: arduino/setup-protoc@v3
+        with:
+          version: "25.x"
+
       - name: Cache dependencies
         uses: Swatinem/rust-cache@v2
 
@@ -47,6 +52,11 @@ jobs:
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
+
+      - name: Install protoc
+        uses: arduino/setup-protoc@v3
+        with:
+          version: "25.x"
 
       - name: Cache dependencies
         uses: Swatinem/rust-cache@v2
@@ -67,6 +77,11 @@ jobs:
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
+
+      - name: Install protoc
+        uses: arduino/setup-protoc@v3
+        with:
+          version: "25.x"
 
       - name: Cache dependencies
         uses: Swatinem/rust-cache@v2
