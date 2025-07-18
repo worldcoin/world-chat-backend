@@ -1,26 +1,8 @@
-mod types;
-mod worker;
-
-// Re-declare the proto modules we need in main
-mod generated {
-    pub mod xmtp {
-        pub mod message_api {
-            pub mod v1 {
-                include!("generated/xmtp.message_api.v1.rs");
-            }
-        }
-
-        pub mod message_contents {
-            include!("generated/xmtp.message_contents.rs");
-        }
-    }
-}
-
 use tracing::{error, info};
 use tracing_subscriber::EnvFilter;
 
-use types::environment::Environment;
-use worker::{WorkerConfig, XmtpWorker};
+use notification_worker::types::environment::Environment;
+use notification_worker::worker::{WorkerConfig, XmtpWorker};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
