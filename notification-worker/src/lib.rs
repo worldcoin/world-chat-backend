@@ -5,7 +5,7 @@ pub mod xmtp {
             include!("generated/xmtp.message_api.v1.rs");
         }
     }
-    
+
     pub mod message_contents {
         include!("generated/xmtp.message_contents.rs");
     }
