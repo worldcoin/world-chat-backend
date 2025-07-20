@@ -15,3 +15,6 @@ Thumbs.db
 # Environment
 .env
 .env.local
+
+# generated Rust from .proto
+notification-worker/src/generated
