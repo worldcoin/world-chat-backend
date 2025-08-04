@@ -1,0 +1,58 @@
+name: "Rust Setup"
+description: "Sets up Rust environment with caching and dependencies"
+
+inputs:
+  cache-prefix:
+    description: "Prefix for cache keys"
+    required: true
+  gh-token:
+    description: "GitHub token for cloning private dependencies"
+    required: true
+  hugging_face_token:
+    description: "Hugging Face token for downloading model files"
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      run: |
+        rustup update
+
+    - name: Python dependencies
+      shell: bash
+      run: |
+        python3 -m pip install -U pip
+        python3 -m pip install huggingface_hub==0.23.4
+
+    - name: Download model files
+      shell: bash
+      env:
+        HUGGING_FACE_TOKEN: ${{ inputs.hugging_face_token }}
+      run: |
+        python3 common/scripts/download_model_flavor.py --flavor onnx_tract --local_dir models/
+
+    - uses: actions/cache@v4
+      with:
+        path: ~/.cargo/registry
+        key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+        restore-keys: ${{ runner.os }}-cargo-registry-
+
+    - uses: actions/cache@v4
+      with:
+        path: ~/.cargo/git
+        key: ${{ runner.os }}-cargo-index-${{ hashFiles('**/Cargo.lock') }}
+        restore-keys: ${{ runner.os }}-cargo-index-
+
+    - uses: actions/cache@v4
+      with:
+        path: target
+        key: ${{ runner.os }}-cargo-${{ inputs.cache-prefix }}-${{ hashFiles('**/Cargo.lock') }}
+        restore-keys: ${{ runner.os }}-cargo-${{ inputs.cache-prefix }}-
+
+    - shell: bash
+      run: |
+        git config --global url."https://${{inputs.gh-token}}:x-oauth-basic@github.com/".insteadOf "https://github.com/"
+
+    - shell: bash
+      run: cargo fetch

@@ -1,0 +1,45 @@
+name: Build and deploy
+on:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build-images:
+    runs-on: arc-4xlarge-amd64-runner
+    permissions:
+      contents: read
+      id-token: write
+
+    strategy:
+      matrix:
+        package:
+          - backend
+          - enclave-worker
+          - secure-enclave
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+
+      - name: Setup Rust environment
+        uses: ./.github/actions/rust-setup
+        with:
+          cache-prefix: "build-images-${{ matrix.package }}"
+          gh-token: ${{ secrets.GIT_HUB_TOKEN }}
+          hugging_face_token: ${{ secrets.HUGGING_FACE_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435
+
+      - name: Build, scan & push to ECR
+        uses: worldcoin/gh-actions/ecr-build-and-push@ecr-build-and-push-v3
+        with:
+          use_central_ecr_repo: true
+          context: .
+          dockerfile: "./${{ matrix.package }}/Dockerfile"
+          ecr_repo: "world-chat-backend-dev"
+          secrets: |
+            GITHUB_TOKEN=${{ secrets.GIT_HUB_TOKEN }}
+          platform: linux/amd64
+          tags: world-chat-${{ matrix.package }}:${{ github.sha }}
+          service_name: "world-chat-backend"
