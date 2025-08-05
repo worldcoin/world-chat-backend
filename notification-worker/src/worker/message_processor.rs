@@ -24,7 +24,7 @@ impl MessageProcessor {
     }
 
     /// Runs the message processor loop
-    #[allow(clippy::clippy::confusing_bool_expr)]
+    #[allow(clippy::confusing_bool_expr)]
     pub async fn run(&self, receiver: flume::Receiver<Message>, shutdown_token: CancellationToken) {
         info!("Message processor {} started", self.worker_id);
 
@@ -84,12 +84,11 @@ impl MessageProcessor {
     fn convert_to_notification(&self, message: &Message) -> Notification {
         Notification {
             topic: message.content_topic.clone(),
-            recipients: Vec::new(), // Placeholder - will be populated based on topic filtering
+            sender_hmac: "placeholder_sender_hmac".to_string(), // TODO: Extract from message
             payload: format!(
-                "{{\"timestamp_ns\":{},\"message_size\":{},\"worker_id\":{}}}",
+                "{{\"timestamp_ns\":{},\"message_size\":{}}}",
                 message.timestamp_ns,
                 message.message.len(),
-                self.worker_id
             ),
         }
     }
