@@ -43,22 +43,27 @@ impl Environment {
     }
 
     /// Returns the XMTP gRPC endpoint for this environment
+    ///
+    /// # Panics
+    ///
+    /// Panics if the `XMTP_ENDPOINT_URL` environment variable is not set
     #[must_use]
-    pub const fn xmtp_endpoint(&self) -> &'static str {
-        match self {
-            Self::Production => "https://grpc.production.xmtp.network:443",
-            Self::Staging => "https://grpc.dev.xmtp.network:443",
-            Self::Development => "http://localhost:25556", // Local Docker
-        }
+    pub fn xmtp_endpoint(&self) -> String {
+        env::var("XMTP_ENDPOINT_URL").expect("XMTP_ENDPOINT_URL environment variable is not set")
     }
 
     /// Returns whether to use TLS for this environment
+    ///
+    /// # Panics
+    ///
+    /// Panics if the `XMTP_ENDPOINT_URL` environment variable is not set
     #[must_use]
-    pub const fn use_tls(&self) -> bool {
-        match self {
-            Self::Production | Self::Staging => true,
-            Self::Development => false,
-        }
+    pub fn use_tls(&self) -> bool {
+        let endpoint_url = env::var("XMTP_ENDPOINT_URL")
+            .expect("XMTP_ENDPOINT_URL environment variable is not set");
+
+        // Determine TLS based on URL scheme
+        endpoint_url.starts_with("https://")
     }
 
     /// Returns the default number of workers for this environment
@@ -213,5 +218,63 @@ mod tests {
         env::set_var("APP_ENV", "invalid");
         let _ = Environment::from_env();
         env::remove_var("APP_ENV");
+    }
+
+    #[test]
+    #[serial]
+    fn test_xmtp_endpoint_required() {
+        let env_instance = Environment::Development;
+
+        // Test HTTP endpoint
+        env::set_var("XMTP_ENDPOINT_URL", "http://custom-xmtp.example.com:8080");
+        assert_eq!(
+            env_instance.xmtp_endpoint(),
+            "http://custom-xmtp.example.com:8080"
+        );
+        assert!(!env_instance.use_tls());
+
+        // Test HTTPS endpoint
+        env::set_var("XMTP_ENDPOINT_URL", "https://secure-xmtp.example.com:443");
+        assert_eq!(
+            env_instance.xmtp_endpoint(),
+            "https://secure-xmtp.example.com:443"
+        );
+        assert!(env_instance.use_tls());
+
+        // Cleanup
+        env::remove_var("XMTP_ENDPOINT_URL");
+    }
+
+    #[test]
+    #[serial]
+    #[should_panic(expected = "XMTP_ENDPOINT_URL environment variable is not set")]
+    fn test_xmtp_endpoint_panic_when_missing() {
+        let env_instance = Environment::Development;
+
+        env::remove_var("XMTP_ENDPOINT_URL");
+        let _ = env_instance.xmtp_endpoint();
+    }
+
+    #[test]
+    #[serial]
+    fn test_xmtp_endpoint_with_different_environments() {
+        // Test with staging environment
+        let staging_env = Environment::Staging;
+
+        // Set staging with HTTPS endpoint
+        env::set_var("XMTP_ENDPOINT_URL", "https://grpc.dev.xmtp.network:443");
+        assert_eq!(
+            staging_env.xmtp_endpoint(),
+            "https://grpc.dev.xmtp.network:443"
+        );
+        assert!(staging_env.use_tls());
+
+        // Set staging with custom endpoint
+        env::set_var("XMTP_ENDPOINT_URL", "http://localhost:9999");
+        assert_eq!(staging_env.xmtp_endpoint(), "http://localhost:9999");
+        assert!(!staging_env.use_tls());
+
+        // Cleanup
+        env::remove_var("XMTP_ENDPOINT_URL");
     }
 }

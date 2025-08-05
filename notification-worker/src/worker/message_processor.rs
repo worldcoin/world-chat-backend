@@ -24,7 +24,7 @@ impl MessageProcessor {
     }
 
     /// Runs the message processor loop
-    #[allow(clippy::confusing_bool_expr)]
+    #[allow(clippy::cognitive_complexity)]
     pub async fn run(&self, receiver: flume::Receiver<Message>, shutdown_token: CancellationToken) {
         info!("Message processor {} started", self.worker_id);
 
@@ -61,7 +61,7 @@ impl MessageProcessor {
         );
 
         // Convert XMTP message to notification
-        let notification = self.convert_to_notification(message);
+        let notification = Self::convert_to_notification(message);
 
         // Publish to notification queue
         match self.notification_queue.send_message(&notification).await {
@@ -81,7 +81,7 @@ impl MessageProcessor {
     }
 
     /// Converts an XMTP message to a notification
-    fn convert_to_notification(&self, message: &Message) -> Notification {
+    fn convert_to_notification(message: &Message) -> Notification {
         Notification {
             topic: message.content_topic.clone(),
             sender_hmac: "placeholder_sender_hmac".to_string(), // TODO: Extract from message

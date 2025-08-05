@@ -50,7 +50,7 @@ impl XmtpWorker {
 
         // Create the endpoint with proper configuration
         let endpoint = {
-            let mut ep = Channel::from_shared(env.xmtp_endpoint().to_string())?;
+            let mut ep = Channel::from_shared(env.xmtp_endpoint())?;
 
             if env.use_tls() {
                 let tls_config = ClientTlsConfig::new().with_webpki_roots();
