@@ -1,6 +1,9 @@
 //! Environment configuration for different deployment stages
 
-use std::env;
+use std::{env, time::Duration};
+
+use aws_config::{retry::RetryConfig, timeout::TimeoutConfig, BehaviorVersion};
+use backend_storage::queue::QueueConfig;
 
 /// Application environment configuration
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -55,12 +58,18 @@ impl Environment {
 
     /// Returns the default number of workers for this environment
     #[must_use]
-    pub const fn default_num_workers(&self) -> usize {
+    pub const fn num_workers(&self) -> usize {
         match self {
             Self::Production => 50,
             Self::Staging => 20,
             Self::Development => 10,
         }
+    }
+
+    /// Returns the channel capacity for this environment
+    #[must_use]
+    pub const fn channel_capacity(&self) -> usize {
+        self.num_workers() * 2
     }
 
     /// Returns the XMTP gRPC endpoint with environment variable override support
@@ -109,6 +118,69 @@ impl Environment {
             .ok()
             .and_then(|v| v.parse().ok())
             .unwrap_or(5000)
+    }
+
+    /// Returns the endpoint URL to use for AWS services
+    #[must_use]
+    pub const fn override_aws_endpoint_url(&self) -> Option<&str> {
+        match self {
+            // Regular AWS endpoints for production and staging
+            Self::Production | Self::Staging => None,
+            // LocalStack endpoint for development
+            Self::Development { .. } => Some("http://localhost:4566"),
+        }
+    }
+
+    /// AWS configuration with retry and timeout settings
+    pub async fn aws_config(&self) -> aws_config::SdkConfig {
+        let retry_config = RetryConfig::standard()
+            .with_max_attempts(3)
+            .with_initial_backoff(Duration::from_millis(50));
+
+        let timeout_config = TimeoutConfig::builder()
+            .operation_timeout(Duration::from_secs(30))
+            .build();
+
+        let mut config_builder = aws_config::load_defaults(BehaviorVersion::latest())
+            .await
+            .to_builder()
+            .retry_config(retry_config)
+            .timeout_config(timeout_config);
+
+        if let Some(endpoint_url) = self.override_aws_endpoint_url() {
+            config_builder = config_builder.endpoint_url(endpoint_url);
+        }
+
+        config_builder.build()
+    }
+
+    /// AWS SQS service configuration
+    pub async fn sqs_client_config(&self) -> aws_sdk_sqs::Config {
+        let aws_config = self.aws_config().await;
+        aws_sdk_sqs::Config::from(&aws_config)
+    }
+
+    /// Returns the notification queue configuration
+    ///
+    /// # Panics
+    ///
+    /// Panics if the `NOTIFICATION_QUEUE_URL` environment variable is not set in production/staging
+    #[must_use]
+    pub fn notification_queue_config(&self) -> QueueConfig {
+        let queue_url = match self {
+            Self::Production | Self::Staging => env::var("NOTIFICATION_QUEUE_URL")
+                .expect("NOTIFICATION_QUEUE_URL environment variable is not set"),
+            Self::Development => {
+                "http://localhost:4566/000000000000/notification-queue.fifo".to_string()
+            }
+        };
+
+        QueueConfig {
+            queue_url,
+            default_max_messages: 10,
+            default_visibility_timeout: 60, // 60 seconds - Longer timeout for notifications
+            default_wait_time_seconds: 20,  // Enable long polling by default
+        }
     }
 }
 

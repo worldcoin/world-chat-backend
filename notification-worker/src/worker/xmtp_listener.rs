@@ -6,14 +6,19 @@ use tracing::{error, info, warn};
 use crate::xmtp::message_api::v1::message_api_client::MessageApiClient;
 use crate::xmtp::message_api::v1::SubscribeAllRequest;
 
-use super::{Message, WorkerConfig, WorkerResult};
+use super::{Message, WorkerResult};
+
+pub struct XmtpListenerConfig {
+    pub reconnect_delay_ms: u64,
+    pub max_reconnect_delay_ms: u64,
+}
 
 /// `XmtpListener` handles the connection to XMTP and message streaming
 pub struct XmtpListener {
     client: MessageApiClient<Channel>,
     message_tx: flume::Sender<Message>,
-    config: WorkerConfig,
     shutdown_token: CancellationToken,
+    config: XmtpListenerConfig,
 }
 
 impl XmtpListener {
@@ -21,8 +26,8 @@ impl XmtpListener {
     pub const fn new(
         client: MessageApiClient<Channel>,
         message_tx: flume::Sender<Message>,
-        config: WorkerConfig,
         shutdown_token: CancellationToken,
+        config: XmtpListenerConfig,
     ) -> Self {
         Self {
             client,
