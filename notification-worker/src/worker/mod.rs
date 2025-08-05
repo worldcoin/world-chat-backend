@@ -143,8 +143,7 @@ impl XmtpWorker {
         let mut handles = Vec::new();
 
         for i in 0..self.env.num_workers() {
-            let processor =
-                MessageProcessor::new(i, std::sync::Arc::clone(&self.notification_queue));
+            let processor = MessageProcessor::new(i, Arc::clone(&self.notification_queue));
             let rx = receiver.clone();
             let shutdown_token = self.shutdown_token.clone();
 

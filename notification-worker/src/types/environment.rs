@@ -5,6 +5,11 @@ use std::{env, time::Duration};
 use aws_config::{retry::RetryConfig, timeout::TimeoutConfig, BehaviorVersion};
 use backend_storage::queue::QueueConfig;
 
+const DEFAULT_RECONNECT_DELAY_MS: u64 = 100;
+const DEFAULT_MAX_RECONNECT_DELAY_MS: u64 = 30_000;
+const DEFAULT_CONNECTION_TIMEOUT_MS: u64 = 30_000;
+const DEFAULT_CONNECT_TIMEOUT_MS: u64 = 5_000;
+
 /// Application environment configuration
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Environment {
@@ -72,25 +77,13 @@ impl Environment {
         self.num_workers() * 2
     }
 
-    /// Returns the XMTP gRPC endpoint with environment variable override support
-    #[must_use]
-    pub fn xmtp_grpc_address(&self) -> String {
-        env::var("XMTP_GRPC_ADDRESS").unwrap_or_else(|_| self.xmtp_endpoint().to_string())
-    }
-
-    /// Returns whether to use TLS with environment variable override support
-    #[must_use]
-    pub fn use_tls_override(&self) -> bool {
-        env::var("XMTP_USE_TLS").map_or_else(|_| self.use_tls(), |v| v.to_lowercase() == "true")
-    }
-
     /// Returns the initial reconnection delay in milliseconds
     #[must_use]
     pub fn reconnect_delay_ms(&self) -> u64 {
         env::var("XMTP_RECONNECT_DELAY_MS")
             .ok()
             .and_then(|v| v.parse().ok())
-            .unwrap_or(100)
+            .unwrap_or(DEFAULT_RECONNECT_DELAY_MS)
     }
 
     /// Returns the maximum reconnection delay in milliseconds
@@ -99,7 +92,7 @@ impl Environment {
         env::var("XMTP_MAX_RECONNECT_DELAY_MS")
             .ok()
             .and_then(|v| v.parse().ok())
-            .unwrap_or(30000)
+            .unwrap_or(DEFAULT_MAX_RECONNECT_DELAY_MS)
     }
 
     /// Returns the connection timeout in milliseconds
@@ -108,7 +101,7 @@ impl Environment {
         env::var("XMTP_CONNECTION_TIMEOUT_MS")
             .ok()
             .and_then(|v| v.parse().ok())
-            .unwrap_or(30000)
+            .unwrap_or(DEFAULT_CONNECTION_TIMEOUT_MS)
     }
 
     /// Returns the connect timeout in milliseconds
@@ -117,7 +110,7 @@ impl Environment {
         env::var("XMTP_CONNECT_TIMEOUT_MS")
             .ok()
             .and_then(|v| v.parse().ok())
-            .unwrap_or(5000)
+            .unwrap_or(DEFAULT_CONNECT_TIMEOUT_MS)
     }
 
     /// Returns the endpoint URL to use for AWS services
