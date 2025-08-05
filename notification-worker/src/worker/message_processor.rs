@@ -24,6 +24,7 @@ impl MessageProcessor {
     }
 
     /// Runs the message processor loop
+    #[allow(clippy::clippy::confusing_bool_expr)]
     pub async fn run(&self, receiver: flume::Receiver<Message>, shutdown_token: CancellationToken) {
         info!("Message processor {} started", self.worker_id);
 

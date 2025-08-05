@@ -95,19 +95,29 @@ impl XmtpWorker {
             self.env.num_workers()
         );
 
-        // Create the message channel
+        let (message_tx, message_rx) = self.create_message_channel();
+        let processor_handles = self.spawn_processors(&message_rx);
+
+        self.run_xmtp_listener(message_tx).await;
+        self.shutdown_and_cleanup(processor_handles).await;
+
+        Ok(())
+    }
+
+    /// Creates and logs the message channel
+    fn create_message_channel(&self) -> (flume::Sender<Message>, flume::Receiver<Message>) {
         let (message_tx, message_rx) = flume::bounded::<Message>(self.env.channel_capacity());
         info!(
             "Created flume channel with capacity: {}",
             self.env.channel_capacity()
         );
+        (message_tx, message_rx)
+    }
 
-        // Spawn message processors
-        let processor_handles = self.spawn_processors(&message_rx);
-
-        // Create and start XMTP listener
+    /// Runs the XMTP listener and handles results
+    async fn run_xmtp_listener(&self, message_tx: flume::Sender<Message>) {
         let listener_result = XmtpListener::new(
-            self.client,
+            self.client.clone(),
             message_tx,
             self.shutdown_token.clone(),
             XmtpListenerConfig {
@@ -118,24 +128,22 @@ impl XmtpWorker {
         .run()
         .await;
 
-        // Stream listener has stopped (either shutdown or error)
         if let Err(e) = listener_result {
             error!("XMTP listener error: {}", e);
         }
+    }
 
-        // Wait for shutdown signal
+    /// Shuts down and cleans up all worker components
+    async fn shutdown_and_cleanup(&self, processor_handles: Vec<JoinHandle<()>>) {
         self.shutdown_token.cancel();
         info!("XMTP worker shutdown initiated");
 
-        // Wait for all processors to complete
         for handle in processor_handles {
             if let Err(e) = handle.await {
                 error!("Processor task error: {}", e);
             }
         }
-
         info!("All XMTP worker components stopped");
-        Ok(())
     }
 
     /// Spawns message processor tasks
