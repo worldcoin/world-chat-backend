@@ -14,7 +14,7 @@ use tracing::info;
 
 use crate::xmtp::message_api::v1::message_api_client::MessageApiClient;
 
-/// Legacy XmtpWorker adapter for backward compatibility
+/// Legacy `XmtpWorker` adapter for backward compatibility
 /// This wraps the new Coordinator to maintain the old API
 pub struct XmtpWorker {
     coordinator: Coordinator,
@@ -23,7 +23,11 @@ pub struct XmtpWorker {
 
 impl XmtpWorker {
     /// Creates a new XMTP worker (legacy API)
-    pub async fn new(config: WorkerConfig) -> Result<Self, Box<dyn std::error::Error>> {
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if connection to XMTP fails or TLS configuration is invalid.
+    pub async fn new(config: WorkerConfig) -> anyhow::Result<Self> {
         info!("Connecting to XMTP node at {}", config.xmtp_endpoint);
         info!(
             "TLS enabled: {}, Client version: {}",
@@ -66,7 +70,11 @@ impl XmtpWorker {
     }
 
     /// Starts the worker (legacy API)
-    pub async fn start(self) -> Result<(), Box<dyn std::error::Error>> {
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the worker fails to start or encounters runtime errors.
+    pub async fn start(self) -> anyhow::Result<()> {
         self.coordinator.start(self.client).await
     }
 }

@@ -5,7 +5,7 @@ use notification_worker::types::environment::Environment;
 use notification_worker::worker::{WorkerConfig, XmtpWorker};
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
+async fn main() -> anyhow::Result<()> {
     // Initialize rustls crypto provider
     rustls::crypto::ring::default_provider()
         .install_default()

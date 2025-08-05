@@ -3,14 +3,15 @@ use tracing::info;
 
 use super::types::Message;
 
-/// MessageProcessor handles individual message processing
+/// `MessageProcessor` handles individual message processing
 pub struct MessageProcessor {
     worker_id: usize,
 }
 
 impl MessageProcessor {
-    /// Creates a new MessageProcessor
-    pub fn new(worker_id: usize) -> Self {
+    /// Creates a new `MessageProcessor`
+    #[must_use]
+    pub const fn new(worker_id: usize) -> Self {
         Self { worker_id }
     }
 
@@ -20,13 +21,13 @@ impl MessageProcessor {
 
         loop {
             tokio::select! {
-                _ = shutdown_token.cancelled() => {
+                () = shutdown_token.cancelled() => {
                     info!("Message processor {} received shutdown signal", self.worker_id);
                     break;
                 }
                 result = receiver.recv_async() => {
                     match result {
-                        Ok(message) => self.process_message(message),
+                        Ok(message) => self.process_message(&message),
                         Err(flume::RecvError::Disconnected) => {
                             info!("Message channel closed for processor {}", self.worker_id);
                             break;
@@ -40,7 +41,7 @@ impl MessageProcessor {
     }
 
     /// Processes a single message
-    fn process_message(&self, message: Message) {
+    fn process_message(&self, message: &Message) {
         // Log the message
         info!(
             "Worker {} processing message - Topic: {}, Timestamp: {}, Message size: {} bytes",
@@ -53,7 +54,8 @@ impl MessageProcessor {
 
     /// Returns the worker ID for testing
     #[cfg(test)]
-    pub fn worker_id(&self) -> usize {
+    #[must_use]
+    pub const fn worker_id(&self) -> usize {
         self.worker_id
     }
 }

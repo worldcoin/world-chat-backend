@@ -22,7 +22,8 @@ pub struct WorkerConfig {
 }
 
 impl WorkerConfig {
-    /// Creates a new WorkerConfig from the given environment
+    /// Creates a new `WorkerConfig` from the given environment
+    #[must_use]
     pub fn from_environment(env: &Environment) -> Self {
         Self {
             xmtp_endpoint: env.xmtp_grpc_address(),
@@ -53,8 +54,9 @@ impl WorkerConfig {
     //     }
     // }
 
-    /// Returns the channel capacity (2 * num_workers)
-    pub fn channel_capacity(&self) -> usize {
+    /// Returns the channel capacity (2 * `num_workers`)
+    #[must_use]
+    pub const fn channel_capacity(&self) -> usize {
         self.num_workers * 2
     }
 }

@@ -10,14 +10,15 @@ use super::processor::MessageProcessor;
 use super::stream_listener::StreamListener;
 use super::types::{Message, WorkerResult};
 
-/// Coordinator manages the lifecycle of all worker components
+/// `Coordinator` manages the lifecycle of all worker components
 pub struct Coordinator {
     config: WorkerConfig,
     shutdown_token: CancellationToken,
 }
 
 impl Coordinator {
-    /// Creates a new Coordinator
+    /// Creates a new `Coordinator`
+    #[must_use]
     pub fn new(config: WorkerConfig) -> Self {
         Self {
             config,
@@ -26,11 +27,16 @@ impl Coordinator {
     }
 
     /// Returns a clone of the shutdown token for external control
+    #[must_use]
     pub fn shutdown_token(&self) -> CancellationToken {
         self.shutdown_token.clone()
     }
 
     /// Starts the coordinator and all worker components
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if stream listening fails or processor tasks panic.
     pub async fn start(self, client: MessageApiClient<Channel>) -> WorkerResult<()> {
         info!(
             "Starting coordinator with {} workers",
@@ -45,18 +51,17 @@ impl Coordinator {
         );
 
         // Spawn message processors
-        let processor_handles = self.spawn_processors(message_rx);
+        let processor_handles = self.spawn_processors(&message_rx);
 
         // Create and start stream listener
-        let listener = StreamListener::new(
+        let listener_result = StreamListener::new(
             client,
             message_tx,
             self.config.clone(),
             self.shutdown_token.clone(),
-        );
-
-        // Run the stream listener
-        let listener_result = listener.run().await;
+        )
+        .run()
+        .await;
 
         // Stream listener has stopped (either shutdown or error)
         if let Err(e) = listener_result {
@@ -79,7 +84,7 @@ impl Coordinator {
     }
 
     /// Spawns message processor tasks
-    fn spawn_processors(&self, receiver: flume::Receiver<Message>) -> Vec<JoinHandle<()>> {
+    fn spawn_processors(&self, receiver: &flume::Receiver<Message>) -> Vec<JoinHandle<()>> {
         let mut handles = Vec::new();
 
         for i in 0..self.config.num_workers {

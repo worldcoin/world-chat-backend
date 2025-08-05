@@ -1,7 +1,7 @@
 use tokio::time::{sleep, Duration};
 use tokio_util::sync::CancellationToken;
 use tonic::transport::Channel;
-use tracing::{debug, error, info, warn};
+use tracing::{error, info, warn};
 
 use crate::xmtp::message_api::v1::message_api_client::MessageApiClient;
 use crate::xmtp::message_api::v1::SubscribeAllRequest;
@@ -9,7 +9,7 @@ use crate::xmtp::message_api::v1::SubscribeAllRequest;
 use super::config::WorkerConfig;
 use super::types::{Message, WorkerResult};
 
-/// StreamListener handles the connection to XMTP and message streaming
+/// `StreamListener` handles the connection to XMTP and message streaming
 pub struct StreamListener {
     client: MessageApiClient<Channel>,
     message_tx: flume::Sender<Message>,
@@ -18,8 +18,8 @@ pub struct StreamListener {
 }
 
 impl StreamListener {
-    /// Creates a new StreamListener
-    pub fn new(
+    /// Creates a new `StreamListener`
+    pub const fn new(
         client: MessageApiClient<Channel>,
         message_tx: flume::Sender<Message>,
         config: WorkerConfig,
@@ -34,6 +34,10 @@ impl StreamListener {
     }
 
     /// Runs the stream listener with automatic reconnection
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the stream connection fails or message processing encounters errors.
     pub async fn run(mut self) -> WorkerResult<()> {
         let mut reconnect_delay = self.config.reconnect_delay_ms;
 
@@ -46,7 +50,7 @@ impl StreamListener {
 
             // Try to subscribe and process
             match self.subscribe_and_process().await {
-                Ok(_) => {
+                Ok(()) => {
                     warn!("Stream ended unexpectedly, reconnecting...");
                     reconnect_delay = self.config.reconnect_delay_ms;
                 }
@@ -55,11 +59,11 @@ impl StreamListener {
 
                     // Wait with cancellation support
                     tokio::select! {
-                        _ = self.shutdown_token.cancelled() => {
+                        () = self.shutdown_token.cancelled() => {
                             info!("Stream listener shutting down during reconnect delay");
                             return Ok(());
                         }
-                        _ = sleep(Duration::from_millis(reconnect_delay)) => {}
+                        () = sleep(Duration::from_millis(reconnect_delay)) => {}
                     }
 
                     // Exponential backoff
@@ -86,7 +90,7 @@ impl StreamListener {
         while let Some(envelope) = stream.message().await? {
             if let Err(e) = self.message_tx.send_async(envelope).await {
                 error!("Failed to send message to workers: {}", e);
-                return Err("Message channel closed".into());
+                return Err(anyhow::anyhow!("Message channel closed"));
             }
         }
 
@@ -96,7 +100,5 @@ impl StreamListener {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-
     // Tests would go here with mock clients
 }
