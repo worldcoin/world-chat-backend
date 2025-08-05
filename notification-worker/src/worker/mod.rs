@@ -1,10 +1,8 @@
-pub mod coordinator;
 pub mod message_processor;
 pub mod xmtp_listener;
 
 use crate::types::environment::Environment;
 use crate::xmtp::message_api::v1::Envelope;
-pub use coordinator::Coordinator;
 
 // Type aliases
 /// Message type that flows through the worker pipeline
@@ -65,18 +63,22 @@ impl Default for WorkerConfig {
     }
 }
 
-// Legacy adapter for backward compatibility
+// XMTP Worker implementation
+use tokio::task::JoinHandle;
 use tokio_util::sync::CancellationToken;
 use tonic::transport::{Channel, ClientTlsConfig};
-use tracing::info;
+use tracing::{error, info};
 
 use crate::xmtp::message_api::v1::message_api_client::MessageApiClient;
 
-/// Legacy `XmtpWorker` adapter for backward compatibility
-/// This wraps the new Coordinator to maintain the old API
+use self::message_processor::MessageProcessor;
+use self::xmtp_listener::XmtpListener;
+
+/// XMTP worker that manages message streaming and processing
 pub struct XmtpWorker {
-    coordinator: Coordinator,
+    config: WorkerConfig,
     client: MessageApiClient<Channel>,
+    shutdown_token: CancellationToken,
 }
 
 impl XmtpWorker {
@@ -114,25 +116,86 @@ impl XmtpWorker {
         // For now, create client without interceptor (will add metadata support later)
         let client = MessageApiClient::new(channel);
 
-        let coordinator = Coordinator::new(config);
-
         Ok(Self {
-            coordinator,
+            config,
             client,
+            shutdown_token: CancellationToken::new(),
         })
     }
 
     /// Returns a clone of the shutdown token for external control
+    #[must_use]
     pub fn shutdown_token(&self) -> CancellationToken {
-        self.coordinator.shutdown_token()
+        self.shutdown_token.clone()
     }
 
-    /// Starts the worker (legacy API)
+    /// Starts the worker and all components
     ///
     /// # Errors
     ///
-    /// Returns an error if the worker fails to start or encounters runtime errors.
+    /// Returns an error if stream listening fails or processor tasks panic.
     pub async fn start(self) -> anyhow::Result<()> {
-        self.coordinator.start(self.client).await
+        info!(
+            "Starting XMTP worker with {} processors",
+            self.config.num_workers
+        );
+
+        // Create the message channel
+        let (message_tx, message_rx) = flume::bounded::<Message>(self.config.channel_capacity());
+        info!(
+            "Created flume channel with capacity: {}",
+            self.config.channel_capacity()
+        );
+
+        // Spawn message processors
+        let processor_handles = self.spawn_processors(&message_rx);
+
+        // Create and start XMTP listener
+        let listener_result = XmtpListener::new(
+            self.client,
+            message_tx,
+            self.config.clone(),
+            self.shutdown_token.clone(),
+        )
+        .run()
+        .await;
+
+        // Stream listener has stopped (either shutdown or error)
+        if let Err(e) = listener_result {
+            error!("XMTP listener error: {}", e);
+        }
+
+        // Wait for shutdown signal
+        self.shutdown_token.cancel();
+        info!("XMTP worker shutdown initiated");
+
+        // Wait for all processors to complete
+        for handle in processor_handles {
+            if let Err(e) = handle.await {
+                error!("Processor task error: {}", e);
+            }
+        }
+
+        info!("All XMTP worker components stopped");
+        Ok(())
+    }
+
+    /// Spawns message processor tasks
+    fn spawn_processors(&self, receiver: &flume::Receiver<Message>) -> Vec<JoinHandle<()>> {
+        let mut handles = Vec::new();
+
+        for i in 0..self.config.num_workers {
+            let processor = MessageProcessor::new(i);
+            let rx = receiver.clone();
+            let shutdown_token = self.shutdown_token.clone();
+
+            let handle = tokio::spawn(async move {
+                processor.run(rx, shutdown_token).await;
+            });
+
+            handles.push(handle);
+        }
+
+        handles
     }
 }
