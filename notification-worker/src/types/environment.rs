@@ -40,7 +40,7 @@ impl Environment {
         match self {
             Self::Production => "https://grpc.production.xmtp.network:443",
             Self::Staging => "https://grpc.dev.xmtp.network:443",
-            Self::Development { .. } => "http://localhost:25556", // Local Docker
+            Self::Development => "http://localhost:25556", // Local Docker
         }
     }
 
@@ -49,7 +49,7 @@ impl Environment {
     pub const fn use_tls(&self) -> bool {
         match self {
             Self::Production | Self::Staging => true,
-            Self::Development { .. } => false,
+            Self::Development => false,
         }
     }
 
@@ -59,7 +59,7 @@ impl Environment {
         match self {
             Self::Production => 50,
             Self::Staging => 20,
-            Self::Development { .. } => 10,
+            Self::Development => 10,
         }
     }
 

@@ -1,11 +1,69 @@
-pub mod config;
 pub mod coordinator;
-pub mod processor;
-pub mod stream_listener;
-pub mod types;
+pub mod message_processor;
+pub mod xmtp_listener;
 
-pub use config::WorkerConfig;
+use crate::types::environment::Environment;
+use crate::xmtp::message_api::v1::Envelope;
 pub use coordinator::Coordinator;
+
+// Type aliases
+/// Message type that flows through the worker pipeline
+pub type Message = Envelope;
+
+/// Result type for worker operations
+pub type WorkerResult<T> = anyhow::Result<T>;
+
+// Configuration
+/// Configuration for the XMTP worker
+#[derive(Debug, Clone)]
+pub struct WorkerConfig {
+    /// XMTP node endpoint
+    pub xmtp_endpoint: String,
+    /// Whether to use TLS for the connection
+    pub use_tls: bool,
+    /// Client version to send in metadata
+    pub client_version: String,
+    /// Number of worker tasks to spawn
+    pub num_workers: usize,
+    /// Initial reconnection delay in milliseconds
+    pub reconnect_delay_ms: u64,
+    /// Maximum reconnection delay in milliseconds
+    pub max_reconnect_delay_ms: u64,
+    /// Connection timeout in milliseconds
+    pub connection_timeout_ms: u64,
+    /// Connect timeout in milliseconds
+    pub connect_timeout_ms: u64,
+}
+
+impl WorkerConfig {
+    /// Creates a new `WorkerConfig` from the given environment
+    #[must_use]
+    pub fn from_environment(env: &Environment) -> Self {
+        Self {
+            xmtp_endpoint: env.xmtp_grpc_address(),
+            use_tls: env.use_tls_override(),
+            client_version: "notification-worker-rust/0.1.0".to_string(),
+            num_workers: env.default_num_workers(),
+            reconnect_delay_ms: env.reconnect_delay_ms(),
+            max_reconnect_delay_ms: env.max_reconnect_delay_ms(),
+            connection_timeout_ms: env.connection_timeout_ms(),
+            connect_timeout_ms: env.connect_timeout_ms(),
+        }
+    }
+
+    /// Returns the channel capacity (2 * `num_workers`)
+    #[must_use]
+    pub const fn channel_capacity(&self) -> usize {
+        self.num_workers * 2
+    }
+}
+
+impl Default for WorkerConfig {
+    fn default() -> Self {
+        let env = Environment::from_env();
+        Self::from_environment(&env)
+    }
+}
 
 // Legacy adapter for backward compatibility
 use tokio_util::sync::CancellationToken;

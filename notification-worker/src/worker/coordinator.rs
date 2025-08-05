@@ -5,10 +5,9 @@ use tracing::{error, info};
 
 use crate::xmtp::message_api::v1::message_api_client::MessageApiClient;
 
-use super::config::WorkerConfig;
-use super::processor::MessageProcessor;
-use super::stream_listener::StreamListener;
-use super::types::{Message, WorkerResult};
+use super::message_processor::MessageProcessor;
+use super::xmtp_listener::XmtpListener;
+use super::{Message, WorkerConfig, WorkerResult};
 
 /// `Coordinator` manages the lifecycle of all worker components
 pub struct Coordinator {
@@ -53,8 +52,8 @@ impl Coordinator {
         // Spawn message processors
         let processor_handles = self.spawn_processors(&message_rx);
 
-        // Create and start stream listener
-        let listener_result = StreamListener::new(
+        // Create and start XMTP listener
+        let listener_result = XmtpListener::new(
             client,
             message_tx,
             self.config.clone(),
