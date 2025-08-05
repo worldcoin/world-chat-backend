@@ -8,7 +8,6 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y \
     musl-tools \
     clang \
-    libssl-dev \
     pkg-config \
     build-essential \
     ca-certificates \
@@ -20,14 +19,23 @@ RUN rustup target add x86_64-unknown-linux-musl
 COPY Cargo.toml Cargo.lock ./
 COPY backend/Cargo.toml backend/Cargo.toml
 COPY shared/backend_storage/Cargo.toml shared/backend_storage/Cargo.toml
+COPY enclave-worker/Cargo.toml enclave-worker/Cargo.toml
+COPY secure-enclave/Cargo.toml secure-enclave/Cargo.toml
+COPY notification-worker/Cargo.toml notification-worker/Cargo.toml
 
 # Cache dependencies
 RUN mkdir -p backend/src && \
     echo "fn main() {}" > backend/src/main.rs && \
     mkdir -p shared/backend_storage/src && \
     echo "fn main() {}" > shared/backend_storage/src/lib.rs && \
+    mkdir -p enclave-worker/src && \
+    echo "fn main() {}" > enclave-worker/src/main.rs && \
+    mkdir -p secure-enclave/src && \
+    echo "fn main() {}" > secure-enclave/src/main.rs && \
+    mkdir -p notification-worker/src && \
+    echo "fn main() {}" > notification-worker/src/main.rs && \
     cargo build --package backend --locked --release && \
-    rm -rf backend/src shared/backend_storage/src
+    rm -rf backend/src shared/backend_storage/src enclave-worker/src secure-enclave/src notification-worker/src
 
 # Copy source code
 COPY . .

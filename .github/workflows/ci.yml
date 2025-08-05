@@ -149,3 +149,15 @@ jobs:
         with:
           command: check ${{ matrix.checks }}
           rust-version: stable
+
+  build-docker:
+    name: Build Docker
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build backend Docker image
+        run: |
+          docker build -f backend/Dockerfile -t world-chat-backend:latest .
+          docker images | grep world-chat-backend
