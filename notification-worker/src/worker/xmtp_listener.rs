@@ -83,10 +83,29 @@ impl XmtpListener {
         let response = self.client.subscribe_all(request).await?;
         let mut stream = response.into_inner();
 
-        while let Some(envelope) = stream.message().await? {
-            if let Err(e) = self.message_tx.send_async(envelope).await {
-                error!("Failed to send message to workers: {}", e);
-                return Err(anyhow::anyhow!("Message channel closed"));
+        loop {
+            tokio::select! {
+                () = self.shutdown_token.cancelled() => {
+                    info!("Stream listener shutting down during message processing");
+                    return Ok(());
+                }
+                result = stream.message() => {
+                    match result {
+                        Ok(Some(envelope)) => {
+                            if let Err(e) = self.message_tx.send_async(envelope).await {
+                                error!("Failed to send message to workers: {}", e);
+                                return Err(anyhow::anyhow!("Message channel closed"));
+                            }
+                        }
+                        Ok(None) => {
+                            info!("Stream ended");
+                            break;
+                        }
+                        Err(e) => {
+                            return Err(e.into());
+                        }
+                    }
+                }
             }
         }
 

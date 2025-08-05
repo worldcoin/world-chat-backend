@@ -120,7 +120,7 @@ impl Environment {
             // Regular AWS endpoints for production and staging
             Self::Production | Self::Staging => None,
             // LocalStack endpoint for development
-            Self::Development { .. } => Some("http://localhost:4566"),
+            Self::Development => Some("http://localhost:4566"),
         }
     }
 
