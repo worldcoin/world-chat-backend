@@ -74,17 +74,9 @@ impl XmtpListener {
 
     /// Subscribes to the message stream and processes messages
     async fn subscribe_and_process(&mut self) -> WorkerResult<()> {
-        info!("Subscribing to XMTP message stream");
-
         let request = SubscribeAllRequest {};
-        info!("Sending SubscribeAllRequest to gRPC server");
-
         let response = self.client.subscribe_all(request).await?;
-        info!("Successfully established subscription stream");
-
         let mut stream = response.into_inner();
-
-        info!("Waiting for messages from XMTP stream...");
 
         while let Some(envelope) = stream.message().await? {
             if let Err(e) = self.message_tx.send_async(envelope).await {

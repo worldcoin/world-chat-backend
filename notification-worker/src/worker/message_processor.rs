@@ -51,11 +51,4 @@ impl MessageProcessor {
             message.message.len()
         );
     }
-
-    /// Returns the worker ID for testing
-    #[cfg(test)]
-    #[must_use]
-    pub const fn worker_id(&self) -> usize {
-        self.worker_id
-    }
 }
