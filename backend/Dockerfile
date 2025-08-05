@@ -1,10 +1,8 @@
-FROM rust:1.85.0-slim AS builder
-
-ARG GIT_REV
-ENV GIT_REV=${GIT_REV}
-
+# Use cargo-chef to cache dependencies
+FROM rust:1.85.0-slim AS chef
 WORKDIR /app
 
+# Install musl target and dependencies
 RUN apt-get update && apt-get install -y \
     musl-tools \
     clang \
@@ -15,32 +13,25 @@ RUN apt-get update && apt-get install -y \
 
 RUN rustup target add x86_64-unknown-linux-musl
 
-# Copy workspace files first
-COPY Cargo.toml Cargo.lock ./
-COPY backend/Cargo.toml backend/Cargo.toml
-COPY shared/backend_storage/Cargo.toml shared/backend_storage/Cargo.toml
-COPY enclave-worker/Cargo.toml enclave-worker/Cargo.toml
-COPY secure-enclave/Cargo.toml secure-enclave/Cargo.toml
-COPY notification-worker/Cargo.toml notification-worker/Cargo.toml
+RUN cargo install cargo-chef 
 
-# Cache dependencies
-RUN mkdir -p backend/src && \
-    echo "fn main() {}" > backend/src/main.rs && \
-    mkdir -p shared/backend_storage/src && \
-    echo "fn main() {}" > shared/backend_storage/src/lib.rs && \
-    mkdir -p enclave-worker/src && \
-    echo "fn main() {}" > enclave-worker/src/main.rs && \
-    mkdir -p secure-enclave/src && \
-    echo "fn main() {}" > secure-enclave/src/main.rs && \
-    mkdir -p notification-worker/src && \
-    echo "fn main() {}" > notification-worker/src/main.rs && \
-    cargo build --package backend --locked --release && \
-    rm -rf backend/src shared/backend_storage/src enclave-worker/src secure-enclave/src notification-worker/src
-
-# Copy source code
+# Plan stage - creates recipe.json for dependency caching
+FROM chef AS planner
 COPY . .
+RUN cargo chef prepare --recipe-path recipe.json
 
-# Build the backend application
+# Build stage - cooks dependencies then builds application
+FROM chef AS builder
+
+ARG GIT_REV
+ENV GIT_REV=${GIT_REV}
+
+# Copy recipe and build dependencies (cached if unchanged)
+COPY --from=planner /app/recipe.json recipe.json
+RUN cargo chef cook --release --target x86_64-unknown-linux-musl --recipe-path recipe.json
+
+# Copy source code and build application
+COPY . .
 RUN cargo build --package backend --locked --release --target x86_64-unknown-linux-musl
 
 # Runtime stage
