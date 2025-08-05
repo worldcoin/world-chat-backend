@@ -32,8 +32,8 @@ impl XmtpListener {
         Self {
             client,
             message_tx,
-            config,
             shutdown_token,
+            config,
         }
     }
 

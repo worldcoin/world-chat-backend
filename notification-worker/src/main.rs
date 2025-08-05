@@ -2,7 +2,7 @@ use tracing::{error, info};
 use tracing_subscriber::EnvFilter;
 
 use notification_worker::types::environment::Environment;
-use notification_worker::worker::{WorkerConfig, XmtpWorker};
+use notification_worker::worker::XmtpWorker;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -20,12 +20,8 @@ async fn main() -> anyhow::Result<()> {
     let env = Environment::from_env();
     info!("Starting XMTP Notification Worker in {:?} environment", env);
 
-    // Create worker configuration
-    let config = WorkerConfig::from_environment(&env);
-    info!("Worker configuration: {:?}", config);
-
     // Create and start the worker
-    match XmtpWorker::new(config).await {
+    match XmtpWorker::new(env).await {
         Ok(worker) => {
             info!("Successfully connected to XMTP node");
 
