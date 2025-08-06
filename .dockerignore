@@ -1,0 +1,8 @@
+target/
+.git/
+Dockerfile
+.dockerignore
+.github
+.vscode
+.claude
+.DS_Store
