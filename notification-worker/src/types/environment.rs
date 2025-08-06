@@ -56,14 +56,24 @@ impl Environment {
     ///
     /// # Panics
     ///
-    /// Panics if the `XMTP_ENDPOINT_URL` environment variable is not set
-    #[must_use]
+    /// Panics if the `XMTP_ENDPOINT_URL` environment variable is not set, or if TLS is disabled in Production or Staging environments
     pub fn use_tls(&self) -> bool {
         let endpoint_url = env::var("XMTP_ENDPOINT_URL")
             .expect("XMTP_ENDPOINT_URL environment variable is not set");
 
         // Determine TLS based on URL scheme
-        endpoint_url.starts_with("https://")
+        let use_tls = endpoint_url.starts_with("https://");
+
+        // Validate TLS usage for production environments
+        match self {
+            Self::Production | Self::Staging if !use_tls => {
+                panic!(
+                    "TLS must be enabled in {:?} environment. Current endpoint: {}",
+                    self, endpoint_url
+                )
+            }
+            _ => use_tls,
+        }
     }
 
     /// Returns the default number of workers for this environment
@@ -231,7 +241,7 @@ mod tests {
             env_instance.xmtp_endpoint(),
             "http://custom-xmtp.example.com:8080"
         );
-        assert!(!env_instance.use_tls());
+        assert!(!env_instance.use_tls().unwrap());
 
         // Test HTTPS endpoint
         env::set_var("XMTP_ENDPOINT_URL", "https://secure-xmtp.example.com:443");
@@ -239,7 +249,7 @@ mod tests {
             env_instance.xmtp_endpoint(),
             "https://secure-xmtp.example.com:443"
         );
-        assert!(env_instance.use_tls());
+        assert!(env_instance.use_tls().unwrap());
 
         // Cleanup
         env::remove_var("XMTP_ENDPOINT_URL");
@@ -267,12 +277,81 @@ mod tests {
             staging_env.xmtp_endpoint(),
             "https://grpc.dev.xmtp.network:443"
         );
-        assert!(staging_env.use_tls());
+        assert!(staging_env.use_tls().unwrap());
 
         // Set staging with custom endpoint
         env::set_var("XMTP_ENDPOINT_URL", "http://localhost:9999");
         assert_eq!(staging_env.xmtp_endpoint(), "http://localhost:9999");
-        assert!(!staging_env.use_tls());
+        assert!(staging_env.use_tls().is_err());
+
+        // Cleanup
+        env::remove_var("XMTP_ENDPOINT_URL");
+    }
+
+    #[test]
+    #[serial]
+    fn test_production_requires_tls() {
+        let prod_env = Environment::Production;
+
+        // Test with HTTP endpoint (should fail)
+        env::set_var("XMTP_ENDPOINT_URL", "http://insecure-endpoint.com");
+        let result = prod_env.use_tls();
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("TLS must be enabled in Production environment"));
+
+        // Test with HTTPS endpoint (should succeed)
+        env::set_var("XMTP_ENDPOINT_URL", "https://secure-endpoint.com");
+        let result = prod_env.use_tls();
+        assert!(result.is_ok());
+        assert!(result.unwrap());
+
+        // Cleanup
+        env::remove_var("XMTP_ENDPOINT_URL");
+    }
+
+    #[test]
+    #[serial]
+    fn test_staging_requires_tls() {
+        let staging_env = Environment::Staging;
+
+        // Test with HTTP endpoint (should fail)
+        env::set_var("XMTP_ENDPOINT_URL", "http://staging-insecure.com");
+        let result = staging_env.use_tls();
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("TLS must be enabled in Staging environment"));
+
+        // Test with HTTPS endpoint (should succeed)
+        env::set_var("XMTP_ENDPOINT_URL", "https://staging-secure.com");
+        let result = staging_env.use_tls();
+        assert!(result.is_ok());
+        assert!(result.unwrap());
+
+        // Cleanup
+        env::remove_var("XMTP_ENDPOINT_URL");
+    }
+
+    #[test]
+    #[serial]
+    fn test_development_allows_insecure_tls() {
+        let dev_env = Environment::Development;
+
+        // Test with HTTP endpoint (should succeed in Development)
+        env::set_var("XMTP_ENDPOINT_URL", "http://localhost:8080");
+        let result = dev_env.use_tls();
+        assert!(result.is_ok());
+        assert!(!result.unwrap());
+
+        // Test with HTTPS endpoint (should also succeed)
+        env::set_var("XMTP_ENDPOINT_URL", "https://localhost:8443");
+        let result = dev_env.use_tls();
+        assert!(result.is_ok());
+        assert!(result.unwrap());
 
         // Cleanup
         env::remove_var("XMTP_ENDPOINT_URL");
