@@ -6,15 +6,15 @@ use notification_worker::worker::XmtpWorker;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    // Initialize rustls crypto provider
-    rustls::crypto::ring::default_provider()
-        .install_default()
-        .expect("Failed to install rustls crypto provider");
-
     // Initialize tracing
     tracing_subscriber::fmt()
         .with_env_filter(EnvFilter::from_default_env())
         .init();
+
+    // Initialize rustls crypto provider
+    rustls::crypto::ring::default_provider()
+        .install_default()
+        .expect("Failed to install rustls crypto provider");
 
     // Get environment
     let env = Environment::from_env();
