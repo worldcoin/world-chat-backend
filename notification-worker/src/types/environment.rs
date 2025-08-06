@@ -68,7 +68,9 @@ impl Environment {
         // Validate TLS usage for production environments
         match self {
             Self::Production | Self::Staging if !use_tls => {
-                panic!("TLS must be enabled in {self:?} environment. Current endpoint: {endpoint_url}")
+                panic!(
+                    "TLS must be enabled in {self:?} environment. Current endpoint: {endpoint_url}"
+                )
             }
             _ => use_tls,
         }
@@ -109,7 +111,7 @@ impl Environment {
     }
 
     /// Returns the request timeout in milliseconds
-    /// 
+    ///
     /// This timeout applies to individual gRPC requests after connection is established
     #[must_use]
     pub fn request_timeout_ms(&self) -> u64 {
@@ -120,7 +122,7 @@ impl Environment {
     }
 
     /// Returns the connection timeout in milliseconds
-    /// 
+    ///
     /// This timeout applies only to establishing the initial TCP connection
     #[must_use]
     pub fn connection_timeout_ms(&self) -> u64 {
@@ -285,7 +287,8 @@ mod tests {
         env::set_var("XMTP_ENDPOINT_URL", "http://localhost:9999");
         assert_eq!(staging_env.xmtp_endpoint(), "http://localhost:9999");
         // This should panic due to HTTP endpoint in staging environment
-        std::panic::catch_unwind(|| staging_env.use_tls()).expect_err("Expected panic for HTTP endpoint in staging");
+        std::panic::catch_unwind(|| staging_env.use_tls())
+            .expect_err("Expected panic for HTTP endpoint in staging");
 
         // Cleanup
         env::remove_var("XMTP_ENDPOINT_URL");
