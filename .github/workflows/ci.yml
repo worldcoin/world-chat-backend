@@ -149,3 +149,48 @@ jobs:
         with:
           command: check ${{ matrix.checks }}
           rust-version: stable
+
+  build-docker-backend:
+    name: Build and Test Docker
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build backend Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: backend/Dockerfile
+          push: false
+          load: true
+          tags: world-chat-backend:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          platforms: linux/amd64
+
+      - name: Run backend container
+        run: |
+          docker run -d \
+            --name world-chat-backend-test \
+            -p 8000:8000 \
+            -e APP_ENV=development \
+            -e S3_BUCKET_NAME=test-bucket \
+            world-chat-backend:latest
+
+          # Wait for the application to start
+          sleep 5
+
+          # Output logs for debugging
+          docker logs world-chat-backend-test
+
+      - name: Health check Docker container
+        run: curl -f http://0.0.0.0:8000/health
+
+      - name: Clean up
+        run: |
+          docker stop world-chat-backend-test || true
+          docker rm world-chat-backend-test || true

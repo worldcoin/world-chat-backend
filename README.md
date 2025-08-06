@@ -52,8 +52,8 @@ make test
 make help
 ```
 
-### Code Quality
+### Sync XMTP proto files
 
-- **Formatting**: Enforced via `rustfmt`
-- **Linting**: Default clippy rules
-- **CI**: Automated checks on every PR
+```bash
+buf export buf.build/xmtp/proto --output proto/ --path .
+```
