@@ -57,8 +57,8 @@ impl XmtpWorker {
                 ep = ep.tls_config(tls_config)?;
             }
 
-            ep.timeout(Duration::from_millis(env.connection_timeout_ms()))
-                .connect_timeout(Duration::from_millis(env.connect_timeout_ms()))
+            ep.timeout(Duration::from_millis(env.request_timeout_ms()))
+                .connect_timeout(Duration::from_millis(env.connection_timeout_ms()))
         };
         let channel = endpoint.connect().await?;
         let client = MessageApiClient::new(channel);

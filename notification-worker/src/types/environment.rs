@@ -7,8 +7,8 @@ use backend_storage::queue::QueueConfig;
 
 const DEFAULT_RECONNECT_DELAY_MS: u64 = 100;
 const DEFAULT_MAX_RECONNECT_DELAY_MS: u64 = 30_000;
-const DEFAULT_CONNECTION_TIMEOUT_MS: u64 = 30_000;
-const DEFAULT_CONNECT_TIMEOUT_MS: u64 = 5_000;
+const DEFAULT_REQUEST_TIMEOUT_MS: u64 = 30_000;
+const DEFAULT_CONNECTION_TIMEOUT_MS: u64 = 5_000;
 
 /// Application environment configuration
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -57,6 +57,7 @@ impl Environment {
     /// # Panics
     ///
     /// Panics if the `XMTP_ENDPOINT_URL` environment variable is not set, or if TLS is disabled in Production or Staging environments
+    #[must_use]
     pub fn use_tls(&self) -> bool {
         let endpoint_url = env::var("XMTP_ENDPOINT_URL")
             .expect("XMTP_ENDPOINT_URL environment variable is not set");
@@ -67,10 +68,7 @@ impl Environment {
         // Validate TLS usage for production environments
         match self {
             Self::Production | Self::Staging if !use_tls => {
-                panic!(
-                    "TLS must be enabled in {:?} environment. Current endpoint: {}",
-                    self, endpoint_url
-                )
+                panic!("TLS must be enabled in {self:?} environment. Current endpoint: {endpoint_url}")
             }
             _ => use_tls,
         }
@@ -110,22 +108,26 @@ impl Environment {
             .unwrap_or(DEFAULT_MAX_RECONNECT_DELAY_MS)
     }
 
+    /// Returns the request timeout in milliseconds
+    /// 
+    /// This timeout applies to individual gRPC requests after connection is established
+    #[must_use]
+    pub fn request_timeout_ms(&self) -> u64 {
+        env::var("XMTP_REQUEST_TIMEOUT_MS")
+            .ok()
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(DEFAULT_REQUEST_TIMEOUT_MS)
+    }
+
     /// Returns the connection timeout in milliseconds
+    /// 
+    /// This timeout applies only to establishing the initial TCP connection
     #[must_use]
     pub fn connection_timeout_ms(&self) -> u64 {
         env::var("XMTP_CONNECTION_TIMEOUT_MS")
             .ok()
             .and_then(|v| v.parse().ok())
             .unwrap_or(DEFAULT_CONNECTION_TIMEOUT_MS)
-    }
-
-    /// Returns the connect timeout in milliseconds
-    #[must_use]
-    pub fn connect_timeout_ms(&self) -> u64 {
-        env::var("XMTP_CONNECT_TIMEOUT_MS")
-            .ok()
-            .and_then(|v| v.parse().ok())
-            .unwrap_or(DEFAULT_CONNECT_TIMEOUT_MS)
     }
 
     /// Returns the endpoint URL to use for AWS services
@@ -241,7 +243,7 @@ mod tests {
             env_instance.xmtp_endpoint(),
             "http://custom-xmtp.example.com:8080"
         );
-        assert!(!env_instance.use_tls().unwrap());
+        assert!(!env_instance.use_tls());
 
         // Test HTTPS endpoint
         env::set_var("XMTP_ENDPOINT_URL", "https://secure-xmtp.example.com:443");
@@ -249,7 +251,7 @@ mod tests {
             env_instance.xmtp_endpoint(),
             "https://secure-xmtp.example.com:443"
         );
-        assert!(env_instance.use_tls().unwrap());
+        assert!(env_instance.use_tls());
 
         // Cleanup
         env::remove_var("XMTP_ENDPOINT_URL");
@@ -277,12 +279,13 @@ mod tests {
             staging_env.xmtp_endpoint(),
             "https://grpc.dev.xmtp.network:443"
         );
-        assert!(staging_env.use_tls().unwrap());
+        assert!(staging_env.use_tls());
 
         // Set staging with custom endpoint
         env::set_var("XMTP_ENDPOINT_URL", "http://localhost:9999");
         assert_eq!(staging_env.xmtp_endpoint(), "http://localhost:9999");
-        assert!(staging_env.use_tls().is_err());
+        // This should panic due to HTTP endpoint in staging environment
+        std::panic::catch_unwind(|| staging_env.use_tls()).expect_err("Expected panic for HTTP endpoint in staging");
 
         // Cleanup
         env::remove_var("XMTP_ENDPOINT_URL");
@@ -290,23 +293,26 @@ mod tests {
 
     #[test]
     #[serial]
-    fn test_production_requires_tls() {
+    #[should_panic(expected = "TLS must be enabled in Production environment")]
+    fn test_production_requires_tls_panic() {
         let prod_env = Environment::Production;
 
-        // Test with HTTP endpoint (should fail)
+        // Test with HTTP endpoint (should panic)
         env::set_var("XMTP_ENDPOINT_URL", "http://insecure-endpoint.com");
-        let result = prod_env.use_tls();
-        assert!(result.is_err());
-        assert!(result
-            .unwrap_err()
-            .to_string()
-            .contains("TLS must be enabled in Production environment"));
+        let _ = prod_env.use_tls();
+
+        // Cleanup - won't be reached due to panic
+        env::remove_var("XMTP_ENDPOINT_URL");
+    }
+
+    #[test]
+    #[serial]
+    fn test_production_allows_tls() {
+        let prod_env = Environment::Production;
 
         // Test with HTTPS endpoint (should succeed)
         env::set_var("XMTP_ENDPOINT_URL", "https://secure-endpoint.com");
-        let result = prod_env.use_tls();
-        assert!(result.is_ok());
-        assert!(result.unwrap());
+        assert!(prod_env.use_tls());
 
         // Cleanup
         env::remove_var("XMTP_ENDPOINT_URL");
@@ -314,23 +320,26 @@ mod tests {
 
     #[test]
     #[serial]
-    fn test_staging_requires_tls() {
+    #[should_panic(expected = "TLS must be enabled in Staging environment")]
+    fn test_staging_requires_tls_panic() {
         let staging_env = Environment::Staging;
 
-        // Test with HTTP endpoint (should fail)
+        // Test with HTTP endpoint (should panic)
         env::set_var("XMTP_ENDPOINT_URL", "http://staging-insecure.com");
-        let result = staging_env.use_tls();
-        assert!(result.is_err());
-        assert!(result
-            .unwrap_err()
-            .to_string()
-            .contains("TLS must be enabled in Staging environment"));
+        let _ = staging_env.use_tls();
+
+        // Cleanup - won't be reached due to panic
+        env::remove_var("XMTP_ENDPOINT_URL");
+    }
+
+    #[test]
+    #[serial]
+    fn test_staging_allows_tls() {
+        let staging_env = Environment::Staging;
 
         // Test with HTTPS endpoint (should succeed)
         env::set_var("XMTP_ENDPOINT_URL", "https://staging-secure.com");
-        let result = staging_env.use_tls();
-        assert!(result.is_ok());
-        assert!(result.unwrap());
+        assert!(staging_env.use_tls());
 
         // Cleanup
         env::remove_var("XMTP_ENDPOINT_URL");
@@ -343,15 +352,11 @@ mod tests {
 
         // Test with HTTP endpoint (should succeed in Development)
         env::set_var("XMTP_ENDPOINT_URL", "http://localhost:8080");
-        let result = dev_env.use_tls();
-        assert!(result.is_ok());
-        assert!(!result.unwrap());
+        assert!(!dev_env.use_tls());
 
         // Test with HTTPS endpoint (should also succeed)
         env::set_var("XMTP_ENDPOINT_URL", "https://localhost:8443");
-        let result = dev_env.use_tls();
-        assert!(result.is_ok());
-        assert!(result.unwrap());
+        assert!(dev_env.use_tls());
 
         // Cleanup
         env::remove_var("XMTP_ENDPOINT_URL");
