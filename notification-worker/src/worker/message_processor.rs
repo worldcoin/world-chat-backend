@@ -82,9 +82,10 @@ impl MessageProcessor {
 
     /// Converts an XMTP message to a notification
     fn convert_to_notification(message: &Message) -> Notification {
+        // TODO: Finalise type conversion: Include sender hmac and payload
         Notification {
             topic: message.content_topic.clone(),
-            sender_hmac: "placeholder_sender_hmac".to_string(), // TODO: Extract from message
+            sender_hmac: "placeholder_sender_hmac".to_string(),
             payload: format!(
                 "{{\"timestamp_ns\":{},\"message_size\":{}}}",
                 message.timestamp_ns,
