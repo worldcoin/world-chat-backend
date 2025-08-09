@@ -17,4 +17,4 @@ pub mod types;
 pub use error::{QueueError, QueueResult};
 pub use notification::NotificationQueue;
 pub use subscription_request::SubscriptionRequestQueue;
-pub use types::{Notification, QueueConfig, QueueMessage, Recipient, SubscriptionRequest};
+pub use types::{Notification, QueueConfig, QueueMessage, SubscriptionRequest, TopicMember};

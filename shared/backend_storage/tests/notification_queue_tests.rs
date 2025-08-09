@@ -3,7 +3,7 @@
 mod common;
 
 use crate::common::{assert_queue_message, QueueTestContext};
-use backend_storage::queue::{Notification, NotificationQueue, QueueConfig, Recipient};
+use backend_storage::queue::{Notification, NotificationQueue, QueueConfig};
 use pretty_assertions::assert_eq;
 
 #[tokio::test]
@@ -19,23 +19,10 @@ async fn test_send_consume_ack_happy_path() {
     };
     let queue = NotificationQueue::new(ctx.sqs_client.clone(), config);
 
-    // Create notification with multiple recipients
+    // Create notification
     let notification = Notification {
         topic: "breaking_news".to_string(),
-        recipients: vec![
-            Recipient {
-                encrypted_braze_id: "enc_user1".to_string(),
-                hmac: "hmac1".to_string(),
-            },
-            Recipient {
-                encrypted_braze_id: "enc_user2".to_string(),
-                hmac: "hmac2".to_string(),
-            },
-            Recipient {
-                encrypted_braze_id: "enc_user3".to_string(),
-                hmac: "hmac3".to_string(),
-            },
-        ],
+        sender_hmac: "sender_hmac_123".to_string(),
         payload: r#"{"title":"Breaking News","content":"Important update","timestamp":"2024-01-01T12:00:00Z"}"#.to_string(),
     };
 
@@ -90,28 +77,19 @@ async fn test_fifo_topic_based_grouping() {
     // Send 3 messages: 2 for topic "news", 1 for topic "alerts"
     let news1 = Notification {
         topic: "news".to_string(),
-        recipients: vec![Recipient {
-            encrypted_braze_id: "enc_1".to_string(),
-            hmac: "hmac_1".to_string(),
-        }],
+        sender_hmac: "hmac_1".to_string(),
         payload: r#"{"id":1,"type":"news"}"#.to_string(),
     };
 
     let alert1 = Notification {
         topic: "alerts".to_string(),
-        recipients: vec![Recipient {
-            encrypted_braze_id: "enc_2".to_string(),
-            hmac: "hmac_2".to_string(),
-        }],
+        sender_hmac: "hmac_2".to_string(),
         payload: r#"{"id":2,"type":"alert"}"#.to_string(),
     };
 
     let news2 = Notification {
         topic: "news".to_string(),
-        recipients: vec![Recipient {
-            encrypted_braze_id: "enc_3".to_string(),
-            hmac: "hmac_3".to_string(),
-        }],
+        sender_hmac: "hmac_3".to_string(),
         payload: r#"{"id":3,"type":"news"}"#.to_string(),
     };
 
@@ -159,19 +137,13 @@ async fn test_fifo_topic_based_grouping() {
     // Send 2 more news notifications to verify continued ordering
     let news3 = Notification {
         topic: "news".to_string(),
-        recipients: vec![Recipient {
-            encrypted_braze_id: "enc_4".to_string(),
-            hmac: "hmac_4".to_string(),
-        }],
+        sender_hmac: "hmac_4".to_string(),
         payload: r#"{"id":4,"type":"news"}"#.to_string(),
     };
 
     let news4 = Notification {
         topic: "news".to_string(),
-        recipients: vec![Recipient {
-            encrypted_braze_id: "enc_5".to_string(),
-            hmac: "hmac_5".to_string(),
-        }],
+        sender_hmac: "hmac_5".to_string(),
         payload: r#"{"id":5,"type":"news"}"#.to_string(),
     };
 

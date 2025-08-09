@@ -19,7 +19,7 @@ awslocal dynamodb update-time-to-live \
     --table-name world-chat-push-subscriptions \
     --time-to-live-specification "Enabled=true,AttributeName=ttl"
 
-awslocal sqs create-queue --queue-name notification-queue.fifo --attributes '{"FifoQueue": "true"}'
-awslocal sqs create-queue --queue-name subscription-request-queue.fifo --attributes '{"FifoQueue": "true"}'
+awslocal sqs create-queue --queue-name notification-queue.fifo --attributes '{"FifoQueue": "true", "ContentBasedDeduplication": "true"}'
+awslocal sqs create-queue --queue-name subscription-request-queue.fifo --attributes '{"FifoQueue": "true", "ContentBasedDeduplication": "true"}'
 
 echo "AWS LocalStack resources initialized successfully!"

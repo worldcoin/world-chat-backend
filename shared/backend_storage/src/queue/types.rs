@@ -24,7 +24,7 @@ pub enum SubscriptionRequest {
         /// Topic to unsubscribe from
         topic: String,
         /// Subscribers of the same topic
-        topic_members: Vec<Recipient>,
+        topic_members: Vec<TopicMember>,
     },
 }
 
@@ -33,8 +33,8 @@ pub enum SubscriptionRequest {
 pub struct Notification {
     /// Topic for the notification
     pub topic: String,
-    /// Recipients of the notification
-    pub recipients: Vec<Recipient>,
+    /// HMAC of the sender
+    pub sender_hmac: String,
     /// Notification payload
     /// TODO: This is a placeholder type
     pub payload: String,
@@ -42,7 +42,7 @@ pub struct Notification {
 
 /// Notification recipient
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct Recipient {
+pub struct TopicMember {
     /// Encrypted Braze ID
     pub encrypted_braze_id: String,
     /// HMAC identifier

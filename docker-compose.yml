@@ -1,5 +1,8 @@
 name: world-chat-backend
 services:
+  # LocalStack - AWS services emulation for local development
+  # Provides S3, DynamoDB, and SQS services used by the notification worker
+  # The notification worker uses SQS for message queuing in development environment
   localstack:
     image: localstack/localstack
     ports:
@@ -14,3 +17,44 @@ services:
       - /var/lib/localstack
       - /var/run/docker.sock:/var/run/docker.sock
       - "./aws-seed.sh:/etc/localstack/init/ready.d/aws-seed.sh"
+
+  # XMTP Network Node - Core message handling service
+  # Provides gRPC API that the notification worker connects to for receiving messages
+  # Handles message storage, MLS operations, and serves as the primary XMTP network interface
+  xmtp-node:
+    image: xmtp/node-go:latest
+    platform: linux/amd64
+    environment:
+      - GOWAKU-NODEKEY=8a30dcb604b0b53627a5adc054dbf434b446628d4bd1eccc681d223f0550ce67
+    command:
+      - --store.enable # Enable persistent message storage
+      - --store.db-connection-string=postgres://postgres:xmtp@db:5432/postgres?sslmode=disable
+      - --store.reader-db-connection-string=postgres://postgres:xmtp@db:5432/postgres?sslmode=disable
+      - --mls-store.db-connection-string=postgres://postgres:xmtp@mlsdb:5432/postgres?sslmode=disable # MLS database for Message Layer Security
+      - --mls-validation.grpc-address=validation:50051
+      - --api.enable-mls # Enable MLS (Message Layer Security) features
+      - --wait-for-db=30s # Wait for databases to be ready before starting
+    ports:
+      - 25555:5555 # gRPC API port - used by notification worker
+      - 25556:5556 # Additional API port
+    depends_on:
+      - db
+      - mlsdb
+
+  # PostgreSQL Database - Main storage for XMTP node
+  # Stores messages, user data, and other persistent information required by xmtp-node
+  # Connected via --store.db-connection-string and --store.reader-db-connection-string
+  db:
+    image: postgres:13 # TODO: Try bumping the version once we have testing
+    environment:
+      POSTGRES_PASSWORD: xmtp
+    ports:
+      - 25432:5432
+
+  # PostgreSQL Database - MLS (Message Layer Security) storage
+  # Dedicated database for MLS cryptographic operations and secure messaging features
+  # Connected via --mls-store.db-connection-string, required for --api.enable-mls
+  mlsdb:
+    image: postgres:13
+    environment:
+      POSTGRES_PASSWORD: xmtp
