@@ -72,14 +72,8 @@ impl AuthProofStorage {
     ///
     /// Returns `AuthProofStorageError` if the Dynamo DB operation fails
     pub async fn insert(&self, auth_proof: &AuthProof) -> AuthProofStorageResult<()> {
-        // Create a modified subscription with distributed TTL
-        let subscription_to_store = AuthProof {
-            ttl: auth_proof.ttl,
-            ..auth_proof.clone()
-        };
-
         // Convert to DynamoDB item
-        let item = serde_dynamo::to_item(&subscription_to_store)
+        let item = serde_dynamo::to_item(auth_proof)
             .map_err(|e| AuthProofStorageError::SerializationError(e.to_string()))?;
 
         self.dynamodb_client
