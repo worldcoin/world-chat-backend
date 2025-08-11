@@ -11,5 +11,6 @@
     dead_code
 )]
 
+pub mod auth_proof;
 pub mod push_notification;
 pub mod queue;
