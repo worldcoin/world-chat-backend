@@ -3,7 +3,7 @@
 mod common;
 
 use backend_storage::queue::{
-    QueueConfig, Recipient, SubscriptionRequest, SubscriptionRequestQueue,
+    QueueConfig, SubscriptionRequest, SubscriptionRequestQueue, TopicMember,
 };
 use common::{assert_queue_message, QueueTestContext};
 use pretty_assertions::assert_eq;
@@ -223,11 +223,11 @@ async fn test_unsubscribe_request_type() {
         encrypted_braze_id: "encrypted_xyz789".to_string(),
         topic: "daily_digest".to_string(),
         topic_members: vec![
-            Recipient {
+            TopicMember {
                 encrypted_braze_id: "encrypted_user1".to_string(),
                 hmac: "hmac_user1".to_string(),
             },
-            Recipient {
+            TopicMember {
                 encrypted_braze_id: "encrypted_user2".to_string(),
                 hmac: "hmac_user2".to_string(),
             },
