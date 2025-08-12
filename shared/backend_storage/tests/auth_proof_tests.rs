@@ -8,9 +8,8 @@ use aws_sdk_dynamodb::types::{
 };
 use aws_sdk_dynamodb::Client as DynamoDbClient;
 use backend_storage::auth_proof::{
-    AuthProof, AuthProofAttribute, AuthProofStorage, AuthProofStorageError,
+    AuthProofAttribute, AuthProofInsertRequest, AuthProofStorage, AuthProofStorageError,
 };
-use chrono::Utc;
 use uuid::Uuid;
 
 /// Test configuration for LocalStack
@@ -110,13 +109,11 @@ async fn setup_test() -> TestContext {
     }
 }
 
-/// Creates a test auth proof with unique nullifier
-fn create_test_auth_proof() -> AuthProof {
-    AuthProof {
+/// Creates a test auth proof insert request with unique nullifier
+fn create_test_auth_proof_request() -> AuthProofInsertRequest {
+    AuthProofInsertRequest {
         nullifier: format!("test-nullifier-{}", Uuid::new_v4()),
         encrypted_push_id: format!("encrypted-{}", Uuid::new_v4()),
-        updated_at: Utc::now().timestamp(),
-        ttl: (Utc::now() + chrono::Duration::hours(24)).timestamp(),
     }
 }
 
@@ -124,28 +121,31 @@ fn create_test_auth_proof() -> AuthProof {
 async fn test_get_by_nullifier() {
     let context = setup_test().await;
 
-    let auth_proof = create_test_auth_proof();
+    let auth_proof_request = create_test_auth_proof_request();
 
-    // Insert auth proof
-    context
+    // Insert auth proof and get the returned AuthProof
+    let inserted_auth_proof = context
         .storage
-        .insert(&auth_proof)
+        .insert(auth_proof_request.clone())
         .await
         .expect("Failed to insert auth proof");
 
     // Get by nullifier - should exist
     let retrieved = context
         .storage
-        .get_by_nullifier(&auth_proof.nullifier)
+        .get_by_nullifier(&auth_proof_request.nullifier)
         .await
         .expect("Failed to get by nullifier");
 
     assert!(retrieved.is_some());
     let retrieved = retrieved.unwrap();
-    assert_eq!(retrieved.nullifier, auth_proof.nullifier);
-    assert_eq!(retrieved.encrypted_push_id, auth_proof.encrypted_push_id);
-    assert_eq!(retrieved.updated_at, auth_proof.updated_at);
-    assert_eq!(retrieved.ttl, auth_proof.ttl);
+    assert_eq!(retrieved.nullifier, inserted_auth_proof.nullifier);
+    assert_eq!(
+        retrieved.encrypted_push_id,
+        inserted_auth_proof.encrypted_push_id
+    );
+    assert_eq!(retrieved.updated_at, inserted_auth_proof.updated_at);
+    assert_eq!(retrieved.ttl, inserted_auth_proof.ttl);
 
     // Get non-existent nullifier - should return None
     let non_existent = context
@@ -161,29 +161,29 @@ async fn test_get_by_nullifier() {
 async fn test_insert_duplicate_prevention() {
     let context = setup_test().await;
 
-    let auth_proof = create_test_auth_proof();
+    let auth_proof_request = create_test_auth_proof_request();
 
     // First insert should succeed
     context
         .storage
-        .insert(&auth_proof)
+        .insert(auth_proof_request.clone())
         .await
         .expect("First insert should succeed");
 
     // Second insert with same nullifier should fail
-    let result = context.storage.insert(&auth_proof).await;
+    let result = context.storage.insert(auth_proof_request.clone()).await;
     assert!(matches!(
         result,
         Err(AuthProofStorageError::AuthProofExists)
     ));
 
     // Insert with different nullifier should succeed
-    let mut auth_proof2 = auth_proof.clone();
-    auth_proof2.nullifier = format!("different-nullifier-{}", Uuid::new_v4());
+    let mut auth_proof_request2 = auth_proof_request.clone();
+    auth_proof_request2.nullifier = format!("different-nullifier-{}", Uuid::new_v4());
 
     context
         .storage
-        .insert(&auth_proof2)
+        .insert(auth_proof_request2)
         .await
         .expect("Insert with different nullifier should succeed");
 }
@@ -192,19 +192,19 @@ async fn test_insert_duplicate_prevention() {
 async fn test_update_encrypted_push_id() {
     let context = setup_test().await;
 
-    let auth_proof = create_test_auth_proof();
+    let auth_proof_request = create_test_auth_proof_request();
 
-    // Insert auth proof
-    context
+    // Insert auth proof and get the returned AuthProof
+    let inserted_auth_proof = context
         .storage
-        .insert(&auth_proof)
+        .insert(auth_proof_request.clone())
         .await
         .expect("Failed to insert auth proof");
 
     // Get initial state
     let initial = context
         .storage
-        .get_by_nullifier(&auth_proof.nullifier)
+        .get_by_nullifier(&auth_proof_request.nullifier)
         .await
         .expect("Failed to get initial state")
         .expect("Auth proof should exist");
@@ -218,14 +218,14 @@ async fn test_update_encrypted_push_id() {
     let new_encrypted_push_id = format!("new-encrypted-{}", Uuid::new_v4());
     context
         .storage
-        .update_encrypted_push_id(&auth_proof.nullifier, &new_encrypted_push_id)
+        .update_encrypted_push_id(&auth_proof_request.nullifier, &new_encrypted_push_id)
         .await
         .expect("Failed to update encrypted push id");
 
     // Retrieve and verify changes
     let updated = context
         .storage
-        .get_by_nullifier(&auth_proof.nullifier)
+        .get_by_nullifier(&auth_proof_request.nullifier)
         .await
         .expect("Failed to get updated auth proof")
         .expect("Auth proof should exist");
@@ -235,6 +235,9 @@ async fn test_update_encrypted_push_id() {
         updated.updated_at > initial_updated_at,
         "updated_at should be newer after update"
     );
-    assert_eq!(updated.nullifier, auth_proof.nullifier);
-    assert_eq!(updated.ttl, auth_proof.ttl);
+    assert_eq!(updated.nullifier, auth_proof_request.nullifier);
+    assert_eq!(
+        updated.ttl, inserted_auth_proof.ttl,
+        "TTL should not change on update"
+    );
 }

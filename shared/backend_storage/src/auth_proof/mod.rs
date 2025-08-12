@@ -13,6 +13,8 @@ use serde::{Deserialize, Serialize};
 pub use error::{AuthProofStorageError, AuthProofStorageResult};
 use strum::Display;
 
+const TTL_SECONDS: i64 = 30 * 24 * 60 * 60; // 30 days
+
 /// Attribute names for auth proof table
 #[derive(Debug, Clone, Display)]
 #[strum(serialize_all = "snake_case")]
@@ -41,6 +43,15 @@ pub struct AuthProof {
     pub ttl: i64,
 }
 
+/// Auth proof data structure
+#[derive(Debug, Clone, Serialize)]
+pub struct AuthProofInsertRequest {
+    /// Nullifier (Primary Key)
+    pub nullifier: String,
+    /// Encrypted Push ID
+    pub encrypted_push_id: String,
+}
+
 /// Auth proof storage client for Dynamo DB operations
 pub struct AuthProofStorage {
     dynamodb_client: Arc<DynamoDbClient>,
@@ -62,7 +73,7 @@ impl AuthProofStorage {
         }
     }
 
-    /// Inserts a new auth proof
+    /// Inserts a new auth proof with a 30 day TTL
     ///
     /// # Arguments
     ///
@@ -71,9 +82,22 @@ impl AuthProofStorage {
     /// # Errors
     ///
     /// Returns `AuthProofStorageError` if the Dynamo DB operation fails
-    pub async fn insert(&self, auth_proof: &AuthProof) -> AuthProofStorageResult<()> {
+    pub async fn insert(
+        &self,
+        auth_proof_request: AuthProofInsertRequest,
+    ) -> AuthProofStorageResult<AuthProof> {
+        let now = Utc::now().timestamp();
+        let ttl = now + TTL_SECONDS;
+
+        let auth_proof = AuthProof {
+            nullifier: auth_proof_request.nullifier.clone(),
+            encrypted_push_id: auth_proof_request.encrypted_push_id.clone(),
+            updated_at: now,
+            ttl,
+        };
+
         // Convert to DynamoDB item
-        let item = serde_dynamo::to_item(auth_proof)
+        let item = serde_dynamo::to_item(&auth_proof)
             .map_err(|e| AuthProofStorageError::SerializationError(e.to_string()))?;
 
         self.dynamodb_client
@@ -95,7 +119,7 @@ impl AuthProofStorage {
                 }
             })?;
 
-        Ok(())
+        Ok(auth_proof)
     }
 
     /// Updates the encrypted push id for a given nullifier
