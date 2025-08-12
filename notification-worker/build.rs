@@ -4,6 +4,9 @@ use std::path::PathBuf;
 // To download the XMTP proto files, run:
 // `buf export buf.build/xmtp/proto --output proto/ --path .`
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // Set PROTOC to use the vendored protoc binary
+    std::env::set_var("PROTOC", protoc_bin_vendored::protoc_bin_path().unwrap());
+
     // Re-run if *any* file in proto/ changes
     println!("cargo:rerun-if-changed=proto");
 
