@@ -1,6 +1,8 @@
 use std::sync::Arc;
 
+use aws_sdk_dynamodb::Client as DynamoDbClient;
 use aws_sdk_s3::Client as S3Client;
+use backend_storage::auth_proof::AuthProofStorage;
 
 use backend::{media_storage::MediaStorage, server, types::Environment};
 use tracing_subscriber::EnvFilter;
@@ -20,5 +22,13 @@ async fn main() -> anyhow::Result<()> {
         environment.presigned_url_expiry_secs(),
     ));
 
-    server::start(environment, media_storage).await
+    let dynamodb_client = Arc::new(DynamoDbClient::from_conf(
+        environment.dynamodb_client_config().await,
+    ));
+    let auth_proof_storage = Arc::new(AuthProofStorage::new(
+        dynamodb_client,
+        environment.dynamodb_auth_table_name(),
+    ));
+
+    server::start(environment, media_storage, auth_proof_storage).await
 }

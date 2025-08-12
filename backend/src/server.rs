@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use aide::openapi::OpenApi;
 use axum::Extension;
+use backend_storage::auth_proof::AuthProofStorage;
 use tokio::net::TcpListener;
 use tracing::Level;
 
@@ -16,6 +17,7 @@ use crate::{media_storage::MediaStorage, types::Environment};
 pub async fn start(
     environment: Environment,
     media_storage: Arc<MediaStorage>,
+    auth_proof_storage: Arc<AuthProofStorage>,
 ) -> anyhow::Result<()> {
     let mut openapi = OpenApi::default();
 
@@ -24,6 +26,7 @@ pub async fn start(
         .layer(Extension(openapi))
         .layer(Extension(environment))
         .layer(Extension(media_storage))
+        .layer(Extension(auth_proof_storage))
         .layer(
             tower_http::trace::TraceLayer::new_for_http()
                 .make_span_with(tower_http::trace::DefaultMakeSpan::new().level(Level::INFO))

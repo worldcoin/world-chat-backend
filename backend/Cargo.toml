@@ -50,6 +50,21 @@ hex = { workspace = true }
 # Backend Storage
 backend_storage = { workspace = true }
 
+# Strum
+strum = { workspace = true }
+
+# JWT
+jsonwebtoken = { workspace = true }
+
+# HTTP client for proof verification  
+reqwest = { workspace = true }
+
+# Semaphore
+semaphore-rs = { workspace = true }
+
+# U256 type for field elements
+ruint = { workspace = true }
+
 [dev-dependencies]
 http-body-util = { workspace = true }
 tower = { workspace = true }

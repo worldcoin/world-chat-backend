@@ -81,3 +81,14 @@ url = "2.5"
 serial_test = "3.2.0"
 rand = "0.8"
 
+# JWT
+jsonwebtoken = "9.3"
+
+# Ethereum types for decoding
+ethers-core = "2.0"
+
+# Semaphore for hash utilities
+semaphore-rs = { git = "https://github.com/worldcoin/semaphore-rs", rev = "c1a7165bc838c8ea8de6ee7e4b3571b36994b619", features = ["depth_30"] }
+
+# U256 type for field elements
+ruint = "1.16"

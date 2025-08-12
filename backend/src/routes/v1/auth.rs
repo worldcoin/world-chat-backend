@@ -39,8 +39,8 @@ pub struct AuthResponse {
 #[derive(Debug, Serialize, Deserialize)]
 struct Claims<'a> {
     sub: &'a str, // Subject (encrypted push id)
-    exp: usize,   // Expiration time
-    iat: usize,   // Issued at
+    exp: i64,     // Expiration time (Unix timestamp)
+    iat: i64,     // Issued at (Unix timestamp)
 }
 
 /// 30 days
@@ -54,7 +54,7 @@ pub async fn authorize_handler(
     Json(request): Json<AuthRequest>,
 ) -> Result<Json<AuthResponse>, AppError> {
     // 1. Verify ZKP
-    let is_zkp_valid = verify_zk_proof(&request.proof).await;
+    let is_zkp_valid = verify_zk_proof(&request.proof);
     if !is_zkp_valid {
         return Err(AppError::new(
             StatusCode::BAD_REQUEST,
@@ -65,30 +65,25 @@ pub async fn authorize_handler(
     }
 
     // 2. Fetch or create the auth-proof record
-    let auth_proof = match auth_proof_storage
+    let Some(auth_proof) = auth_proof_storage
         .get_by_nullifier(&request.nullifier_hash)
         .await?
-    {
-        Some(auth_proof) => auth_proof,
-        None => {
-            // 2.5 New user path - create auth-proof and issue token
-            auth_proof_storage
-                .insert(AuthProofInsertRequest {
-                    nullifier: request.nullifier_hash,
-                    encrypted_push_id: request.encrypted_push_id.clone(),
-                })
-                .await?;
-            let access_token =
-                issue_token(&request.encrypted_push_id, &environment.jwt_secret()).await?;
-            return Ok(Json(AuthResponse { access_token }));
-        }
+    else {
+        // 2.5 New user path - create auth-proof and issue token
+        auth_proof_storage
+            .insert(AuthProofInsertRequest {
+                nullifier: request.nullifier_hash,
+                encrypted_push_id: request.encrypted_push_id.clone(),
+            })
+            .await?;
+        let access_token = issue_token(&request.encrypted_push_id, &environment.jwt_secret())?;
+        return Ok(Json(AuthResponse { access_token }));
     };
 
     // 3. If the push id matches, issue a token
     //TODO: This function call is mocked, replace it with enclave call
     if push_id_matches(&auth_proof.encrypted_push_id, &request.encrypted_push_id) {
-        let access_token =
-            issue_token(&auth_proof.encrypted_push_id, &environment.jwt_secret()).await?;
+        let access_token = issue_token(&auth_proof.encrypted_push_id, &environment.jwt_secret())?;
         return Ok(Json(AuthResponse { access_token }));
     }
 
@@ -111,16 +106,16 @@ pub async fn authorize_handler(
     auth_proof_storage
         .update_encrypted_push_id(&auth_proof.nullifier, &request.encrypted_push_id)
         .await?;
-    let access_token = issue_token(&request.encrypted_push_id, &environment.jwt_secret()).await?;
+    let access_token = issue_token(&request.encrypted_push_id, &environment.jwt_secret())?;
     Ok(Json(AuthResponse { access_token }))
 }
 
-async fn issue_token(encrypted_push_id: &str, jwt_secret: &str) -> Result<String, AppError> {
+fn issue_token(encrypted_push_id: &str, jwt_secret: &str) -> Result<String, AppError> {
     let now = Utc::now().timestamp();
     let claims = Claims {
         sub: encrypted_push_id,
-        exp: (now + TOKEN_EXPIRATION_SECS) as usize,
-        iat: now as usize,
+        exp: now + TOKEN_EXPIRATION_SECS,
+        iat: now,
     };
 
     let token = encode(
@@ -132,7 +127,7 @@ async fn issue_token(encrypted_push_id: &str, jwt_secret: &str) -> Result<String
     Ok(token)
 }
 
-async fn verify_zk_proof(proof: &str) -> bool {
+fn verify_zk_proof(proof: &str) -> bool {
     proof == "test"
 }
 

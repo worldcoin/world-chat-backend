@@ -11,6 +11,7 @@ use schemars::JsonSchema;
 use serde::Serialize;
 
 use crate::media_storage::BucketError;
+use crate::zkp::ZkpError;
 
 /// API error response envelope that matches mobile client expectations
 #[derive(Debug, Serialize, JsonSchema)]
@@ -213,5 +214,63 @@ impl From<jsonwebtoken::errors::Error> for AppError {
             "Internal server error",
             false,
         )
+    }
+}
+
+impl From<ZkpError> for AppError {
+    #[allow(clippy::cognitive_complexity)]
+    fn from(err: ZkpError) -> Self {
+        use ZkpError::{
+            InvalidMerkleRoot, InvalidProof, InvalidProofData, InvalidSequencerResponse,
+            NetworkError, ProverError, RootTooOld,
+        };
+
+        match &err {
+            InvalidProof | InvalidProofData(_) => {
+                tracing::warn!("Invalid proof: {err}");
+                Self::new(
+                    StatusCode::BAD_REQUEST,
+                    "invalid_proof",
+                    "The provided proof is invalid",
+                    false,
+                )
+            }
+            InvalidMerkleRoot => {
+                tracing::warn!("Invalid merkle root");
+                Self::new(
+                    StatusCode::BAD_REQUEST,
+                    "invalid_merkle_root",
+                    "The merkle root is not valid",
+                    false,
+                )
+            }
+            RootTooOld => {
+                tracing::warn!("Merkle root too old");
+                Self::new(
+                    StatusCode::BAD_REQUEST,
+                    "root_too_old",
+                    "The merkle root is too old and has been pruned",
+                    false,
+                )
+            }
+            ProverError | InvalidSequencerResponse(_) => {
+                tracing::error!("Sequencer error: {err}");
+                Self::new(
+                    StatusCode::SERVICE_UNAVAILABLE,
+                    "verification_service_error",
+                    "Verification service temporarily unavailable",
+                    true,
+                )
+            }
+            NetworkError(_) => {
+                tracing::error!("Network error during verification: {err}");
+                Self::new(
+                    StatusCode::SERVICE_UNAVAILABLE,
+                    "network_error",
+                    "Network error during verification",
+                    true,
+                )
+            }
+        }
     }
 }
