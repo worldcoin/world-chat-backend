@@ -1109,6 +1109,7 @@ name = "backend"
 version = "0.1.0"
 dependencies = [
  "aide",
+ "alloy-core",
  "anyhow",
  "aws-config",
  "aws-sdk-dynamodb",

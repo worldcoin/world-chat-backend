@@ -1,24 +1,25 @@
 use std::str::FromStr;
 
-use semaphore_rs::{hash_to_field, packed_proof::PackedProof};
+use semaphore_rs::{hash_to_field, packed_proof::PackedProof, protocol::Proof};
 use serde::Serialize;
 
 use super::error::ZkpError;
-use crate::zkp::types::{U256Wrapper, VerificationLevel};
+use crate::{
+    types::Environment,
+    zkp::types::{U256Wrapper, VerificationLevel},
+};
+use alloy_core::sol_types::SolValue;
 
 /// This follows the World ID protocol for external nullifier generation.
 #[allow(clippy::option_if_let_else)]
-fn compute_external_nullifier(app_id: &str, action: Option<Vec<u8>>) -> U256Wrapper {
-    // If there's an action, combine it with the app_id hash
-    if let Some(action_bytes) = action {
-        // For complex actions, we would need ABI encoding here
-        // For now, we'll do simple concatenation and hash
-        let mut combined = app_id.as_bytes().to_vec();
-        combined.extend_from_slice(&action_bytes);
-        hash_to_field(&combined).into()
-    } else {
-        hash_to_field(app_id.as_bytes()).into()
+fn compute_external_nullifier(app_id: &str, action: Option<&[u8]>) -> U256Wrapper {
+    let mut pre_image = hash_to_field(app_id.as_bytes()).abi_encode_packed();
+
+    if let Some(action) = action {
+        pre_image.extend_from_slice(&action);
     }
+
+    hash_to_field(&pre_image).into()
 }
 
 /// Computes the signal hash from optional signal bytes.
@@ -28,20 +29,27 @@ fn compute_signal_hash(signal: Option<&[u8]>) -> U256Wrapper {
     hash_to_field(signal_bytes).into()
 }
 
+/// This struct contains the World ID proof and all the required fields for verification.
+/// This struct can be used to verify the proof with the sequencer, it complies with sequencer request spec.
+/// https://github.com/worldcoin/signup-sequencer/blob/main/schemas/openapi-v2.yaml
 #[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct WorldIdProof {
-    /// The packed proof
-    pub proof: PackedProof,
+    /// The zk-proof
+    pub proof: Proof,
     /// The merkle root of the World ID tree
-    pub merkle_root: U256Wrapper,
+    pub root: U256Wrapper,
     /// The nullifier hash
-    pub nullifier: U256Wrapper,
+    pub nullifier_hash: U256Wrapper,
     /// The hashed external nullifier for preventing double-signaling
-    pub external_nullifier: U256Wrapper,
-    /// The verification level being used
-    pub verification_level: VerificationLevel,
+    pub external_nullifier_hash: U256Wrapper,
     /// The hashed signal which is included in the ZKP
     pub signal_hash: U256Wrapper,
+
+    /// The verification level being used
+    /// This is not serialized because it's not part of the sequencer request
+    #[serde(skip_serializing)]
+    verification_level: VerificationLevel,
 }
 
 impl WorldIdProof {
@@ -51,31 +59,36 @@ impl WorldIdProof {
     /// Returns an error if the proof format is invalid or hex strings cannot be parsed.
     pub fn new(
         proof: &str,
-        nullifier: &str,
-        merkle_root: &str,
+        nullifier_hash: &str,
+        root: &str,
         app_id: &str,
         action: &str,
         verification_level: VerificationLevel,
         signal: &str,
     ) -> Result<Self, ZkpError> {
-        let external_nullifier =
-            compute_external_nullifier(app_id, Some(action.as_bytes().to_vec()));
+        let external_nullifier_hash = compute_external_nullifier(app_id, Some(action.as_bytes()));
         let signal_hash = compute_signal_hash(Some(signal.as_bytes()));
 
-        let packed_proof = PackedProof::from_str(proof)
-            .map_err(|e| ZkpError::InvalidProofData(format!("Invalid packed proof: {e}")))?;
+        let proof: Proof = PackedProof::from_str(proof)
+            .map_err(|e| ZkpError::InvalidProofData(format!("Invalid packed proof: {e}")))?
+            .into();
 
-        let merkle_root = U256Wrapper::try_from_hex_string(merkle_root)?;
-        let nullifier = U256Wrapper::try_from_hex_string(nullifier)?;
+        let root = U256Wrapper::try_from_hex_string(root)?;
+        let nullifier_hash = U256Wrapper::try_from_hex_string(nullifier_hash)?;
 
         Ok(Self {
-            external_nullifier,
+            external_nullifier_hash,
             verification_level,
             signal_hash,
-            proof: packed_proof,
-            merkle_root,
-            nullifier,
+            proof,
+            root,
+            nullifier_hash,
         })
+    }
+
+    pub fn get_verification_endpoint(&self, environment: &Environment) -> String {
+        self.verification_level
+            .get_verification_endpoint(environment)
     }
 }
 
@@ -108,7 +121,7 @@ mod tests {
         .expect("Failed to create proof");
 
         assert_eq!(proof.verification_level, VerificationLevel::Device);
-        assert!(!proof.external_nullifier.to_hex_string().is_empty());
+        assert!(!proof.external_nullifier_hash.to_hex_string().is_empty());
         assert!(!proof.signal_hash.to_hex_string().is_empty());
     }
 
@@ -137,7 +150,10 @@ mod tests {
         .expect("Failed to create proof2");
 
         // Different actions should produce different external nullifiers
-        assert_ne!(proof1.external_nullifier, proof2.external_nullifier);
+        assert_ne!(
+            proof1.external_nullifier_hash,
+            proof2.external_nullifier_hash
+        );
         // But same signal hash (both empty)
         assert_eq!(proof1.signal_hash, proof2.signal_hash);
     }
@@ -167,7 +183,10 @@ mod tests {
         .expect("Failed to create proof2");
 
         // Same external nullifier (same app_id, same empty action)
-        assert_eq!(proof1.external_nullifier, proof2.external_nullifier);
+        assert_eq!(
+            proof1.external_nullifier_hash,
+            proof2.external_nullifier_hash
+        );
         // But different signal hashes
         assert_ne!(proof1.signal_hash, proof2.signal_hash);
     }
@@ -197,7 +216,24 @@ mod tests {
         .expect("Failed to create proof2");
 
         // Same inputs should produce same outputs
-        assert_eq!(proof1.external_nullifier, proof2.external_nullifier);
+        assert_eq!(
+            proof1.external_nullifier_hash,
+            proof2.external_nullifier_hash
+        );
         assert_eq!(proof1.signal_hash, proof2.signal_hash);
+    }
+
+    #[test]
+    fn test_external_nullifier_hash() {
+        let external_nullifier_hash =
+            compute_external_nullifier("app_7681258c0610a996cd5cfec7225d6635", Some(b"verify"));
+
+        assert_eq!(
+            external_nullifier_hash,
+            U256Wrapper::try_from_hex_string(
+                "0x00209bd2bd86ff71920dcabca55549d264831e9a496cb4b2b2048dc6895e9188"
+            )
+            .unwrap()
+        );
     }
 }

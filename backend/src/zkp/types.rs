@@ -1,6 +1,7 @@
 use std::ops::Deref;
 
 use ruint::aliases::U256;
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use strum::{Display, EnumString};
 
@@ -92,8 +93,9 @@ impl<'de> Deserialize<'de> for U256Wrapper {
 
 /// Represents different verification levels for World ID credentials.
 /// Each level corresponds to a different type of identity verification.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, EnumString, Hash, Display)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, EnumString, Hash, Display, JsonSchema, Deserialize)]
 #[strum(serialize_all = "snake_case")]
+#[serde(rename_all = "snake_case")]
 pub enum VerificationLevel {
     /// Orb-verified identity - highest level of verification
     Orb,
@@ -124,20 +126,26 @@ impl VerificationLevel {
     /// - Support custom sign up sequencer hosts
     #[must_use]
     pub const fn get_sign_up_sequencer_host(&self, environment: &Environment) -> &str {
-        match environment {
-            Environment::Staging | Environment::Development { .. } => match self {
-                Self::Orb => "https://signup-orb-ethereum.stage-crypto.worldcoin.org",
-                Self::Device => "https://signup-phone-ethereum.stage-crypto.worldcoin.org",
-                Self::Document => "https://signup-document.stage-crypto.worldcoin.org",
-                Self::SecureDocument => "https://signup-document-secure.stage-crypto.worldcoin.org",
-            },
-            Environment::Production => match self {
-                Self::Orb => "https://signup-orb-ethereum.crypto.worldcoin.org",
-                Self::Device => "https://signup-phone-ethereum.crypto.worldcoin.org",
-                Self::Document => "https://signup-document.crypto.worldcoin.org",
-                Self::SecureDocument => "https://signup-document-secure.crypto.worldcoin.org",
-            },
+        match self {
+            Self::Orb => "https://signup-orb-ethereum.crypto.worldcoin.org",
+            Self::Device => "https://signup-phone-ethereum.crypto.worldcoin.org",
+            Self::Document => "https://signup-document.crypto.worldcoin.org",
+            Self::SecureDocument => "https://signup-document-secure.crypto.worldcoin.org",
         }
+        // match environment {
+        //     Environment::Staging | Environment::Development { .. } => match self {
+        //         Self::Orb => "https://signup-orb-ethereum.stage-crypto.worldcoin.org",
+        //         Self::Device => "https://signup-phone-ethereum.stage-crypto.worldcoin.org",
+        //         Self::Document => "https://signup-document.stage-crypto.worldcoin.org",
+        //         Self::SecureDocument => "https://signup-document-secure.stage-crypto.worldcoin.org",
+        //     },
+        //     Environment::Production => match self {
+        // Self::Orb => "https://signup-orb-ethereum.crypto.worldcoin.org",
+        // Self::Device => "https://signup-phone-ethereum.crypto.worldcoin.org",
+        // Self::Document => "https://signup-document.crypto.worldcoin.org",
+        // Self::SecureDocument => "https://signup-document-secure.crypto.worldcoin.org",
+        //     },
+        // }
     }
 
     /// Returns the v2 verification endpoint for the sequencer

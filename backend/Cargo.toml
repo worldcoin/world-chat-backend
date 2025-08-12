@@ -59,10 +59,9 @@ jsonwebtoken = { workspace = true }
 # HTTP client for proof verification  
 reqwest = { workspace = true }
 
-# Semaphore
+# World ID Deps
 semaphore-rs = { workspace = true }
-
-# U256 type for field elements
+alloy-core = { workspace = true }
 ruint = { workspace = true }
 
 [dev-dependencies]

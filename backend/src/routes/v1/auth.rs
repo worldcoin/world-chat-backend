@@ -7,28 +7,22 @@ use chrono::Utc;
 use jsonwebtoken::{encode, Algorithm, EncodingKey, Header};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use strum::{Display, EnumString};
 use tracing::warn;
 
-use crate::types::{AppError, Environment};
-
-#[derive(Deserialize, JsonSchema, Display, EnumString)]
-#[strum(serialize_all = "snake_case")]
-pub enum VerificationLevel {
-    Device,
-    Document,
-    SecureDocument,
-    Orb,
-}
+use crate::{
+    types::{AppError, Environment},
+    zkp::{proof::WorldIdProof, verify_world_id_proof, VerificationLevel},
+};
 
 #[derive(Deserialize, JsonSchema)]
 pub struct AuthRequest {
     pub encrypted_push_id: String,
+    // World ID proof elements
     pub proof: String,
-    pub nullifier_hash: String,
-    // pub merkle_root: String,
-    // pub signal: String,
-    // pub verification_level: VerificationLevel,
+    pub nullifier: String,
+    pub merkle_root: String,
+    pub signal: String,
+    pub verification_level: VerificationLevel,
 }
 
 #[derive(Debug, Serialize, JsonSchema)]
@@ -54,25 +48,36 @@ pub async fn authorize_handler(
     Json(request): Json<AuthRequest>,
 ) -> Result<Json<AuthResponse>, AppError> {
     // 1. Verify ZKP
-    let is_zkp_valid = verify_zk_proof(&request.proof);
-    if !is_zkp_valid {
-        return Err(AppError::new(
-            StatusCode::BAD_REQUEST,
-            "invalid_zkp_proof",
-            "Invalid ZKP proof",
-            false,
-        ));
-    }
+    tracing::debug!(
+        proof = %request.proof,
+        nullifier = %request.nullifier,
+        merkle_root = %request.merkle_root,
+        app_id = %environment.world_id_app_id(),
+        action = %environment.world_id_action(),
+        verification_level = ?request.verification_level,
+        signal = %request.signal,
+        "Verifying WorldIdProof"
+    );
+    let world_id_proof = WorldIdProof::new(
+        &request.proof,
+        &request.nullifier,
+        &request.merkle_root,
+        &environment.world_id_app_id(),
+        &environment.world_id_action(),
+        request.verification_level,
+        &request.signal,
+    )?;
+    verify_world_id_proof(&world_id_proof, &environment).await?;
 
     // 2. Fetch or create the auth-proof record
     let Some(auth_proof) = auth_proof_storage
-        .get_by_nullifier(&request.nullifier_hash)
+        .get_by_nullifier(&request.nullifier)
         .await?
     else {
         // 2.5 New user path - create auth-proof and issue token
         auth_proof_storage
             .insert(AuthProofInsertRequest {
-                nullifier: request.nullifier_hash,
+                nullifier: request.nullifier,
                 encrypted_push_id: request.encrypted_push_id.clone(),
             })
             .await?;
@@ -125,10 +130,6 @@ fn issue_token(encrypted_push_id: &str, jwt_secret: &str) -> Result<String, AppE
     )?;
 
     Ok(token)
-}
-
-fn verify_zk_proof(proof: &str) -> bool {
-    proof == "test"
 }
 
 // TODO: Replace this with enclave call

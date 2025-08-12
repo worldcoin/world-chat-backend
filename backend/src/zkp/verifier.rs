@@ -14,9 +14,13 @@ pub async fn verify_world_id_proof(
     environment: &Environment,
 ) -> Result<(), ZkpError> {
     // Get the verification endpoint for this verification level
-    let endpoint = proof
-        .verification_level
-        .get_verification_endpoint(environment);
+    let endpoint = proof.get_verification_endpoint(environment);
+
+    tracing::debug!(
+        signal_hash = %proof.signal_hash,
+        external_nullifier_hash = %proof.external_nullifier_hash,
+        "Sending verification request to sequencer"
+    );
 
     // Send verification request to sequencer
     let response = Request::post(endpoint, proof).await?;

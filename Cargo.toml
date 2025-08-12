@@ -92,3 +92,6 @@ semaphore-rs = { git = "https://github.com/worldcoin/semaphore-rs", rev = "c1a71
 
 # U256 type for field elements
 ruint = "1.16"
+
+# Needed for World ID external nullifier computation
+alloy-core = { version = "1.2", default-features = false, features = ["sol-types"] }

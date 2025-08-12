@@ -246,6 +246,18 @@ impl Environment {
             Self::Development { .. } => "world-chat-auth-proofs".to_string(),
         }
     }
+
+    /// Returns the World ID app ID
+    #[must_use]
+    pub fn world_id_app_id(&self) -> String {
+        env::var("WORLD_ID_APP_ID").expect("WORLD_ID_APP_ID environment variable is not set")
+    }
+
+    /// Returns the World ID action
+    #[must_use]
+    pub fn world_id_action(&self) -> String {
+        env::var("WORLD_ID_ACTION").expect("WORLD_ID_ACTION environment variable is not set")
+    }
 }
 
 #[cfg(test)]
