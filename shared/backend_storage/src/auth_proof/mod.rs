@@ -8,12 +8,15 @@ use std::sync::Arc;
 
 use aws_sdk_dynamodb::{error::SdkError, types::AttributeValue, Client as DynamoDbClient};
 use chrono::Utc;
+use rand::Rng;
 use serde::{Deserialize, Serialize};
 
 pub use error::{AuthProofStorageError, AuthProofStorageResult};
 use strum::Display;
 
-const TTL_SECONDS: i64 = 30 * 24 * 60 * 60; // 30 days
+/// TTL boundaries for random selection (in seconds)
+const TTL_MIN_SECONDS: i64 = 6 * 30 * 24 * 60 * 60; // 6 months in seconds
+const TTL_MAX_SECONDS: i64 = 8 * 30 * 24 * 60 * 60; // 8 months in seconds
 
 /// Attribute names for auth proof table
 #[derive(Debug, Clone, Display)]
@@ -73,11 +76,19 @@ impl AuthProofStorage {
         }
     }
 
-    /// Inserts a new auth proof with a 30 day TTL
+    /// Generates a random TTL between 6-8 months from now
+    fn generate_ttl() -> i64 {
+        let now = Utc::now().timestamp();
+        let mut rng = rand::thread_rng();
+        let ttl_seconds = rng.gen_range(TTL_MIN_SECONDS..=TTL_MAX_SECONDS);
+        now + ttl_seconds
+    }
+
+    /// Inserts a new auth proof with a random TTL between 6-8 months
     ///
     /// # Arguments
     ///
-    /// * `auth_proof` - The auth proof to insert
+    /// * `auth_proof_request` - The auth proof to insert
     ///
     /// # Errors
     ///
@@ -87,7 +98,7 @@ impl AuthProofStorage {
         auth_proof_request: AuthProofInsertRequest,
     ) -> AuthProofStorageResult<AuthProof> {
         let now = Utc::now().timestamp();
-        let ttl = now + TTL_SECONDS;
+        let ttl = Self::generate_ttl();
 
         let auth_proof = AuthProof {
             nullifier: auth_proof_request.nullifier.clone(),
@@ -122,7 +133,13 @@ impl AuthProofStorage {
         Ok(auth_proof)
     }
 
-    /// Updates the encrypted push id for a given nullifier
+    /// Updates the encrypted push id for a given nullifier and refreshes TTL
+    ///
+    /// This should only happen when the plaintext push id changes.
+    ///
+    /// This method updates the `encrypted_push_id`, `updated_at` timestamp, and `ttl`.
+    /// Unlike `ping_auth_proof`, this method DOES update `updated_at` since it's
+    /// modifying actual user data (not just keeping the row alive).
     ///
     /// # Arguments
     ///
@@ -137,12 +154,15 @@ impl AuthProofStorage {
         nullifier: &str,
         encrypted_push_id: &str,
     ) -> AuthProofStorageResult<()> {
+        let now = Utc::now().timestamp();
+        let ttl = Self::generate_ttl();
+
         self.dynamodb_client
             .update_item()
             .table_name(&self.table_name)
             .key("nullifier", AttributeValue::S(nullifier.to_string()))
             .update_expression(
-                "SET #encrypted_push_id = :encrypted_push_id, #updated_at = :updated_at",
+                "SET #encrypted_push_id = :encrypted_push_id, #updated_at = :updated_at, #ttl = :ttl",
             )
             .expression_attribute_names(
                 "#encrypted_push_id",
@@ -153,10 +173,9 @@ impl AuthProofStorage {
                 AttributeValue::S(encrypted_push_id.to_string()),
             )
             .expression_attribute_names("#updated_at", AuthProofAttribute::UpdatedAt.to_string())
-            .expression_attribute_values(
-                ":updated_at",
-                AttributeValue::N(Utc::now().timestamp().to_string()),
-            )
+            .expression_attribute_values(":updated_at", AttributeValue::N(now.to_string()))
+            .expression_attribute_names("#ttl", AuthProofAttribute::Ttl.to_string())
+            .expression_attribute_values(":ttl", AttributeValue::N(ttl.to_string()))
             .send()
             .await?;
 
@@ -194,5 +213,34 @@ impl AuthProofStorage {
             .map_err(|e| AuthProofStorageError::SerializationError(e.to_string()))?;
 
         Ok(item)
+    }
+
+    /// Pings an auth proof to refresh its TTL
+    ///
+    /// This method ONLY updates the TTL, not the `updated_at` timestamp.
+    /// This is intentional for privacy reasons - we want to keep users' data alive
+    /// without tracking their activity patterns (no "last seen" tracking).
+    ///
+    /// # Arguments
+    ///
+    /// * `nullifier` - The nullifier of the auth proof to ping
+    ///
+    /// # Errors
+    ///
+    /// Returns `AuthProofStorageError` if the Dynamo DB operation fails
+    pub async fn ping_auth_proof(&self, nullifier: &str) -> AuthProofStorageResult<()> {
+        let ttl = Self::generate_ttl();
+
+        self.dynamodb_client
+            .update_item()
+            .table_name(&self.table_name)
+            .key("nullifier", AttributeValue::S(nullifier.to_string()))
+            .update_expression("SET #ttl = :ttl")
+            .expression_attribute_names("#ttl", AuthProofAttribute::Ttl.to_string())
+            .expression_attribute_values(":ttl", AttributeValue::N(ttl.to_string()))
+            .send()
+            .await?;
+
+        Ok(())
     }
 }

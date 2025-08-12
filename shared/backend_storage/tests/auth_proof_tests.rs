@@ -195,7 +195,7 @@ async fn test_update_encrypted_push_id() {
     let auth_proof_request = create_test_auth_proof_request();
 
     // Insert auth proof and get the returned AuthProof
-    let inserted_auth_proof = context
+    let _inserted_auth_proof = context
         .storage
         .insert(auth_proof_request.clone())
         .await
@@ -236,8 +236,67 @@ async fn test_update_encrypted_push_id() {
         "updated_at should be newer after update"
     );
     assert_eq!(updated.nullifier, auth_proof_request.nullifier);
-    assert_eq!(
-        updated.ttl, inserted_auth_proof.ttl,
-        "TTL should not change on update"
+    assert!(
+        updated.ttl > initial.ttl,
+        "TTL should be refreshed and extended after update"
     );
+}
+
+#[tokio::test]
+async fn test_ping_auth_proof() {
+    let context = setup_test().await;
+
+    let auth_proof_request = create_test_auth_proof_request();
+
+    // Insert auth proof
+    let _inserted_auth_proof = context
+        .storage
+        .insert(auth_proof_request.clone())
+        .await
+        .expect("Failed to insert auth proof");
+
+    // Get initial state
+    let initial = context
+        .storage
+        .get_by_nullifier(&auth_proof_request.nullifier)
+        .await
+        .expect("Failed to get initial state")
+        .expect("Auth proof should exist");
+
+    let initial_updated_at = initial.updated_at;
+    let initial_ttl = initial.ttl;
+    let initial_encrypted_push_id = initial.encrypted_push_id.clone();
+
+    // Wait a bit to ensure we can detect timestamp differences if they occur
+    tokio::time::sleep(Duration::from_millis(1000)).await;
+
+    // Ping the auth proof to refresh TTL
+    context
+        .storage
+        .ping_auth_proof(&auth_proof_request.nullifier)
+        .await
+        .expect("Failed to ping auth proof");
+
+    // Retrieve and verify changes
+    let pinged = context
+        .storage
+        .get_by_nullifier(&auth_proof_request.nullifier)
+        .await
+        .expect("Failed to get pinged auth proof")
+        .expect("Auth proof should exist");
+
+    // Verify that ONLY TTL changed - for privacy reasons, updated_at should NOT change
+    assert_eq!(
+        pinged.encrypted_push_id, initial_encrypted_push_id,
+        "encrypted_push_id should not change on ping"
+    );
+    assert_eq!(
+        pinged.updated_at, initial_updated_at,
+        "updated_at should NOT change on ping (privacy: no 'last seen' tracking)"
+    );
+    assert!(
+        pinged.ttl > initial_ttl,
+        "TTL should be refreshed and extended after ping"
+    );
+    assert_eq!(pinged.nullifier, auth_proof_request.nullifier);
 }
