@@ -39,7 +39,7 @@ allow = [
     "Unicode-3.0",
     "Unlicense",
     "Zlib",
-    "MPL-2.0", # Although this is copyleft, it is scoped to modifying the original files
+    "MPL-2.0", # Used for walletkit-core dependencies
 ]
 
 # Ignore unmaintained required crates warning
