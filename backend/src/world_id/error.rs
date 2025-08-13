@@ -1,8 +1,8 @@
 use thiserror::Error;
 
-/// Error types for World ID ZKP verification operations
+/// Error types for World ID verification operations
 #[derive(Debug, Error)]
-pub enum ZkpError {
+pub enum WorldIdError {
     /// The proof verification failed - returned when sequencer says proof is invalid
     #[error("Invalid proof")]
     InvalidProof,

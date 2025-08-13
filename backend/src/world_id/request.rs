@@ -4,7 +4,7 @@ use std::time::Duration;
 use reqwest::Client;
 use serde::Serialize;
 
-use super::error::ZkpError;
+use super::error::WorldIdError;
 
 /// Default timeout for World ID sequencer requests
 const DEFAULT_REQUEST_TIMEOUT_SECS: u64 = 30;
@@ -42,7 +42,7 @@ impl Request {
     ///
     /// # Errors
     /// Returns an error if the request fails or timeout occurs
-    pub async fn post<T>(url: &str, body: T) -> Result<reqwest::Response, ZkpError>
+    pub async fn post<T>(url: &str, body: T) -> Result<reqwest::Response, WorldIdError>
     where
         T: Serialize + Send + Sync,
     {

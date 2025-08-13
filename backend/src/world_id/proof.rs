@@ -4,7 +4,7 @@ use semaphore_rs::{packed_proof::PackedProof, protocol::Proof};
 use serde::Serialize;
 use walletkit_core::{proof::ProofContext, CredentialType, U256Wrapper};
 
-use super::error::ZkpError;
+use super::error::WorldIdError;
 
 /// A struct with all the World ID proof fields.
 ///
@@ -45,15 +45,15 @@ impl WorldIdProof {
         root: &str,
         credential_type: CredentialType,
         signal: &str,
-    ) -> Result<Self, ZkpError> {
+    ) -> Result<Self, WorldIdError> {
         let proof: Proof = PackedProof::from_str(proof)
-            .map_err(|e| ZkpError::InvalidProofData(format!("Invalid packed proof: {e}")))?
+            .map_err(|e| WorldIdError::InvalidProofData(format!("Invalid packed proof: {e}")))?
             .into();
 
         let root = U256Wrapper::try_from_hex_string(root)
-            .map_err(|e| ZkpError::InvalidProofData(format!("Invalid merkle root: {e}")))?;
+            .map_err(|e| WorldIdError::InvalidProofData(format!("Invalid merkle root: {e}")))?;
         let nullifier_hash = U256Wrapper::try_from_hex_string(nullifier_hash)
-            .map_err(|e| ZkpError::InvalidProofData(format!("Invalid nullifier hash: {e}")))?;
+            .map_err(|e| WorldIdError::InvalidProofData(format!("Invalid nullifier hash: {e}")))?;
 
         let proof_context = ProofContext::new_from_bytes(
             app_id,

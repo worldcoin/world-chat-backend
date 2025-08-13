@@ -11,7 +11,7 @@ use schemars::JsonSchema;
 use serde::Serialize;
 
 use crate::media_storage::BucketError;
-use crate::world_id::error::ZkpError;
+use crate::world_id::error::WorldIdError;
 
 /// API error response envelope that matches mobile client expectations
 #[derive(Debug, Serialize, JsonSchema)]
@@ -206,10 +206,10 @@ impl From<AuthProofStorageError> for AppError {
 }
 
 /// Convert World ID ZKP verification errors to application errors
-impl From<ZkpError> for AppError {
+impl From<WorldIdError> for AppError {
     #[allow(clippy::cognitive_complexity)]
-    fn from(err: ZkpError) -> Self {
-        use ZkpError::{
+    fn from(err: WorldIdError) -> Self {
+        use WorldIdError::{
             InvalidMerkleRoot, InvalidProof, InvalidProofData, InvalidSequencerResponse,
             NetworkError, ProverError, RootTooOld,
         };

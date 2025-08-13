@@ -1,6 +1,6 @@
 use serde::Deserialize;
 
-use super::{error::ZkpError, proof::WorldIdProof, request::Request};
+use super::{error::WorldIdError, proof::WorldIdProof, request::Request};
 
 /// Response from the World ID sequencer's proof verification endpoint.
 #[derive(Debug, Deserialize)]
@@ -20,7 +20,7 @@ struct VerificationResponse {
 pub async fn verify_world_id_proof(
     proof: &WorldIdProof,
     world_id_environment: &walletkit_core::Environment,
-) -> Result<(), ZkpError> {
+) -> Result<(), WorldIdError> {
     // Get the verification endpoint for this verification level
     let endpoint = proof.get_verification_endpoint(world_id_environment);
 
@@ -38,12 +38,12 @@ pub async fn verify_world_id_proof(
     }
 
     let verification_response: VerificationResponse =
-        response.json().await.map_err(ZkpError::NetworkError)?;
+        response.json().await.map_err(WorldIdError::NetworkError)?;
 
     if verification_response.valid {
         Ok(())
     } else {
-        Err(ZkpError::InvalidProof)
+        Err(WorldIdError::InvalidProof)
     }
 }
 
@@ -55,18 +55,18 @@ pub async fn verify_world_id_proof(
 ///
 /// # Returns
 /// The appropriate `ZkpError` based on the error message content
-fn handle_sequencer_error(error_text: &str, status: reqwest::StatusCode) -> ZkpError {
+fn handle_sequencer_error(error_text: &str, status: reqwest::StatusCode) -> WorldIdError {
     // Check for known error patterns
     if error_text.contains("invalid_root") {
-        ZkpError::InvalidMerkleRoot
+        WorldIdError::InvalidMerkleRoot
     } else if error_text.contains("root_too_old") {
-        ZkpError::RootTooOld
+        WorldIdError::RootTooOld
     } else if error_text.contains("prover_error") {
-        ZkpError::ProverError
+        WorldIdError::ProverError
     } else if error_text.contains("invalid_proof") {
-        ZkpError::InvalidProof
+        WorldIdError::InvalidProof
     } else {
-        ZkpError::InvalidSequencerResponse(format!("Status {status}: {error_text}"))
+        WorldIdError::InvalidSequencerResponse(format!("Status {status}: {error_text}"))
     }
 }
 
