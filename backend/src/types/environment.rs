@@ -216,6 +216,26 @@ impl Environment {
         let aws_config = self.aws_config().await;
         aws_sdk_sqs::Config::from(&aws_config)
     }
+
+    /// Returns the World ID environment for use with World ID integrations.
+    ///
+    /// If the `WORLD_ID_ENV` env var is not set, we map based on the `APP_ENV`.
+    ///
+    /// Overriding default mapping is useful for testing production World ID proofs locally.
+    #[must_use]
+    #[allow(clippy::option_if_let_else)]
+    pub fn world_id_environment(&self) -> walletkit_core::Environment {
+        match std::env::var("WORLD_ID_ENV") {
+            Ok(val) => match val.as_str() {
+                "production" => walletkit_core::Environment::Production,
+                _ => walletkit_core::Environment::Staging, // Default for non-production values
+            },
+            Err(_) => match self {
+                Self::Production => walletkit_core::Environment::Production,
+                Self::Staging | Self::Development { .. } => walletkit_core::Environment::Staging,
+            },
+        }
+    }
 }
 
 #[cfg(test)]
