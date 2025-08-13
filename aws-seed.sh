@@ -19,6 +19,21 @@ awslocal dynamodb update-time-to-live \
     --table-name world-chat-push-subscriptions \
     --time-to-live-specification "Enabled=true,AttributeName=ttl"
 
+
+# Create DynamoDB table for auth proofs
+awslocal dynamodb create-table \
+    --table-name world-chat-auth-proofs \
+    --attribute-definitions \
+        AttributeName=nullifier,AttributeType=S \
+    --key-schema \
+        AttributeName=nullifier,KeyType=HASH \
+    --billing-mode PAY_PER_REQUEST
+
+# Enable TTL on the auth proofs table
+awslocal dynamodb update-time-to-live \
+    --table-name world-chat-auth-proofs \
+    --time-to-live-specification "Enabled=true,AttributeName=ttl"
+
 awslocal sqs create-queue --queue-name notification-queue.fifo --attributes '{"FifoQueue": "true", "ContentBasedDeduplication": "true"}'
 awslocal sqs create-queue --queue-name subscription-request-queue.fifo --attributes '{"FifoQueue": "true", "ContentBasedDeduplication": "true"}'
 

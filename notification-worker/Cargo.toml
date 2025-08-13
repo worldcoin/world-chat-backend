@@ -42,3 +42,4 @@ serial_test = { workspace = true }
 [build-dependencies]
 tonic-build = "0.12"         # brings in prost-build automatically
 glob        = "0.3"          # globs proto/** recursively
+protoc-bin-vendored = "3"    # vendored protoc binary

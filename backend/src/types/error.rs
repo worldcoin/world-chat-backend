@@ -6,6 +6,7 @@ use axum::{
     response::{IntoResponse, Response},
 };
 use axum_jsonschema::Json;
+use backend_storage::auth_proof::AuthProofStorageError;
 use schemars::JsonSchema;
 use serde::Serialize;
 
@@ -157,5 +158,48 @@ impl OperationOutput for AppError {
         operation: &mut aide::openapi::Operation,
     ) -> Option<aide::openapi::Response> {
         Json::<ApiErrorResponse>::operation_response(ctx, operation)
+    }
+}
+
+impl From<AuthProofStorageError> for AppError {
+    fn from(err: AuthProofStorageError) -> Self {
+        use AuthProofStorageError::{
+            AuthProofExists, DynamoDbDeleteError, DynamoDbGetError, DynamoDbPutError,
+            DynamoDbQueryError, DynamoDbUpdateError, SerializationError,
+        };
+
+        match &err {
+            AuthProofExists => {
+                tracing::debug!("Auth proof already exists");
+                Self::new(
+                    StatusCode::CONFLICT,
+                    "already_exists",
+                    "Auth proof already exists",
+                    false,
+                )
+            }
+            DynamoDbPutError(_)
+            | DynamoDbDeleteError(_)
+            | DynamoDbGetError(_)
+            | DynamoDbQueryError(_)
+            | DynamoDbUpdateError(_) => {
+                tracing::error!("DynamoDB error: {err}");
+                Self::new(
+                    StatusCode::SERVICE_UNAVAILABLE,
+                    "database_error",
+                    "Database service temporarily unavailable",
+                    true,
+                )
+            }
+            SerializationError(msg) => {
+                tracing::error!("Serialization error: {msg}");
+                Self::new(
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "internal_error",
+                    "Internal server error",
+                    false,
+                )
+            }
+        }
     }
 }
