@@ -27,8 +27,8 @@ pub enum AuthProofAttribute {
     Nullifier,
     /// Encrypted Push ID
     EncryptedPushId,
-    /// Updated At
-    UpdatedAt,
+    /// Push ID Rotated At - timestamp when push ID was last changed
+    PushIdRotatedAt,
     /// TTL timestamp
     Ttl,
 }
@@ -36,12 +36,14 @@ pub enum AuthProofAttribute {
 /// Auth proof data structure
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AuthProof {
-    /// Nullifier (Primary Key)
+    /// World ID Nullifier (Primary Key)
     pub nullifier: String,
-    /// Encrypted Push ID
+    /// Encrypted Push notification ID
+    /// It's used to identify the user and send notifications, see Push Subscription storage for more details.
+    /// It's encrypted with the enclave's public key with an added nonce, only the enclave can decrypt it.
     pub encrypted_push_id: String,
-    /// Updated At
-    pub updated_at: i64,
+    /// Push ID Rotated At - timestamp when push ID was last changed (rounded to nearest day)
+    pub push_id_rotated_at: i64,
     /// TTL timestamp
     pub ttl: i64,
 }
@@ -55,7 +57,17 @@ pub struct AuthProofInsertRequest {
     pub encrypted_push_id: String,
 }
 
-/// Auth proof storage client for Dynamo DB operations
+/// `DynamoDB` storage for World ID authentication proofs.
+///
+/// Stores the mapping between World ID nullifiers (anonymous user identifiers) and
+/// encrypted push notification IDs. Each nullifier can only have one active session,
+/// providing Sybil resistance.
+///
+/// There is a 6-8 month randomly picked TTL to avoid keeping user's data forever.
+/// The TTL is refreshed every time the user issues a new JWT using the `ping_auth_proof` method.
+///
+/// The `push_id_rotated_at` is used to track when the push ID was last changed. In the app layer we will handle cooldown period to avoid
+/// impersonation attacks.
 pub struct AuthProofStorage {
     dynamodb_client: Arc<DynamoDbClient>,
     table_name: String,
@@ -76,7 +88,40 @@ impl AuthProofStorage {
         }
     }
 
+    /// Rounds a timestamp to the nearest day (midnight UTC)
+    ///
+    /// This improves privacy by not storing exact activity times.
+    /// If the time is past noon, it rounds to the next day;
+    /// otherwise, it rounds to the current day.
+    const fn round_to_nearest_day(timestamp: i64) -> i64 {
+        const SECONDS_IN_DAY: i64 = 86400;
+        const HALF_DAY_SECONDS: i64 = 43200;
+
+        let seconds_since_midnight = timestamp % SECONDS_IN_DAY;
+
+        if seconds_since_midnight >= HALF_DAY_SECONDS {
+            // Round up to next day's midnight
+            timestamp + (SECONDS_IN_DAY - seconds_since_midnight)
+        } else {
+            // Round down to current day's midnight
+            timestamp - seconds_since_midnight
+        }
+    }
+
     /// Generates a random TTL between 6-8 months from now
+    ///
+    /// The TTL is refreshed every time the user issues a new JWT using the `ping_auth_proof` method.
+    ///
+    /// # Why randomness?
+    ///
+    /// We add randomness to avoid "last seen" tracking. Since the TTL is updated every time a new JWT is issued,
+    /// without randomness, an observer could determine when a user was last active by looking at the TTL value.
+    /// The random component makes it impossible to correlate TTL values with actual user activity patterns.
+    ///
+    /// # Why 6-8 months?
+    ///
+    /// This period is chosen to proactively delete stale user data. If a user hasn't used chat from World App
+    /// in this period, we consider their data stale and delete it. Once the user log ins again, they will create a new auth proof row.
     fn generate_ttl() -> i64 {
         let now = Utc::now().timestamp();
         let mut rng = rand::thread_rng();
@@ -98,12 +143,13 @@ impl AuthProofStorage {
         auth_proof_request: AuthProofInsertRequest,
     ) -> AuthProofStorageResult<AuthProof> {
         let now = Utc::now().timestamp();
+        let rounded_now = Self::round_to_nearest_day(now);
         let ttl = Self::generate_ttl();
 
         let auth_proof = AuthProof {
             nullifier: auth_proof_request.nullifier.clone(),
             encrypted_push_id: auth_proof_request.encrypted_push_id.clone(),
-            updated_at: now,
+            push_id_rotated_at: rounded_now,
             ttl,
         };
 
@@ -137,9 +183,10 @@ impl AuthProofStorage {
     ///
     /// This should only happen when the plaintext push id changes.
     ///
-    /// This method updates the `encrypted_push_id`, `updated_at` timestamp, and `ttl`.
-    /// Unlike `ping_auth_proof`, this method DOES update `updated_at` since it's
+    /// This method updates the `encrypted_push_id`, `push_id_rotated_at` timestamp (rounded to nearest day), and `ttl`.
+    /// Unlike `ping_auth_proof`, this method DOES update `push_id_rotated_at` since it's
     /// modifying actual user data (not just keeping the row alive).
+    /// The timestamp is rounded to the nearest day for privacy reasons.
     ///
     /// # Arguments
     ///
@@ -155,6 +202,7 @@ impl AuthProofStorage {
         encrypted_push_id: &str,
     ) -> AuthProofStorageResult<()> {
         let now = Utc::now().timestamp();
+        let rounded_now = Self::round_to_nearest_day(now);
         let ttl = Self::generate_ttl();
 
         self.dynamodb_client
@@ -162,7 +210,7 @@ impl AuthProofStorage {
             .table_name(&self.table_name)
             .key("nullifier", AttributeValue::S(nullifier.to_string()))
             .update_expression(
-                "SET #encrypted_push_id = :encrypted_push_id, #updated_at = :updated_at, #ttl = :ttl",
+                "SET #encrypted_push_id = :encrypted_push_id, #push_id_rotated_at = :push_id_rotated_at, #ttl = :ttl",
             )
             .expression_attribute_names(
                 "#encrypted_push_id",
@@ -172,8 +220,8 @@ impl AuthProofStorage {
                 ":encrypted_push_id",
                 AttributeValue::S(encrypted_push_id.to_string()),
             )
-            .expression_attribute_names("#updated_at", AuthProofAttribute::UpdatedAt.to_string())
-            .expression_attribute_values(":updated_at", AttributeValue::N(now.to_string()))
+            .expression_attribute_names("#push_id_rotated_at", AuthProofAttribute::PushIdRotatedAt.to_string())
+            .expression_attribute_values(":push_id_rotated_at", AttributeValue::N(rounded_now.to_string()))
             .expression_attribute_names("#ttl", AuthProofAttribute::Ttl.to_string())
             .expression_attribute_values(":ttl", AttributeValue::N(ttl.to_string()))
             .send()
@@ -217,7 +265,7 @@ impl AuthProofStorage {
 
     /// Pings an auth proof to refresh its TTL
     ///
-    /// This method ONLY updates the TTL, not the `updated_at` timestamp.
+    /// This method ONLY updates the TTL, not the `push_id_rotated_at` timestamp.
     /// This is intentional for privacy reasons - we want to keep users' data alive
     /// without tracking their activity patterns (no "last seen" tracking).
     ///
@@ -242,5 +290,64 @@ impl AuthProofStorage {
             .await?;
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_round_to_nearest_day() {
+        use chrono::{DateTime, Utc};
+
+        fn parse_iso(iso_str: &str) -> i64 {
+            iso_str.parse::<DateTime<Utc>>().unwrap().timestamp()
+        }
+
+        // Morning (10:30 AM) - rounds down to midnight
+        let morning = parse_iso("2024-12-01T10:30:00Z");
+        let morning_midnight = parse_iso("2024-12-01T00:00:00Z");
+        assert_eq!(
+            AuthProofStorage::round_to_nearest_day(morning),
+            morning_midnight
+        );
+
+        // Afternoon (2:30 PM) - rounds up to next midnight
+        let afternoon = parse_iso("2024-12-01T14:30:00Z");
+        let next_midnight = parse_iso("2024-12-02T00:00:00Z");
+        assert_eq!(
+            AuthProofStorage::round_to_nearest_day(afternoon),
+            next_midnight
+        );
+
+        // Exactly noon - rounds up
+        let noon = parse_iso("2024-12-01T12:00:00Z");
+        assert_eq!(AuthProofStorage::round_to_nearest_day(noon), next_midnight);
+
+        // Just before noon - rounds down
+        let before_noon = parse_iso("2024-12-01T11:59:59Z");
+        assert_eq!(
+            AuthProofStorage::round_to_nearest_day(before_noon),
+            morning_midnight
+        );
+
+        // Exactly midnight - stays at midnight
+        let midnight = parse_iso("2024-12-01T00:00:00Z");
+        assert_eq!(AuthProofStorage::round_to_nearest_day(midnight), midnight);
+
+        // One second after midnight - rounds down
+        let after_midnight = parse_iso("2024-12-01T00:00:01Z");
+        assert_eq!(
+            AuthProofStorage::round_to_nearest_day(after_midnight),
+            midnight
+        );
+
+        // Late evening - rounds up to next midnight
+        let late_evening = parse_iso("2024-12-01T23:59:59Z");
+        assert_eq!(
+            AuthProofStorage::round_to_nearest_day(late_evening),
+            next_midnight
+        );
     }
 }

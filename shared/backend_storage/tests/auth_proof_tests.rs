@@ -10,6 +10,7 @@ use aws_sdk_dynamodb::Client as DynamoDbClient;
 use backend_storage::auth_proof::{
     AuthProofAttribute, AuthProofInsertRequest, AuthProofStorage, AuthProofStorageError,
 };
+use chrono::Utc;
 use uuid::Uuid;
 
 /// Test configuration for LocalStack
@@ -144,7 +145,10 @@ async fn test_get_by_nullifier() {
         retrieved.encrypted_push_id,
         inserted_auth_proof.encrypted_push_id
     );
-    assert_eq!(retrieved.updated_at, inserted_auth_proof.updated_at);
+    assert_eq!(
+        retrieved.push_id_rotated_at,
+        inserted_auth_proof.push_id_rotated_at
+    );
     assert_eq!(retrieved.ttl, inserted_auth_proof.ttl);
 
     // Get non-existent nullifier - should return None
@@ -209,10 +213,7 @@ async fn test_update_encrypted_push_id() {
         .expect("Failed to get initial state")
         .expect("Auth proof should exist");
 
-    let initial_updated_at = initial.updated_at;
-
-    // Wait a bit to ensure timestamp difference
-    tokio::time::sleep(Duration::from_millis(1000)).await;
+    let initial_push_id_rotated_at = initial.push_id_rotated_at;
 
     // Update encrypted push id
     let new_encrypted_push_id = format!("new-encrypted-{}", Uuid::new_v4());
@@ -231,15 +232,15 @@ async fn test_update_encrypted_push_id() {
         .expect("Auth proof should exist");
 
     assert_eq!(updated.encrypted_push_id, new_encrypted_push_id);
+    // With rounding to nearest day, push_id_rotated_at will likely be the same unless test runs across midnight
     assert!(
-        updated.updated_at > initial_updated_at,
-        "updated_at should be newer after update"
+        updated.push_id_rotated_at >= initial_push_id_rotated_at,
+        "push_id_rotated_at should not go backwards"
     );
     assert_eq!(updated.nullifier, auth_proof_request.nullifier);
-    assert!(
-        updated.ttl > initial.ttl,
-        "TTL should be refreshed and extended after update"
-    );
+    // TTL is randomized, just verify it's set to a valid future value
+    let now = chrono::Utc::now().timestamp();
+    assert!(updated.ttl > now, "TTL should be set to a future timestamp");
 }
 
 #[tokio::test]
@@ -263,8 +264,7 @@ async fn test_ping_auth_proof() {
         .expect("Failed to get initial state")
         .expect("Auth proof should exist");
 
-    let initial_updated_at = initial.updated_at;
-    let initial_ttl = initial.ttl;
+    let initial_push_id_rotated_at = initial.push_id_rotated_at;
     let initial_encrypted_push_id = initial.encrypted_push_id.clone();
 
     // Wait a bit to ensure we can detect timestamp differences if they occur
@@ -285,18 +285,17 @@ async fn test_ping_auth_proof() {
         .expect("Failed to get pinged auth proof")
         .expect("Auth proof should exist");
 
-    // Verify that ONLY TTL changed - for privacy reasons, updated_at should NOT change
+    // Verify that ONLY TTL changed - for privacy reasons, push_id_rotated_at should NOT change
     assert_eq!(
         pinged.encrypted_push_id, initial_encrypted_push_id,
         "encrypted_push_id should not change on ping"
     );
     assert_eq!(
-        pinged.updated_at, initial_updated_at,
-        "updated_at should NOT change on ping (privacy: no 'last seen' tracking)"
+        pinged.push_id_rotated_at, initial_push_id_rotated_at,
+        "push_id_rotated_at should NOT change on ping (privacy: no 'last seen' tracking)"
     );
-    assert!(
-        pinged.ttl > initial_ttl,
-        "TTL should be refreshed and extended after ping"
-    );
+    // TTL is randomized, just verify it's set to a valid future value
+    let now = Utc::now().timestamp();
+    assert!(pinged.ttl > now, "TTL should be set to a future timestamp");
     assert_eq!(pinged.nullifier, auth_proof_request.nullifier);
 }
