@@ -10,8 +10,9 @@ use super::error::ZkpError;
 ///
 /// This struct can be serialized and used directly to verify in the sequencer.
 ///
-/// Sequencer API:
-/// `<https://github.com/worldcoin/signup-sequencer/blob/main/schemas/openapi-v2.yaml>`
+/// [Sequencer API spec](https://github.com/worldcoin/signup-sequencer/blob/main/schemas/openapi-v2.yaml)
+///
+/// [World ID concepts](https://docs.world.org/world-id/concepts)
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct WorldIdProof {

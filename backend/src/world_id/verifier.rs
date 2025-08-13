@@ -24,12 +24,6 @@ pub async fn verify_world_id_proof(
     // Get the verification endpoint for this verification level
     let endpoint = proof.get_verification_endpoint(world_id_environment);
 
-    tracing::debug!(
-        signal_hash = %proof.signal_hash,
-        external_nullifier_hash = %proof.external_nullifier_hash,
-        "Sending verification request to sequencer"
-    );
-
     // Send verification request to sequencer
     let response = Request::post(endpoint, proof).await?;
 

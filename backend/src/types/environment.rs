@@ -217,7 +217,7 @@ impl Environment {
         aws_sdk_sqs::Config::from(&aws_config)
     }
 
-    /// Returns the World ID environment for use with World ID integrations.
+    /// Returns the World ID environment that is used to verify World ID proofs. This controls which sequencer is used.
     ///
     /// If the `WORLD_ID_ENV` env var is not set, we map based on the `APP_ENV`.
     ///
