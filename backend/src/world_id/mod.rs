@@ -7,12 +7,10 @@
 //!
 //! # Components
 //! - `error`: Custom error types for World ID verification failures
-//! - `proof`: Data structures for constructing and serializing World ID proofs
 //! - `verifier`: Core verification logic that communicates with the sequencer
 //! - `request`: HTTP client utilities for sequencer communication (internal)
 
 pub mod error;
-pub mod proof;
 pub mod verifier;
 
 /// HTTP request utilities for communicating with the World ID sequencer.

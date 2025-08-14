@@ -1,31 +1,59 @@
-use serde::Deserialize;
+use semaphore_rs::{packed_proof::PackedProof, protocol::Proof};
+use serde::{Deserialize, Serialize};
+use std::str::FromStr;
 
-use super::{error::WorldIdError, proof::WorldIdProof, request::Request};
+use walletkit_core::{proof::ProofContext, CredentialType, U256Wrapper};
+
+use super::{error::WorldIdError, request::Request};
+
+/// A struct with all the World ID proof fields.
+///
+/// This struct can be serialized and used directly to verify in the sequencer.
+///
+/// [Sequencer API spec](https://github.com/worldcoin/signup-sequencer/blob/main/schemas/openapi-v2.yaml)
+///
+/// [World ID concepts](https://docs.world.org/world-id/concepts)
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct SequencerVerificationRequest {
+    /// The Zero-Knowledge proof
+    pub proof: Proof,
+    /// The merkle root of the World ID tree
+    pub root: U256Wrapper,
+    /// The nullifier hash
+    pub nullifier_hash: U256Wrapper,
+    /// The hashed external nullifier for preventing double-signaling
+    pub external_nullifier_hash: U256Wrapper,
+    /// The hashed signal which is included in the ZKP
+    pub signal_hash: U256Wrapper,
+}
 
 /// Response from the World ID sequencer's proof verification endpoint.
 #[derive(Debug, Deserialize)]
-struct VerificationResponse {
+struct SequencerVerificationResponse {
     /// Indicates whether the submitted proof passed all verification checks
     pub valid: bool,
 }
 
-/// Verifies a World ID proof with the signup sequencer.
+/// Internal function that sends a verification request to the World ID sequencer.
+///
+/// This function handles the HTTP communication with the sequencer and parses the response.
 ///
 /// # Arguments
-/// * `proof` - The World ID proof containing the packed proof, nullifier, merkle root, and verification level
-/// * `environment` - The environment (staging/production) for selecting the correct sequencer
+/// * `request` - The pre-constructed verification request containing all proof components
+/// * `endpoint` - The sequencer endpoint URL for the specific credential type and environment
 ///
 /// # Errors
-/// Returns an error if the proof is invalid or verification fails
-pub async fn verify_world_id_proof(
-    proof: &WorldIdProof,
-    world_id_environment: &walletkit_core::Environment,
+/// Returns an error if:
+/// - The network request fails
+/// - The sequencer returns a non-success status code
+/// - The proof verification fails
+async fn verify_world_id_proof_with_sequencer(
+    request: &SequencerVerificationRequest,
+    endpoint: &str,
 ) -> Result<(), WorldIdError> {
-    // Get the verification endpoint for this verification level
-    let endpoint = proof.get_verification_endpoint(world_id_environment);
-
     // Send verification request to sequencer
-    let response = Request::post(endpoint, proof).await?;
+    let response = Request::post(endpoint, request).await?;
 
     let status = response.status();
     if !status.is_success() {
@@ -37,7 +65,7 @@ pub async fn verify_world_id_proof(
         return Err(handle_sequencer_error(&error_text, status));
     }
 
-    let verification_response: VerificationResponse =
+    let verification_response: SequencerVerificationResponse =
         response.json().await.map_err(WorldIdError::NetworkError)?;
 
     if verification_response.valid {
@@ -45,6 +73,96 @@ pub async fn verify_world_id_proof(
     } else {
         Err(WorldIdError::InvalidProof)
     }
+}
+
+/// Verifies a World ID zero-knowledge proof with the World ID sequencer.
+///
+/// This is the main entry point for World ID proof verification. It takes the raw proof
+/// components, constructs the necessary data structures, and verifies the proof with
+/// the appropriate sequencer endpoint based on the credential type and environment.
+///
+/// # Arguments
+/// * `app_id` - The World ID app identifier (format: "app_[env]_[uuid]")
+/// * `action` - The action string that was used to generate the proof (e.g., "login", "vote")
+/// * `proof` - The packed zero-knowledge proof as a hex string (256 bytes / 512 hex chars)
+/// * `nullifier_hash` - The nullifier hash as a hex string (prevents double-signaling)
+/// * `root` - The merkle tree root as a hex string
+/// * `credential_type` - The type of credential (Device, Orb, Phone)
+/// * `signal` - The signal data that was included in the proof generation
+/// * `world_id_environment` - The environment (Staging or Production)
+///
+/// # Returns
+/// * `Ok(())` if the proof is valid and verified by the sequencer
+/// * `Err(WorldIdError)` if the proof is invalid or verification fails
+///
+/// # Errors
+/// Returns an error if:
+/// - The proof string cannot be parsed as a valid packed proof
+/// - The root or nullifier hash are not valid hex strings
+/// - The sequencer rejects the proof (invalid, expired root, etc.)
+/// - Network errors occur during verification
+///
+/// # Example
+/// ```no_run
+/// # use walletkit_core::{CredentialType, Environment};
+/// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
+/// let result = verify_world_id_proof(
+///     "app_staging_509648994ab005fe79c4ddd0449606ca",
+///     "login",
+///     "0x1234...",  // 512 hex characters
+///     "0xabcd...",  // nullifier hash
+///     "0xef01...",  // merkle root
+///     CredentialType::Device,
+///     "user_session_123",
+///     &Environment::Staging,
+/// ).await?;
+/// # Ok(())
+/// # }
+/// ```
+pub async fn verify_world_id_proof(
+    app_id: &str,
+    action: &str,
+    proof: &str,
+    nullifier_hash: &str,
+    root: &str,
+    credential_type: CredentialType,
+    signal: &str,
+    world_id_environment: &walletkit_core::Environment,
+) -> Result<(), WorldIdError> {
+    // Parse and validate the packed proof from hex string
+    let proof: Proof = PackedProof::from_str(proof)
+        .map_err(|e| WorldIdError::InvalidProofData(format!("Invalid packed proof: {e}")))?
+        .into();
+
+    // Parse and validate the merkle root and nullifier hash
+    let root = U256Wrapper::try_from_hex_string(root)
+        .map_err(|e| WorldIdError::InvalidProofData(format!("Invalid merkle root: {e}")))?;
+    let nullifier_hash = U256Wrapper::try_from_hex_string(nullifier_hash)
+        .map_err(|e| WorldIdError::InvalidProofData(format!("Invalid nullifier hash: {e}")))?;
+
+    // Generate the proof context which computes the external nullifier and signal hash
+    // These are derived from the app_id, action, signal, and credential_type
+    let proof_context = ProofContext::new_from_bytes(
+        app_id,
+        Some(action.as_bytes().to_vec()),
+        Some(signal.as_bytes().to_vec()),
+        credential_type,
+    );
+
+    // Construct the verification request with all necessary components
+    let request = SequencerVerificationRequest {
+        proof,
+        root,
+        nullifier_hash,
+        external_nullifier_hash: proof_context.external_nullifier,
+        signal_hash: proof_context.signal_hash,
+    };
+
+    // Get the appropriate sequencer endpoint based on credential type and environment
+    let endpoint = credential_type.get_sign_up_sequencer_host(world_id_environment);
+
+    // Send the verification request to the sequencer
+    verify_world_id_proof_with_sequencer(&request, endpoint).await
 }
 
 /// Handles error responses from the World ID sequencer.
@@ -98,9 +216,8 @@ mod tests {
         let test_proof_hex = "0x".to_string() + &"1".repeat(512);
         let test_nullifier = "0x1359a81e3a42dc1c34786cbefbcc672a3d730510dba7a3be9941b207b0cf52fa";
         let test_root = "0x2a7c09e8af01f39a87d89e9f0a9ba66fbf6fb304cc643051dd4ea24c4e9f7e8d";
-
-        // Create the WorldIdProof
-        let world_id_proof = WorldIdProof::new(
+        // Verify the proof with the staging sequencer
+        let result = verify_world_id_proof(
             app_id,
             action,
             &test_proof_hex,
@@ -108,11 +225,9 @@ mod tests {
             test_root,
             credential_type,
             signal,
+            &Environment::Staging,
         )
-        .expect("Failed to create WorldIdProof");
-
-        // Verify the proof with the staging sequencer
-        let result = verify_world_id_proof(&world_id_proof, &Environment::Staging).await;
+        .await;
 
         // The proof will be rejected since it's not from a real registered World ID
         // But this tests that our verification flow works correctly
@@ -144,7 +259,8 @@ mod tests {
             "0x0000000000000000000000000000000000000000000000000000000000000001";
         let invalid_root = "0x0000000000000000000000000000000000000000000000000000000000000002";
 
-        let invalid_proof = WorldIdProof::new(
+        // Verify the invalid proof
+        let result = verify_world_id_proof(
             app_id,
             action,
             &invalid_proof_hex,
@@ -152,11 +268,9 @@ mod tests {
             invalid_root,
             CredentialType::Device,
             signal,
+            &Environment::Staging,
         )
-        .expect("Failed to create invalid WorldIdProof");
-
-        // Verify the invalid proof
-        let result = verify_world_id_proof(&invalid_proof, &Environment::Staging).await;
+        .await;
 
         // The proof should be rejected
         assert!(result.is_err(), "Invalid proof was unexpectedly accepted");
