@@ -108,21 +108,8 @@ impl MediaStorage {
 
         match result {
             Ok(_) => Ok(true),
-            // In production we've disabled s3:ListBucket permission for the bucket for security reasons
-            // We still handle the case as fallback and log a warning message for this path
             Err(SdkError::ServiceError(service_err))
                 if matches!(service_err.err(), HeadObjectError::NotFound(_)) =>
-            {
-                tracing::warn!(
-                    "head_object returned NotFound, indicating S3:ListBucket permission is granted"
-                );
-                Ok(false)
-            }
-            // In production we've disabled s3:ListBucket permission for the bucket for security reasons
-            // In that case head_object will return 403 if the object doesn't exist
-            // More details [here](https://docs.aws.amazon.com/AmazonS3/latest/API/API_HeadObject.html)
-            Err(SdkError::ServiceError(service_err))
-                if service_err.raw().status().as_u16() == 403 =>
             {
                 Ok(false)
             }
@@ -163,8 +150,6 @@ impl MediaStorage {
                 .map_err(|e| {
                     BucketError::ConfigError(format!("Failed to create presigning config: {e}"))
                 })?;
-
-        tracing::info!("presigned_config: {:?}", presigned_config);
 
         let presigned_url = self
             .s3_client
