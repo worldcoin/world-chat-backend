@@ -2,8 +2,8 @@ use std::sync::Arc;
 
 use aide::openapi::OpenApi;
 use axum::Extension;
+use datadog_tracing::axum::{shutdown_signal, OtelAxumLayer, OtelInResponseLayer};
 use tokio::net::TcpListener;
-use tracing::Level;
 
 use crate::routes;
 use crate::{media_storage::MediaStorage, types::Environment};
@@ -24,11 +24,10 @@ pub async fn start(
         .layer(Extension(openapi))
         .layer(Extension(environment))
         .layer(Extension(media_storage))
-        .layer(
-            tower_http::trace::TraceLayer::new_for_http()
-                .make_span_with(tower_http::trace::DefaultMakeSpan::new().level(Level::INFO))
-                .on_response(tower_http::trace::DefaultOnResponse::new().level(Level::INFO)),
-        )
+        // Include trace context as header into the response
+        .layer(OtelInResponseLayer)
+        // Start OpenTelemetry trace on incoming request
+        .layer(OtelAxumLayer::default())
         .layer(tower_http::timeout::TimeoutLayer::new(
             std::time::Duration::from_secs(5),
         ));
@@ -42,6 +41,7 @@ pub async fn start(
     tracing::info!("🔄 World Chat Backend started on http://{addr}");
 
     axum::serve(listener, router.into_make_service())
+        .with_graceful_shutdown(shutdown_signal())
         .await
         .map_err(anyhow::Error::from)
 }
