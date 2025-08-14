@@ -113,48 +113,20 @@ impl MediaStorage {
             {
                 Ok(false)
             }
+            // In production we've disabled s3:ListBucket permission for the bucket for security reasons
+            // In that case head_object will return 403 if the object doesn't exist
+            // More details [here](https://docs.aws.amazon.com/AmazonS3/latest/API/API_HeadObject.html)
+            Err(SdkError::ServiceError(service_err))
+                if service_err.raw().status().as_u16() == 403 =>
+            {
+                Ok(false)
+            }
             Err(SdkError::ServiceError(service_err))
                 if service_err.raw().status().as_u16() >= 500 =>
             {
                 Err(BucketError::UpstreamError(format!("{service_err:?}")))
             }
-            Err(e) => {
-                // Enhanced error logging for debugging
-                tracing::error!(
-                    "HeadObject failed for bucket: {}, key: {}",
-                    self.bucket_name,
-                    s3_key
-                );
-                tracing::error!("Full error details: {:#?}", e);
-
-                // Extract more specific error information
-                let error_msg = match &e {
-                    SdkError::ServiceError(service_err) => {
-                        let status = service_err.raw().status();
-                        let headers = service_err.raw().headers();
-                        tracing::error!("HTTP Status: {}", status);
-                        tracing::error!("Response headers: {:#?}", headers);
-                        format!(
-                            "HeadObject failed with status {}: {:?}",
-                            status,
-                            service_err.err()
-                        )
-                    }
-                    SdkError::ConstructionFailure(err) => {
-                        format!("Request construction failed: {err:?}")
-                    }
-                    SdkError::TimeoutError(_) => "Request timed out".to_string(),
-                    SdkError::DispatchFailure(err) => {
-                        format!("Request dispatch failed: {err:?}")
-                    }
-                    SdkError::ResponseError(err) => {
-                        format!("Response parsing failed: {err:?}")
-                    }
-                    _ => format!("Unhandled error: {e:?}"),
-                };
-
-                Err(BucketError::S3Error(error_msg))
-            }
+            Err(e) => Err(BucketError::from(e)),
         }
     }
 
