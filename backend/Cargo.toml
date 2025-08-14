@@ -50,6 +50,11 @@ hex = { workspace = true }
 # Backend Storage
 backend_storage = { workspace = true }
 
+# World ID
+walletkit-core = { version = "0.1.3", features= ["semaphore"], default-features = false }
+semaphore-rs = { version = "0.5" }
+reqwest = { workspace = true }
+
 [dev-dependencies]
 http-body-util = { workspace = true }
 tower = { workspace = true }

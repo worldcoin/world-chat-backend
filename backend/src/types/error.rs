@@ -11,6 +11,7 @@ use schemars::JsonSchema;
 use serde::Serialize;
 
 use crate::media_storage::BucketError;
+use crate::world_id::error::WorldIdError;
 
 /// API error response envelope that matches mobile client expectations
 #[derive(Debug, Serialize, JsonSchema)]
@@ -198,6 +199,83 @@ impl From<AuthProofStorageError> for AppError {
                     "internal_error",
                     "Internal server error",
                     false,
+                )
+            }
+        }
+    }
+}
+
+/// Convert World ID ZKP verification errors to application errors
+impl From<WorldIdError> for AppError {
+    #[allow(clippy::cognitive_complexity)]
+    fn from(err: WorldIdError) -> Self {
+        use WorldIdError::{
+            InvalidMerkleRoot, InvalidProof, InvalidProofData, InvalidSequencerResponse,
+            NetworkError, ProverError, RootTooOld,
+        };
+
+        match &err {
+            InvalidProof => {
+                tracing::warn!("World ID proof verification failed");
+                Self::new(
+                    StatusCode::UNAUTHORIZED,
+                    "invalid_proof",
+                    "World ID proof verification failed",
+                    false,
+                )
+            }
+            InvalidMerkleRoot => {
+                tracing::warn!("Invalid World ID merkle root");
+                Self::new(
+                    StatusCode::BAD_REQUEST,
+                    "invalid_merkle_root",
+                    "Invalid or unknown merkle root",
+                    false,
+                )
+            }
+            RootTooOld => {
+                tracing::warn!("World ID merkle root is too old");
+                Self::new(
+                    StatusCode::BAD_REQUEST,
+                    "root_too_old",
+                    "Merkle root is too old and has been pruned",
+                    false,
+                )
+            }
+            InvalidProofData(msg) => {
+                tracing::warn!("Invalid World ID proof data: {msg}");
+                Self::new(
+                    StatusCode::BAD_REQUEST,
+                    "invalid_proof_data",
+                    "Invalid proof data format",
+                    false,
+                )
+            }
+            ProverError => {
+                tracing::error!("World ID prover service error");
+                Self::new(
+                    StatusCode::SERVICE_UNAVAILABLE,
+                    "prover_error",
+                    "World ID prover service temporarily unavailable",
+                    true,
+                )
+            }
+            NetworkError(e) => {
+                tracing::error!("Network error contacting World ID sequencer: {e}");
+                Self::new(
+                    StatusCode::SERVICE_UNAVAILABLE,
+                    "network_error",
+                    "Unable to verify World ID proof due to network issues",
+                    true,
+                )
+            }
+            InvalidSequencerResponse(msg) => {
+                tracing::error!("Invalid World ID sequencer response: {msg}");
+                Self::new(
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "sequencer_error",
+                    "World ID verification service error",
+                    true,
                 )
             }
         }
