@@ -3,15 +3,28 @@ use std::sync::Arc;
 use aws_sdk_s3::Client as S3Client;
 
 use backend::{media_storage::MediaStorage, server, types::Environment};
-use tracing_subscriber::EnvFilter;
+use tracing_subscriber::{fmt, EnvFilter};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let environment = Environment::from_env();
 
-    tracing_subscriber::fmt()
-        .with_env_filter(EnvFilter::from_default_env())
-        .init();
+    // Configure logging format based on environment
+    // Use JSON format for staging/production (Datadog), regular format for development
+    match environment {
+        Environment::Production | Environment::Staging => {
+            // JSON format without ANSI codes for Datadog
+            fmt()
+                .json()
+                .with_env_filter(EnvFilter::from_default_env())
+                .with_ansi(false)
+                .init();
+        }
+        Environment::Development { .. } => {
+            // Keep the default human-readable format for development
+            fmt().with_env_filter(EnvFilter::from_default_env()).init();
+        }
+    }
 
     let s3_client = Arc::new(S3Client::from_conf(environment.s3_client_config().await));
     let media_storage = Arc::new(MediaStorage::new(
