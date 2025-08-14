@@ -13,15 +13,12 @@ async fn main() -> anyhow::Result<()> {
     // Use JSON format for staging/production (Datadog), regular format for development
     match environment {
         Environment::Production | Environment::Staging => {
-            // JSON format without ANSI codes for Datadog
             fmt()
                 .json()
                 .with_env_filter(EnvFilter::from_default_env())
-                .with_ansi(false)
                 .init();
         }
         Environment::Development { .. } => {
-            // Keep the default human-readable format for development
             fmt().with_env_filter(EnvFilter::from_default_env()).init();
         }
     }

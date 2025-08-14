@@ -66,8 +66,12 @@ pub async fn create_presigned_upload_url(
 ) -> Result<Json<UploadResponse>, AppError> {
     let s3_key = MediaStorage::map_sha256_to_s3_key(&payload.content_digest_sha256);
 
+    tracing::info!("s3_key: {}", s3_key);
+
     // Step 2: De-duplication Probe
     let exists = media_storage.check_object_exists(&s3_key).await?;
+
+    tracing::info!("exists: {}", exists);
 
     if exists {
         return Err(BucketError::ObjectExists(payload.content_digest_sha256).into());
@@ -77,6 +81,8 @@ pub async fn create_presigned_upload_url(
     let presigned_url = media_storage
         .generate_presigned_put_url(&payload.content_digest_sha256, payload.content_length)
         .await?;
+
+    tracing::info!("presigned_url: {}", presigned_url.url);
 
     Ok(Json(UploadResponse {
         asset_id: s3_key,

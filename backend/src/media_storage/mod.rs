@@ -151,6 +151,8 @@ impl MediaStorage {
                     BucketError::ConfigError(format!("Failed to create presigning config: {e}"))
                 })?;
 
+        tracing::info!("presigned_config: {:?}", presigned_config);
+
         let presigned_url = self
             .s3_client
             .put_object()
