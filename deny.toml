@@ -39,7 +39,13 @@ allow = [
     "Unicode-3.0",
     "Unlicense",
     "Zlib",
-    "MPL-2.0", # Used for walletkit-core dependencies
+]
+
+# Specific exceptions for crates we can't avoid
+exceptions = [
+    # webpki-roots v0.25.4 is a build dependency of semaphore-rs
+    # It won't be included in the final binary, only used during compilation
+    { allow = ["MPL-2.0"], name = "webpki-roots", version = "0.25.4" },
 ]
 
 # Ignore unmaintained required crates warning
