@@ -82,7 +82,7 @@ async fn verify_world_id_proof_with_sequencer(
 /// the appropriate sequencer endpoint based on the credential type and environment.
 ///
 /// # Arguments
-/// * `app_id` - The World ID app identifier (format: "app_[env]_[uuid]")
+/// * `app_id` - The World ID app identifier
 /// * `action` - The action string that was used to generate the proof (e.g., "login", "vote")
 /// * `proof` - The packed zero-knowledge proof as a hex string (256 bytes / 512 hex chars)
 /// * `nullifier_hash` - The nullifier hash as a hex string (prevents double-signaling)
@@ -102,23 +102,9 @@ async fn verify_world_id_proof_with_sequencer(
 /// - The sequencer rejects the proof (invalid, expired root, etc.)
 /// - Network errors occur during verification
 ///
-/// # Example
-/// ```no_run
-/// # use walletkit_core::{CredentialType, Environment};
-/// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
-/// let result = verify_world_id_proof(
-///     "app_staging_509648994ab005fe79c4ddd0449606ca",
-///     "login",
-///     "0x1234...",  // 512 hex characters
-///     "0xabcd...",  // nullifier hash
-///     "0xef01...",  // merkle root
-///     CredentialType::Device,
-///     "user_session_123",
-///     &Environment::Staging,
-/// ).await?;
-/// # Ok(())
-/// # }
+/// Read about [World ID Core Concepts](https://docs.world.org/world-id/concepts)
 /// ```
+#[allow(clippy::too_many_arguments)]
 pub async fn verify_world_id_proof(
     app_id: &str,
     action: &str,
