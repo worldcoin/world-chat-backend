@@ -108,9 +108,14 @@ impl MediaStorage {
 
         match result {
             Ok(_) => Ok(true),
+            // In production we've disabled s3:ListBucket permission for the bucket for security reasons
+            // We still handle the case as fallback and log a warning message for this path
             Err(SdkError::ServiceError(service_err))
                 if matches!(service_err.err(), HeadObjectError::NotFound(_)) =>
             {
+                tracing::warn!(
+                    "head_object returned NotFound, indicating S3:ListBucket permission is granted"
+                );
                 Ok(false)
             }
             // In production we've disabled s3:ListBucket permission for the bucket for security reasons
