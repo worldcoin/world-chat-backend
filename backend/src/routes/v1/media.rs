@@ -68,7 +68,6 @@ pub async fn create_presigned_upload_url(
 
     // Step 2: De-duplication Probe
     let exists = media_storage.check_object_exists(&s3_key).await?;
-
     if exists {
         return Err(BucketError::ObjectExists(payload.content_digest_sha256).into());
     }
