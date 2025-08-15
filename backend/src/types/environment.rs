@@ -236,6 +236,56 @@ impl Environment {
             },
         }
     }
+
+    /// Returns the World ID app ID
+    ///
+    /// # Panics
+    ///
+    /// Panics if the `WORLD_ID_APP_ID` environment variable is not set in production/staging
+    #[must_use]
+    pub fn world_id_app_id(&self) -> String {
+        env::var("WORLD_ID_APP_ID").expect("WORLD_ID_APP_ID environment variable is not set")
+    }
+
+    /// Returns the World ID action
+    ///
+    /// # Panics
+    ///
+    /// Panics if the `WORLD_ID_ACTION` environment variable is not set in production/staging
+    #[must_use]
+    pub fn world_id_action(&self) -> String {
+        env::var("WORLD_ID_ACTION").expect("WORLD_ID_ACTION environment variable is not set")
+    }
+
+    /// Returns the JWT secret for token signing
+    ///
+    /// # Panics
+    ///
+    /// Panics if the `JWT_SECRET` environment variable is not set in production/staging
+    #[must_use]
+    pub fn jwt_secret(&self) -> String {
+        match self {
+            Self::Production | Self::Staging => {
+                env::var("JWT_SECRET").expect("JWT_SECRET environment variable is not set")
+            }
+            Self::Development { .. } => env::var("JWT_SECRET")
+                .unwrap_or_else(|_| "development-secret-key-change-in-production".to_string()),
+        }
+    }
+
+    /// Returns the Dynamo DB table name for auth proofs
+    ///
+    /// # Panics
+    ///
+    /// Panics if the `DYNAMODB_AUTH_TABLE_NAME` environment variable is not set in production/staging
+    #[must_use]
+    pub fn dynamodb_auth_table_name(&self) -> String {
+        match self {
+            Self::Production | Self::Staging => env::var("DYNAMODB_AUTH_TABLE_NAME")
+                .expect("DYNAMODB_AUTH_TABLE_NAME environment variable is not set"),
+            Self::Development { .. } => "world-chat-auth-proofs".to_string(),
+        }
+    }
 }
 
 #[cfg(test)]

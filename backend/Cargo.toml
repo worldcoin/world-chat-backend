@@ -58,6 +58,9 @@ walletkit-core = { version = "0.1.3", features= ["semaphore"], default-features 
 semaphore-rs = { version = "0.5" }
 reqwest = { workspace = true }
 
+# JWT
+jsonwebtoken = { workspace = true }
+
 [dev-dependencies]
 http-body-util = { workspace = true }
 tower = { workspace = true }
