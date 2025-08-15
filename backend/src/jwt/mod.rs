@@ -45,7 +45,7 @@ impl JwtManager {
     ///
     /// # Panics
     ///
-    /// Panics if JWT_SECRET_NAME or JWT_SECRET_ARN environment variable is not set
+    /// Panics if `JWT_SECRET_NAME` or `JWT_SECRET_ARN` environment variable is not set
     /// or if the secret cannot be loaded from AWS Secrets Manager
     pub async fn new(environment: &Environment) -> Self {
         // Always load from AWS Secrets Manager (including LocalStack in dev)
@@ -66,11 +66,11 @@ impl JwtManager {
         }
     }
 
-    /// Load secret from AWS Secrets Manager (works with both AWS and LocalStack)
+    /// Load secret from AWS Secrets Manager (works with both AWS and `LocalStack`)
     ///
     /// # Panics
     ///
-    /// Panics if JWT_SECRET_NAME environment variable is not set
+    /// Panics if `JWT_SECRET_NAME` environment variable is not set
     async fn load_from_secrets_manager(environment: &Environment) -> Result<String, JwtError> {
         use aws_sdk_secretsmanager::Client;
 
@@ -101,20 +101,7 @@ impl JwtManager {
             JwtError::SecretLoadError("Secret is binary, expected string".to_string())
         })?;
 
-        // Try to parse as JSON first
-        if let Ok(json) = serde_json::from_str::<serde_json::Value>(secret_string) {
-            // Look for jwt_secret or secret field in JSON
-            json["jwt_secret"]
-                .as_str()
-                .or_else(|| json["secret"].as_str())
-                .ok_or_else(|| {
-                    JwtError::SecretLoadError("No jwt_secret or secret field in JSON".to_string())
-                })
-                .map(|s| s.to_string())
-        } else {
-            // Use as plain text secret
-            Ok(secret_string.to_string())
-        }
+        Ok(secret_string.to_string())
     }
 
     /// Issues a JWT token with the given subject and expiry time.

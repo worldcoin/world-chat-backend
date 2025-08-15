@@ -8,17 +8,26 @@ use serde::{Deserialize, Serialize};
 
 use walletkit_core::CredentialType;
 
-use crate::{jwt::JwtManager, types::AppError, world_id::verifier::verify_world_id_proof};
+use crate::{
+    jwt::JwtManager,
+    types::{AppError, Environment},
+    world_id::verifier::verify_world_id_proof,
+};
 
 #[derive(Deserialize, JsonSchema)]
 pub struct AuthRequest {
     pub encrypted_push_id: String,
-    // World ID proof elements
+    /// Zero-knowledge proof
     pub proof: String,
+    /// Nullifier hash - unique identifier for the user
     pub nullifier_hash: String,
+    /// Root of the World ID merkle tree
     pub merkle_root: String,
+    /// Signal
     pub signal: String,
-    // pub credential_type: CredentialType,
+    /// Enum: `orb`, `device`, `document`, `secure_document`
+    #[schemars(with = "String")]
+    pub credential_type: CredentialType,
 }
 
 #[derive(Debug, Serialize, JsonSchema)]
@@ -42,32 +51,19 @@ const TOKEN_EXPIRATION_SECS: i64 = 7 * 24 * 60 * 60;
 pub async fn authorize_handler(
     Extension(jwt_manager): Extension<Arc<JwtManager>>,
     Extension(auth_proof_storage): Extension<Arc<AuthProofStorage>>,
+    Extension(environment): Extension<Environment>,
     Json(request): Json<AuthRequest>,
 ) -> Result<Json<AuthResponse>, AppError> {
-    // Get environment from env vars for World ID verification
-    // This is safe since these are read-only operations
-    let world_id_app_id =
-        std::env::var("WORLD_ID_APP_ID").expect("WORLD_ID_APP_ID environment variable is not set");
-    let world_id_action =
-        std::env::var("WORLD_ID_ACTION").expect("WORLD_ID_ACTION environment variable is not set");
-    let world_id_env = if std::env::var("APP_ENV").unwrap_or_default() == "production" {
-        walletkit_core::Environment::Production
-    } else {
-        walletkit_core::Environment::Staging
-    };
-
     // 1. Verify World ID proof
     verify_world_id_proof(
-        &world_id_app_id,
-        &world_id_action,
+        &environment.world_id_app_id(),
+        &environment.world_id_action(),
         &request.proof,
         &request.nullifier_hash,
         &request.merkle_root,
-        CredentialType::Orb,
-        // TODO: wait for deserialize support
-        // request.credential_type,
+        request.credential_type,
         &request.signal,
-        &world_id_env,
+        &environment.world_id_environment(),
     )
     .await?;
 
