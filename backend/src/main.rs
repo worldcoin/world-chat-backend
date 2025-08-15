@@ -1,8 +1,10 @@
 use std::sync::Arc;
 
+use aws_sdk_dynamodb::Client as DynamoDbClient;
 use aws_sdk_s3::Client as S3Client;
+use backend_storage::auth_proof::AuthProofStorage;
 
-use backend::{media_storage::MediaStorage, server, types::Environment};
+use backend::{jwt::JwtManager, media_storage::MediaStorage, server, types::Environment};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -13,6 +15,10 @@ async fn main() -> anyhow::Result<()> {
     // The _guard must be kept alive for the duration of the program
     let (_guard, tracer_shutdown) = datadog_tracing::init()?;
 
+    // Initialize JWT manager with cached secret (loaded once at startup)
+    let jwt_manager = Arc::new(JwtManager::new(&environment).await);
+
+    // Initialize S3 client and media storage
     let s3_client = Arc::new(S3Client::from_conf(environment.s3_client_config().await));
     let media_storage = Arc::new(MediaStorage::new(
         s3_client,
@@ -20,7 +26,16 @@ async fn main() -> anyhow::Result<()> {
         environment.presigned_url_expiry_secs(),
     ));
 
-    let result = server::start(environment, media_storage).await;
+    // Initialize DynamoDB client and auth proof storage
+    let dynamodb_client = Arc::new(DynamoDbClient::from_conf(
+        environment.dynamodb_client_config().await,
+    ));
+    let auth_proof_storage = Arc::new(AuthProofStorage::new(
+        dynamodb_client,
+        environment.dynamodb_auth_table_name(),
+    ));
+
+    let result = server::start(environment, media_storage, jwt_manager, auth_proof_storage).await;
 
     // Ensure the tracer is properly shut down
     tracer_shutdown.shutdown();

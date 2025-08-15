@@ -10,6 +10,7 @@ use backend_storage::auth_proof::AuthProofStorageError;
 use schemars::JsonSchema;
 use serde::Serialize;
 
+use crate::jwt::error::JwtError;
 use crate::media_storage::BucketError;
 use crate::world_id::error::WorldIdError;
 
@@ -276,6 +277,43 @@ impl From<WorldIdError> for AppError {
                     "sequencer_error",
                     "World ID verification service error",
                     true,
+                )
+            }
+        }
+    }
+}
+
+/// Convert JWT errors to application errors
+impl From<JwtError> for AppError {
+    fn from(err: JwtError) -> Self {
+        use JwtError::{EncodingError, SecretLoadError, ValidationError};
+
+        match &err {
+            EncodingError(e) => {
+                tracing::error!("JWT encoding error: {e}");
+                Self::new(
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "token_generation_failed",
+                    "Failed to generate access token",
+                    false,
+                )
+            }
+            ValidationError => {
+                tracing::debug!("JWT validation failed");
+                Self::new(
+                    StatusCode::UNAUTHORIZED,
+                    "invalid_token",
+                    "Invalid or expired token",
+                    false,
+                )
+            }
+            SecretLoadError(msg) => {
+                tracing::error!("JWT secret load error: {msg}");
+                Self::new(
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "configuration_error",
+                    "Service configuration error",
+                    false,
                 )
             }
         }

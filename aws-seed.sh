@@ -2,6 +2,11 @@
 # Create S3 bucket for media storage
 awslocal s3 mb s3://world-chat-media
 
+# Create JWT secret in Secrets Manager
+awslocal secretsmanager create-secret \
+    --name world-chat-jwt-secret \
+    --secret-string '{"jwt_secret":"SECRET_KEY"}'
+
 # Create DynamoDB table for push subscriptions
 awslocal dynamodb create-table \
     --table-name world-chat-push-subscriptions \

@@ -3,17 +3,12 @@ use std::sync::Arc;
 use axum::Extension;
 use axum_jsonschema::Json;
 use backend_storage::auth_proof::{AuthProofInsertRequest, AuthProofStorage};
-use chrono::Utc;
-use jsonwebtoken::{encode, Algorithm, EncodingKey, Header};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use walletkit_core::CredentialType;
 
-use crate::{
-    types::{AppError, Environment},
-    world_id::verifier::verify_world_id_proof,
-};
+use crate::{jwt::JwtManager, types::AppError, world_id::verifier::verify_world_id_proof};
 
 #[derive(Deserialize, JsonSchema)]
 pub struct AuthRequest {
@@ -31,13 +26,6 @@ pub struct AuthResponse {
     pub access_token: String,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-struct Claims<'a> {
-    sub: &'a str, // Subject (encrypted push id)
-    exp: i64,     // Expiration time (Unix timestamp)
-    iat: i64,     // Issued at (Unix timestamp)
-}
-
 /// Token expiration time in seconds (7 days)
 const TOKEN_EXPIRATION_SECS: i64 = 7 * 24 * 60 * 60;
 
@@ -52,14 +40,26 @@ const TOKEN_EXPIRATION_SECS: i64 = 7 * 24 * 60 * 60;
 /// - `AuthProofStorageError` - Database operation failed
 /// - `AppError` - JWT generation failed
 pub async fn authorize_handler(
-    Extension(environment): Extension<Environment>,
+    Extension(jwt_manager): Extension<Arc<JwtManager>>,
     Extension(auth_proof_storage): Extension<Arc<AuthProofStorage>>,
     Json(request): Json<AuthRequest>,
 ) -> Result<Json<AuthResponse>, AppError> {
+    // Get environment from env vars for World ID verification
+    // This is safe since these are read-only operations
+    let world_id_app_id =
+        std::env::var("WORLD_ID_APP_ID").expect("WORLD_ID_APP_ID environment variable is not set");
+    let world_id_action =
+        std::env::var("WORLD_ID_ACTION").expect("WORLD_ID_ACTION environment variable is not set");
+    let world_id_env = if std::env::var("APP_ENV").unwrap_or_default() == "production" {
+        walletkit_core::Environment::Production
+    } else {
+        walletkit_core::Environment::Staging
+    };
+
     // 1. Verify World ID proof
     verify_world_id_proof(
-        &environment.world_id_app_id(),
-        &environment.world_id_action(),
+        &world_id_app_id,
+        &world_id_action,
         &request.proof,
         &request.nullifier_hash,
         &request.merkle_root,
@@ -67,7 +67,7 @@ pub async fn authorize_handler(
         // TODO: wait for deserialize support
         // request.credential_type,
         &request.signal,
-        &environment.world_id_environment(),
+        &world_id_env,
     )
     .await?;
 
@@ -91,37 +91,9 @@ pub async fn authorize_handler(
         }
     };
 
-    // 3. Issue JWT token
-    let access_token = issue_token(&auth_proof.encrypted_push_id, &environment.jwt_secret())?;
+    // 3. Issue JWT token using cached JWT manager (BLAZING FAST!)
+    let access_token =
+        jwt_manager.issue_token(&auth_proof.encrypted_push_id, TOKEN_EXPIRATION_SECS)?;
 
     Ok(Json(AuthResponse { access_token }))
-}
-
-/// Issues a JWT access token with the encrypted push ID as subject.
-///
-/// # Errors
-///
-/// Returns `AppError` if JWT encoding fails.
-fn issue_token(encrypted_push_id: &str, jwt_secret: &str) -> Result<String, AppError> {
-    let now = Utc::now().timestamp();
-    let claims = Claims {
-        sub: encrypted_push_id,
-        exp: now + TOKEN_EXPIRATION_SECS,
-        iat: now,
-    };
-
-    encode(
-        &Header::new(Algorithm::HS256),
-        &claims,
-        &EncodingKey::from_secret(jwt_secret.as_ref()),
-    )
-    .map_err(|e| {
-        tracing::error!("Failed to encode JWT: {}", e);
-        AppError::new(
-            axum::http::StatusCode::INTERNAL_SERVER_ERROR,
-            "token_generation_failed",
-            "Failed to generate access token",
-            false,
-        )
-    })
 }

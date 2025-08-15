@@ -39,6 +39,7 @@ aws-config = { workspace = true }
 aws-sdk-s3 = { workspace = true }
 aws-sdk-dynamodb = { workspace = true }
 aws-sdk-sqs = { workspace = true }
+aws-sdk-secretsmanager = { workspace = true }
 
 # Time
 chrono = { workspace = true }
