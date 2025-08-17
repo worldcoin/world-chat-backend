@@ -257,19 +257,21 @@ impl Environment {
         env::var("WORLD_ID_ACTION").expect("WORLD_ID_ACTION environment variable is not set")
     }
 
-    /// Returns the JWT secret for token signing
+    /// Returns the JWT secret id in the AWS Secrets Manager
     ///
     /// # Panics
     ///
-    /// Panics if the `JWT_SECRET` environment variable is not set in production/staging
+    /// Panics if:
+    /// - The `JWT_SECRET_ARN` environment variable is not set in production/staging
+    /// - The `JWT_SECRET_NAME` environment variable is not set in development
     #[must_use]
-    pub fn jwt_secret(&self) -> String {
+    pub fn jwt_secret_id(&self) -> String {
         match self {
             Self::Production | Self::Staging => {
-                env::var("JWT_SECRET").expect("JWT_SECRET environment variable is not set")
+                env::var("JWT_SECRET_ARN").expect("JWT_SECRET_ARN environment variable is not set")
             }
-            Self::Development { .. } => env::var("JWT_SECRET")
-                .unwrap_or_else(|_| "development-secret-key-change-in-production".to_string()),
+            Self::Development { .. } => env::var("JWT_SECRET_NAME")
+                .expect("JWT_SECRET_NAME environment variable is not set"),
         }
     }
 

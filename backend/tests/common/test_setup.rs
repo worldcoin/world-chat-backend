@@ -2,6 +2,7 @@ use aws_config::{BehaviorVersion, Region};
 use aws_credential_types::Credentials;
 use aws_sdk_dynamodb::Client as DynamoDbClient;
 use aws_sdk_s3::Client as S3Client;
+use aws_sdk_secretsmanager::Client as SecretsManagerClient;
 use axum::{body::Body, http::Request, response::Response, Extension, Router};
 use backend::{jwt::JwtManager, media_storage::MediaStorage, routes, types::Environment};
 use backend_storage::auth_proof::AuthProofStorage;
@@ -80,11 +81,12 @@ impl TestSetup {
         ));
 
         let config = create_aws_config().await;
-        let dynamodb_client = Arc::new(DynamoDbClient::from_conf((&config).into()));
+        let dynamodb_client = Arc::new(DynamoDbClient::new(&config));
         let dynamodb_test_setup = DynamoDbTestSetup::new(dynamodb_client.clone()).await;
 
         // Initialize JWT manager
-        let jwt_manager = Arc::new(JwtManager::new(&environment).await);
+        let secrets_manager_client = SecretsManagerClient::new(&config);
+        let jwt_manager = Arc::new(JwtManager::new(secrets_manager_client, &environment).await);
 
         // Initialize auth proof storage with test table
         let auth_proof_storage = Arc::new(AuthProofStorage::new(

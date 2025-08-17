@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use aws_sdk_dynamodb::Client as DynamoDbClient;
 use aws_sdk_s3::Client as S3Client;
+use aws_sdk_secretsmanager::Client as SecretsManagerClient;
 use backend_storage::auth_proof::AuthProofStorage;
 
 use backend::{jwt::JwtManager, media_storage::MediaStorage, server, types::Environment};
@@ -16,7 +17,8 @@ async fn main() -> anyhow::Result<()> {
     let (_guard, tracer_shutdown) = datadog_tracing::init()?;
 
     // Initialize JWT manager with cached secret (loaded once at startup)
-    let jwt_manager = Arc::new(JwtManager::new(&environment).await);
+    let secrets_manager_client = SecretsManagerClient::new(&environment.aws_config().await);
+    let jwt_manager = Arc::new(JwtManager::new(secrets_manager_client, &environment).await);
 
     // Initialize S3 client and media storage
     let s3_client = Arc::new(S3Client::from_conf(environment.s3_client_config().await));

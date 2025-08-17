@@ -4,6 +4,7 @@ pub mod error;
 
 use std::sync::Arc;
 
+use aws_sdk_secretsmanager::Client as SecretsManagerClient;
 use chrono::Utc;
 use jsonwebtoken::{decode, encode, Algorithm, DecodingKey, EncodingKey, Header, Validation};
 use serde::{Deserialize, Serialize};
@@ -37,9 +38,12 @@ impl JwtManager {
     ///
     /// Panics if `JWT_SECRET_NAME` or `JWT_SECRET_ARN` environment variable is not set
     /// or if the secret cannot be loaded from AWS Secrets Manager
-    pub async fn new(environment: &Environment) -> Self {
+    pub async fn new(
+        secrets_manager_client: SecretsManagerClient,
+        environment: &Environment,
+    ) -> Self {
         // Always load from AWS Secrets Manager (including LocalStack in dev)
-        let secret = Self::load_from_secrets_manager(environment)
+        let secret = Self::load_from_secrets_manager(secrets_manager_client, environment)
             .await
             .expect("Failed to load JWT secret from Secrets Manager");
 
@@ -61,23 +65,13 @@ impl JwtManager {
     /// # Panics
     ///
     /// Panics if `JWT_SECRET_NAME` environment variable is not set
-    async fn load_from_secrets_manager(environment: &Environment) -> Result<String, JwtError> {
-        use aws_sdk_secretsmanager::Client;
-
-        // Get AWS config (will use LocalStack endpoint in development)
-        let aws_config = environment.aws_config().await;
-        let client = Client::new(&aws_config);
-
-        // Secret name - must be set via environment variable
-        let secret_id = std::env::var("JWT_SECRET_NAME")
-            .or_else(|_| std::env::var("JWT_SECRET_ARN"))
-            .expect("JWT_SECRET_NAME or JWT_SECRET_ARN environment variable must be set");
-
-        tracing::info!("Loading JWT secret from Secrets Manager: {secret_id}");
-
-        let response = client
+    async fn load_from_secrets_manager(
+        secrets_manager_client: SecretsManagerClient,
+        environment: &Environment,
+    ) -> Result<String, JwtError> {
+        let response = secrets_manager_client
             .get_secret_value()
-            .secret_id(secret_id)
+            .secret_id(environment.jwt_secret_id())
             .send()
             .await
             .map_err(|e| {
