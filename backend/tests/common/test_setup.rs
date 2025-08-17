@@ -37,6 +37,8 @@ pub struct TestSetup {
     pub s3_client: Arc<S3Client>,
     pub bucket_name: String,
     pub media_storage: Arc<MediaStorage>,
+    // Keep DynamoDbTestSetup alive for the duration of the test
+    _dynamodb_setup: DynamoDbTestSetup,
 }
 
 impl TestSetup {
@@ -83,6 +85,7 @@ impl TestSetup {
             s3_client,
             bucket_name,
             media_storage,
+            _dynamodb_setup: dynamodb_test_setup,
         }
     }
 

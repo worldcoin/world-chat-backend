@@ -145,10 +145,13 @@ pub async fn verify_world_id_proof(
     };
 
     // Get the appropriate sequencer endpoint based on credential type and environment
-    let endpoint = credential_type.get_sign_up_sequencer_host(world_id_environment);
+    let endpoint = format!(
+        "{}/v2/semaphore-proof/verify",
+        credential_type.get_sign_up_sequencer_host(world_id_environment)
+    );
 
     // Send the verification request to the sequencer
-    verify_world_id_proof_with_sequencer(&request, endpoint).await
+    verify_world_id_proof_with_sequencer(&request, &endpoint).await
 }
 
 /// Handles error responses from the World ID sequencer.
