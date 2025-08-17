@@ -162,6 +162,10 @@ jobs:
             -p 8000:8000 \
             -e APP_ENV=development \
             -e S3_BUCKET_NAME=test-bucket \
+            -e JWT_SECRET_NAME=world-chat-jwt-secret \
+            -e AWS_ACCESS_KEY_ID=test \
+            -e AWS_SECRET_ACCESS_KEY=test \
+            -e AWS_DEFAULT_REGION=us-east-1 \
             world-chat-backend:latest
 
           # Wait for the application to start
