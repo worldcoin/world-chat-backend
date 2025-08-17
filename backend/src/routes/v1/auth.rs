@@ -23,8 +23,6 @@ pub struct AuthRequest {
     pub nullifier_hash: String,
     /// Root of the World ID merkle tree
     pub merkle_root: String,
-    /// Signal
-    pub signal: String,
     /// Enum: `orb`, `device`, `document`, `secure_document`
     #[schemars(with = "String")]
     pub credential_type: CredentialType,
@@ -62,7 +60,9 @@ pub async fn authorize_handler(
         &request.nullifier_hash,
         &request.merkle_root,
         request.credential_type,
-        &request.signal,
+        // We use the encrypted push id as the signal
+        // to ensure the proof belongs to the user with requested push id
+        &request.encrypted_push_id,
         &environment.world_id_environment(),
     )
     .await?;

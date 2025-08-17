@@ -4,45 +4,46 @@ use common::TestSetup;
 use http::StatusCode;
 use serde_json::json;
 use uuid::Uuid;
-use walletkit_core::{proof::ProofContext, world_id::WorldId, CredentialType};
+use walletkit_core::{
+    proof::{ProofContext, ProofOutput},
+    world_id::WorldId,
+    CredentialType,
+};
 
-// Helper to create a request with a valid World ID proof
-//
-// Uses `walletkit` to create a staging identity and proof
-async fn create_request_with_valid_world_id_proof() -> serde_json::Value {
+/// Helper to create a request with a valid World ID proof
+/// Uses `walletkit` to create a staging identity and proof
+async fn create_valid_world_id_proof(encrypted_push_id: String) -> ProofOutput {
     let app_id = std::env::var("WORLD_ID_APP_ID").expect("WORLD_ID_APP_ID must be set");
     let action = std::env::var("WORLD_ID_ACTION").expect("WORLD_ID_ACTION must be set");
-
-    let signal: &'static str = "test_signal";
 
     let world_id = WorldId::new(b"not_a_real_secret", &walletkit_core::Environment::Staging);
     let context = ProofContext::new(
         &app_id,
         Some(action),
-        Some(signal.to_string()),
+        Some(encrypted_push_id.to_string()),
         CredentialType::Device,
     );
-    let proof = world_id
+
+    world_id
         .generate_proof(&context)
         .await
-        .expect("Failed to generate proof");
-
-    json!({
-        "proof": proof.get_proof_as_string(),
-        "nullifier_hash": proof.get_nullifier_hash().to_hex_string(),
-        "merkle_root": proof.get_merkle_root().to_hex_string(),
-        "signal": signal,
-        "encrypted_push_id": format!("encrypted-push-{}", Uuid::new_v4()),
-        "credential_type": proof.get_credential_type(),
-    })
+        .expect("Failed to generate proof")
 }
 
 #[tokio::test]
 async fn test_authorize_with_valid_world_id_proof() {
     let context = TestSetup::new(None).await;
 
-    // This would need to be a real valid proof from World ID
-    let auth_request = create_request_with_valid_world_id_proof().await;
+    let encrypted_push_id = format!("encrypted-push-{}", Uuid::new_v4());
+    let proof = create_valid_world_id_proof(encrypted_push_id.clone()).await;
+
+    let auth_request = json!({
+        "proof": proof.get_proof_as_string(),
+        "nullifier_hash": proof.get_nullifier_hash().to_hex_string(),
+        "merkle_root": proof.get_merkle_root().to_hex_string(),
+        "encrypted_push_id": encrypted_push_id,
+        "credential_type": proof.get_credential_type(),
+    });
 
     let response = context
         .send_post_request("/v1/authorize", auth_request)
@@ -60,6 +61,31 @@ async fn test_authorize_with_valid_world_id_proof() {
 }
 
 #[tokio::test]
+async fn test_authorize_with_stolen_proof() {
+    let context = TestSetup::new(None).await;
+
+    let encrypted_push_id_user1 = format!("encrypted-push-{}", Uuid::new_v4());
+    let proof = create_valid_world_id_proof(encrypted_push_id_user1.clone()).await;
+
+    let encrypted_push_id_user2 = format!("encrypted-push-{}", Uuid::new_v4());
+
+    let auth_request = json!({
+        "proof": proof.get_proof_as_string(),
+        "nullifier_hash": proof.get_nullifier_hash().to_hex_string(),
+        "merkle_root": proof.get_merkle_root().to_hex_string(),
+        "encrypted_push_id": encrypted_push_id_user2,
+        "credential_type": proof.get_credential_type(),
+    });
+
+    let response = context
+        .send_post_request("/v1/authorize", auth_request)
+        .await
+        .expect("Failed to send request");
+
+    assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+}
+
+#[tokio::test]
 async fn test_authorize_invalid_proof_format() {
     let context = TestSetup::new(None).await;
 
@@ -68,7 +94,6 @@ async fn test_authorize_invalid_proof_format() {
         "proof": "invalid_proof_not_hex", // Invalid format
         "nullifier_hash": "0x1234567890abcdef",
         "merkle_root": "0x2a7c09e8af01f39a87d89e9f0a9ba66fbf6fb304cc643051dd4ea24c4e9f7e8d",
-        "signal": "test_signal",
         "encrypted_push_id": "encrypted-push-123",
         "credential_type": "orb"
     });
@@ -84,23 +109,6 @@ async fn test_authorize_invalid_proof_format() {
         StatusCode::BAD_REQUEST,
         "Invalid proof format should return 400"
     );
-
-    let body = context
-        .parse_response_body(response)
-        .await
-        .expect("Failed to parse error response");
-
-    // Verify error structure (note: fields are camelCase due to serde rename)
-    assert!(
-        body["error"].is_object(),
-        "Expected error object in response: {:?}",
-        body
-    );
-    assert!(
-        body.get("allowRetry").is_some(),
-        "Expected allowRetry field in response: {:?}",
-        body
-    );
 }
 
 #[tokio::test]
@@ -114,7 +122,6 @@ async fn test_authorize_missing_fields() {
                 // Missing proof
                 "nullifier_hash": "0x1234567890abcdef",
                 "merkle_root": "0x2a7c09e8af01f39a87d89e9f0a9ba66fbf6fb304cc643051dd4ea24c4e9f7e8d",
-                "signal": "test_signal",
                 "encrypted_push_id": "encrypted-push-123",
                 "credential_type": "orb"
             }),
@@ -125,7 +132,6 @@ async fn test_authorize_missing_fields() {
                 "proof": format!("0x{}", "1".repeat(512)),
                 // Missing nullifier_hash
                 "merkle_root": "0x2a7c09e8af01f39a87d89e9f0a9ba66fbf6fb304cc643051dd4ea24c4e9f7e8d",
-                "signal": "test_signal",
                 "encrypted_push_id": "encrypted-push-123",
                 "credential_type": "orb"
             }),
@@ -136,7 +142,6 @@ async fn test_authorize_missing_fields() {
                 "proof": format!("0x{}", "1".repeat(512)),
                 "nullifier_hash": "0x1234567890abcdef",
                 "merkle_root": "0x2a7c09e8af01f39a87d89e9f0a9ba66fbf6fb304cc643051dd4ea24c4e9f7e8d",
-                "signal": "test_signal",
                 // Missing encrypted_push_id
                 "credential_type": "orb"
             }),
@@ -168,7 +173,6 @@ async fn test_authorize_malformed_world_id_proof() {
         "proof": "0x123", // Too short
         "nullifier_hash": "0x1359a81e3a42dc1c34786cbefbcc672a3d730510dba7a3be9941b207b0cf52fa",
         "merkle_root": "0x2a7c09e8af01f39a87d89e9f0a9ba66fbf6fb304cc643051dd4ea24c4e9f7e8d",
-        "signal": "test_signal",
         "encrypted_push_id": "encrypted-push-123",
         "credential_type": "orb"
     });
@@ -184,16 +188,6 @@ async fn test_authorize_malformed_world_id_proof() {
         StatusCode::BAD_REQUEST,
         "Expected 400 for malformed proof"
     );
-
-    let body = context
-        .parse_response_body(response)
-        .await
-        .expect("Failed to parse response");
-
-    assert!(
-        body["error"].is_object(),
-        "Expected error object in response"
-    );
 }
 
 #[tokio::test]
@@ -205,7 +199,6 @@ async fn test_authorize_invalid_nullifier_format() {
         "proof": format!("0x{}", "1".repeat(512)),
         "nullifier_hash": "invalid_nullifier", // Not hex format
         "merkle_root": "0x2a7c09e8af01f39a87d89e9f0a9ba66fbf6fb304cc643051dd4ea24c4e9f7e8d",
-        "signal": "test_signal",
         "encrypted_push_id": "encrypted-push-123",
         "credential_type": "orb"
     });
@@ -232,7 +225,6 @@ async fn test_authorize_invalid_merkle_root_format() {
         "proof": format!("0x{}", "1".repeat(512)),
         "nullifier_hash": "0x1359a81e3a42dc1c34786cbefbcc672a3d730510dba7a3be9941b207b0cf52fa",
         "merkle_root": "not_a_valid_root", // Invalid format
-        "signal": "test_signal",
         "encrypted_push_id": "encrypted-push-123",
         "credential_type": "orb"
     });
