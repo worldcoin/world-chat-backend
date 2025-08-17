@@ -19,16 +19,6 @@ pub struct JwtManager {
     validation: Validation,
 }
 
-impl std::fmt::Debug for JwtManager {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("JwtManager")
-            .field("signing_key", &"<redacted>")
-            .field("validation_key", &"<redacted>")
-            .field("validation", &self.validation)
-            .finish()
-    }
-}
-
 /// JWT claims structure
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Claims {

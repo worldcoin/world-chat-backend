@@ -41,14 +41,12 @@ pub async fn create_aws_config() -> aws_config::SdkConfig {
         "test", // AWS_SECRET_ACCESS_KEY
         None,   // no session token
     );
-    let config = aws_config::defaults(BehaviorVersion::latest())
+    aws_config::defaults(BehaviorVersion::latest())
         .endpoint_url(LOCALSTACK_ENDPOINT)
         .region(Region::new(TEST_REGION))
         .credentials_provider(credentials)
         .load()
-        .await;
-
-    config
+        .await
 }
 
 /// Base test setup with core dependencies

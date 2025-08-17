@@ -282,7 +282,7 @@ mod tests {
 
         let world_id = WorldId::new(b"not_a_real_secret", &walletkit_core::Environment::Staging);
         let context = ProofContext::new(
-            &app_id,
+            app_id,
             Some(action.to_string()),
             Some(signal.to_string()),
             CredentialType::Device,
@@ -294,8 +294,8 @@ mod tests {
             .expect("Failed to generate proof");
 
         let result = verify_world_id_proof(
-            &app_id,
-            &action,
+            app_id,
+            action,
             &proof.get_proof_as_string(),
             &proof.get_nullifier_hash().to_hex_string(),
             &proof.get_merkle_root().to_hex_string(),
