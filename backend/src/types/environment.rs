@@ -3,7 +3,6 @@
 use std::env;
 use std::time::Duration;
 
-use ::backend_storage::queue::QueueConfig;
 use aws_config::{retry::RetryConfig, timeout::TimeoutConfig, BehaviorVersion};
 
 /// Application environment configuration
@@ -122,32 +121,6 @@ impl Environment {
         builder.build()
     }
 
-    /// AWS Dynamo DB service configuration
-    pub async fn dynamodb_client_config(&self) -> aws_sdk_dynamodb::Config {
-        let aws_config = self.aws_config().await;
-        aws_sdk_dynamodb::Config::from(&aws_config)
-    }
-
-    /// Returns the Dynamo DB table name for push subscriptions
-    ///
-    /// # Panics
-    ///
-    /// Panics if the `DYNAMODB_PUSH_TABLE_NAME` environment variable is not set in production/staging
-    #[must_use]
-    pub fn dynamodb_push_table_name(&self) -> String {
-        match self {
-            Self::Production | Self::Staging => env::var("DYNAMODB_PUSH_TABLE_NAME")
-                .expect("DYNAMODB_PUSH_TABLE_NAME environment variable is not set"),
-            Self::Development { .. } => "world-chat-push-subscriptions".to_string(),
-        }
-    }
-
-    /// Returns the Dynamo DB GSI name for topic queries
-    #[must_use]
-    pub fn dynamodb_push_gsi_name(&self) -> String {
-        env::var("DYNAMODB_PUSH_GSI_NAME").unwrap_or_else(|_| "topic-index".to_string())
-    }
-
     /// Presigned URL expiry time in seconds
     #[must_use]
     pub fn presigned_url_expiry_secs(&self) -> u64 {
@@ -163,58 +136,6 @@ impl Environment {
                 presign_expiry_override.unwrap_or(3 * 60)
             }
         }
-    }
-
-    /// Returns the subscription request queue configuration
-    ///
-    /// # Panics
-    ///
-    /// Panics if the `SUBSCRIPTION_QUEUE_URL` environment variable is not set in production/staging
-    #[must_use]
-    pub fn subscription_queue_config(&self) -> QueueConfig {
-        let queue_url = match self {
-            Self::Production | Self::Staging => env::var("SUBSCRIPTION_QUEUE_URL")
-                .expect("SUBSCRIPTION_QUEUE_URL environment variable is not set"),
-            Self::Development { .. } => {
-                "http://localhost:4566/000000000000/subscription-request-queue.fifo".to_string()
-            }
-        };
-
-        QueueConfig {
-            queue_url,
-            default_max_messages: 10,
-            default_visibility_timeout: 30, // 30 seconds
-            default_wait_time_seconds: 20,  // Enable long polling by default
-        }
-    }
-
-    /// Returns the notification queue configuration
-    ///
-    /// # Panics
-    ///
-    /// Panics if the `NOTIFICATION_QUEUE_URL` environment variable is not set in production/staging
-    #[must_use]
-    pub fn notification_queue_config(&self) -> QueueConfig {
-        let queue_url = match self {
-            Self::Production | Self::Staging => env::var("NOTIFICATION_QUEUE_URL")
-                .expect("NOTIFICATION_QUEUE_URL environment variable is not set"),
-            Self::Development { .. } => {
-                "http://localhost:4566/000000000000/notification-queue.fifo".to_string()
-            }
-        };
-
-        QueueConfig {
-            queue_url,
-            default_max_messages: 10,
-            default_visibility_timeout: 60, // 60 seconds - Longer timeout for notifications
-            default_wait_time_seconds: 20,  // Enable long polling by default
-        }
-    }
-
-    /// AWS SQS service configuration
-    pub async fn sqs_client_config(&self) -> aws_sdk_sqs::Config {
-        let aws_config = self.aws_config().await;
-        aws_sdk_sqs::Config::from(&aws_config)
     }
 
     /// Returns the World ID environment that is used to verify World ID proofs. This controls which sequencer is used.

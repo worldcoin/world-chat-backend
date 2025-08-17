@@ -29,9 +29,7 @@ async fn main() -> anyhow::Result<()> {
     ));
 
     // Initialize DynamoDB client and auth proof storage
-    let dynamodb_client = Arc::new(DynamoDbClient::from_conf(
-        environment.dynamodb_client_config().await,
-    ));
+    let dynamodb_client = Arc::new(DynamoDbClient::new(&environment.aws_config().await));
     let auth_proof_storage = Arc::new(AuthProofStorage::new(
         dynamodb_client,
         environment.dynamodb_auth_table_name(),
