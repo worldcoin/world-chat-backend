@@ -1,4 +1,5 @@
 use aws_config::{BehaviorVersion, Region};
+use aws_credential_types::Credentials;
 use aws_sdk_dynamodb::Client as DynamoDbClient;
 use aws_sdk_s3::Client as S3Client;
 use axum::{body::Body, http::Request, response::Response, Extension, Router};
@@ -27,6 +28,27 @@ pub fn setup_test_env() {
         .with_max_level(tracing::Level::DEBUG)
         .try_init()
         .ok();
+}
+
+/// Test configuration for LocalStack
+const LOCALSTACK_ENDPOINT: &str = "http://localhost:4566";
+const TEST_REGION: &str = "us-east-1";
+
+/// Create AWS config for LocalStack for tests
+pub async fn create_aws_config() -> aws_config::SdkConfig {
+    let credentials = Credentials::from_keys(
+        "test", // AWS_ACCESS_KEY_ID
+        "test", // AWS_SECRET_ACCESS_KEY
+        None,   // no session token
+    );
+    let config = aws_config::defaults(BehaviorVersion::latest())
+        .endpoint_url(LOCALSTACK_ENDPOINT)
+        .region(Region::new(TEST_REGION))
+        .credentials_provider(credentials)
+        .load()
+        .await;
+
+    config
 }
 
 /// Base test setup with core dependencies
@@ -59,8 +81,8 @@ impl TestSetup {
             environment.presigned_url_expiry_secs(),
         ));
 
-        let config = environment.dynamodb_client_config().await;
-        let dynamodb_client = Arc::new(DynamoDbClient::from_conf(config));
+        let config = create_aws_config().await;
+        let dynamodb_client = Arc::new(DynamoDbClient::from_conf((&config).into()));
         let dynamodb_test_setup = DynamoDbTestSetup::new(dynamodb_client.clone()).await;
 
         // Initialize JWT manager
