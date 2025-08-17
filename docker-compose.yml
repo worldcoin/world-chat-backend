@@ -1,10 +1,18 @@
 name: world-chat-backend
+
+networks:
+  world-chat-network:
+    name: world-chat-network
+    driver: bridge
+
 services:
   # LocalStack - AWS services emulation for local development
   # Provides S3, DynamoDB, and SQS services used by the notification worker
   # The notification worker uses SQS for message queuing in development environment
   localstack:
     image: localstack/localstack
+    networks:
+      - world-chat-network
     ports:
       - "4566:4566"
     environment:
@@ -17,6 +25,16 @@ services:
       - /var/lib/localstack
       - /var/run/docker.sock:/var/run/docker.sock
       - "./aws-seed.sh:/etc/localstack/init/ready.d/aws-seed.sh"
+    healthcheck:
+      test: |
+        awslocal s3 ls && \
+        awslocal dynamodb list-tables && \
+        awslocal sqs list-queues && \
+        awslocal secretsmanager list-secrets
+      interval: 5s
+      timeout: 10s
+      retries: 10
+      start_period: 5s
 
   # XMTP Network Node - Core message handling service
   # Provides gRPC API that the notification worker connects to for receiving messages
@@ -24,6 +42,8 @@ services:
   xmtp-node:
     image: xmtp/node-go:latest
     platform: linux/amd64
+    networks:
+      - world-chat-network
     environment:
       - GOWAKU-NODEKEY=8a30dcb604b0b53627a5adc054dbf434b446628d4bd1eccc681d223f0550ce67
     command:
@@ -46,6 +66,8 @@ services:
   # Connected via --store.db-connection-string and --store.reader-db-connection-string
   db:
     image: postgres:13 # TODO: Try bumping the version once we have testing
+    networks:
+      - world-chat-network
     environment:
       POSTGRES_PASSWORD: xmtp
     ports:
@@ -56,5 +78,7 @@ services:
   # Connected via --mls-store.db-connection-string, required for --api.enable-mls
   mlsdb:
     image: postgres:13
+    networks:
+      - world-chat-network
     environment:
       POSTGRES_PASSWORD: xmtp
