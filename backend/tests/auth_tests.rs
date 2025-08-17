@@ -63,11 +63,6 @@ async fn test_authorize_with_invalid_world_id_proof() {
         "Expected invalid_proof, sequencer_error, or invalid_proof_data error code, got {}",
         error_code
     );
-
-    println!(
-        "✅ Invalid World ID proof correctly rejected with status {} and error code {}",
-        status, error_code
-    );
 }
 
 #[tokio::test]
@@ -107,7 +102,6 @@ async fn test_authorize_with_valid_world_id_proof() {
         .expect("Failed to parse response");
 
     assert!(body["access_token"].is_string());
-    println!("✅ Valid World ID proof accepted and JWT issued");
 }
 
 #[tokio::test]
@@ -209,8 +203,6 @@ async fn test_authorize_missing_fields() {
             "Request with {} should return 400",
             case_name
         );
-
-        println!("✅ Request with {} correctly rejected", case_name);
     }
 }
 
@@ -249,8 +241,6 @@ async fn test_authorize_malformed_world_id_proof() {
         body["error"].is_object(),
         "Expected error object in response"
     );
-
-    println!("✅ Malformed World ID proof correctly rejected with 400");
 }
 
 #[tokio::test]
@@ -278,8 +268,6 @@ async fn test_authorize_invalid_nullifier_format() {
         StatusCode::BAD_REQUEST,
         "Expected 400 for invalid nullifier format"
     );
-
-    println!("✅ Invalid nullifier format correctly rejected");
 }
 
 #[tokio::test]
@@ -307,6 +295,4 @@ async fn test_authorize_invalid_merkle_root_format() {
         StatusCode::BAD_REQUEST,
         "Expected 400 for invalid merkle root format"
     );
-
-    println!("✅ Invalid merkle root format correctly rejected");
 }

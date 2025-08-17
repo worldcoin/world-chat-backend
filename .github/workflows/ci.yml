@@ -82,7 +82,8 @@ jobs:
           for i in {1..10}; do
             if curl -s http://localhost:4566/_localstack/health | jq -e '.services.s3 == "running"' && \
                curl -s http://localhost:4566/_localstack/health | jq -e '.services.dynamodb == "running"' && \
-               curl -s http://localhost:4566/_localstack/health | jq -e '.services.sqs == "running"'; then
+               curl -s http://localhost:4566/_localstack/health | jq -e '.services.sqs == "running"' && \
+               curl -s http://localhost:4566/_localstack/health | jq -e '.services.secretsmanager == "running"'; then
               echo "LocalStack services are ready!"
               break
             fi
