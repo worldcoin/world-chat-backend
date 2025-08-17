@@ -41,3 +41,4 @@ tokio-test = { workspace = true }
 uuid = { workspace = true }
 aws-credential-types = { version = "1.2.5" , features = ["hardcoded-credentials"]}
 pretty_assertions = "1.4.1"
+futures = "0.3"

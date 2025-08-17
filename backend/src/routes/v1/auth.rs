@@ -68,26 +68,14 @@ pub async fn authorize_handler(
     .await?;
 
     // 2. Fetch or create the auth-proof record
-    let auth_proof = match auth_proof_storage
-        .get_by_nullifier(&request.nullifier_hash)
-        .await?
-    {
-        Some(existing_proof) => {
-            // Existing user - return the existing proof
-            existing_proof
-        }
-        None => {
-            // New user - create auth-proof record
-            auth_proof_storage
-                .insert(AuthProofInsertRequest {
-                    nullifier: request.nullifier_hash.clone(),
-                    encrypted_push_id: request.encrypted_push_id.clone(),
-                })
-                .await?
-        }
-    };
+    let auth_proof = auth_proof_storage
+        .get_or_insert(AuthProofInsertRequest {
+            nullifier: request.nullifier_hash.clone(),
+            encrypted_push_id: request.encrypted_push_id.clone(),
+        })
+        .await?;
 
-    // 3. Issue JWT token using cached JWT manager (BLAZING FAST!)
+    // 3. Issue JWT token with stored encrypted push id
     let access_token =
         jwt_manager.issue_token(&auth_proof.encrypted_push_id, TOKEN_EXPIRATION_SECS)?;
 

@@ -1280,6 +1280,7 @@ dependencies = [
  "aws-sdk-dynamodb",
  "aws-sdk-sqs",
  "chrono",
+ "futures",
  "pretty_assertions",
  "rand 0.8.5",
  "serde",
