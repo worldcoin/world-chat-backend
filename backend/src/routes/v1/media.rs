@@ -27,7 +27,7 @@ pub struct UploadRequest {
     #[schemars(range(min = 1, max = 15_728_640))]
     pub content_length: i64,
     /// Only Image and Video MIME types are allowed
-    pub mime_type: String,
+    pub content_type: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, JsonSchema)]
@@ -80,8 +80,8 @@ pub async fn create_presigned_upload_url(
     Json(payload): Json<UploadRequest>,
 ) -> Result<Json<UploadResponse>, AppError> {
     let s3_key = MediaStorage::map_sha256_to_s3_key(&payload.content_digest_sha256);
-    let mime_type = validate_mime_type(&payload.mime_type)?;
-    validate_asset_size(&mime_type, payload.content_length)?;
+    let content_type = validate_content_type(&payload.content_type)?;
+    validate_asset_size(&content_type, payload.content_length)?;
 
     // Step 2: De-duplication Probe
     let exists = media_storage.check_object_exists(&s3_key).await?;
@@ -94,7 +94,7 @@ pub async fn create_presigned_upload_url(
         .generate_presigned_put_url(
             &payload.content_digest_sha256,
             payload.content_length,
-            mime_type.to_string().as_str(),
+            content_type.to_string().as_str(),
         )
         .await?;
 
@@ -108,30 +108,30 @@ pub async fn create_presigned_upload_url(
     }))
 }
 
-fn validate_mime_type(mime_type: &str) -> Result<Mime, AppError> {
-    let mime_type = Mime::from_str(mime_type).map_err(|_| {
+fn validate_content_type(content_type: &str) -> Result<Mime, AppError> {
+    let content_type = Mime::from_str(content_type).map_err(|_| {
         AppError::new(
             StatusCode::BAD_REQUEST,
-            "invalid_mime_type",
+            "invalid_content_type",
             "Mime type is invalid",
             false,
         )
     })?;
 
-    if mime_type.type_() != mime::IMAGE && mime_type.type_() != mime::VIDEO {
+    if content_type.type_() != mime::IMAGE && content_type.type_() != mime::VIDEO {
         return Err(AppError::new(
             StatusCode::BAD_REQUEST,
-            "invalid_mime_type",
+            "invalid_content_type",
             "Mime Type isn't a valid image/video mime type",
             false,
         ));
     }
 
-    Ok(mime_type)
+    Ok(content_type)
 }
 
-fn validate_asset_size(mime_type: &Mime, content_length: i64) -> Result<(), AppError> {
-    match mime_type.type_() {
+fn validate_asset_size(content_type: &Mime, content_length: i64) -> Result<(), AppError> {
+    match content_type.type_() {
         mime::VIDEO if content_length > MAX_VIDEO_SIZE_BYTES => Err(AppError::new(
             StatusCode::BAD_REQUEST,
             "invalid_asset_size",

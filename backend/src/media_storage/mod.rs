@@ -154,7 +154,7 @@ impl MediaStorage {
         &self,
         content_digest_sha256: &str,
         content_length: i64,
-        mime_type: &str,
+        content_type: &str,
     ) -> BucketResult<PresignedUrl> {
         let s3_key = Self::map_sha256_to_s3_key(content_digest_sha256);
         let base64_checksum = Self::map_sha256_to_b64(content_digest_sha256)?;
@@ -171,7 +171,7 @@ impl MediaStorage {
             .bucket(&self.bucket_name)
             .key(s3_key)
             .content_length(content_length)
-            .content_type(mime_type)
+            .content_type(content_type)
             .checksum_sha256(base64_checksum)
             .checksum_algorithm(ChecksumAlgorithm::Sha256)
             .presigned(presigned_config)

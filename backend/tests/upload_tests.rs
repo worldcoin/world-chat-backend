@@ -8,18 +8,18 @@ use serde_json::json;
 pub fn create_upload_request(
     content_digest_sha256: String,
     content_length: i64,
-    mime_type: Option<String>,
+    content_type: Option<String>,
 ) -> serde_json::Value {
     let mut request = json!({
         "content_digest_sha256": content_digest_sha256,
         "content_length": content_length
     });
 
-    if let Some(mime) = mime_type {
-        request["mime_type"] = json!(mime);
+    if let Some(mime) = content_type {
+        request["content_type"] = json!(mime);
     } else {
         // Default to an image mime type
-        request["mime_type"] = json!("image/png");
+        request["content_type"] = json!("image/png");
     }
 
     request
@@ -136,7 +136,7 @@ async fn test_upload_media_missing_sha256() {
 
     let payload = json!({
         "content_length": 1024,
-        "mime_type": "image/png"
+        "content_type": "image/png"
         // Missing content_digest_sha256
     });
 
@@ -154,7 +154,7 @@ async fn test_upload_media_missing_content_length() {
 
     let payload = json!({
         "content_digest_sha256": create_valid_sha256(),
-        "mime_type": "image/png"
+        "content_type": "image/png"
         // Missing content_length
     });
 
@@ -187,7 +187,7 @@ async fn test_upload_media_invalid_json_types() {
     let payload = json!({
         "content_digest_sha256": 12345, // Should be string
         "content_length": "invalid", // Should be number
-        "mime_type": "image/png"
+        "content_type": "image/png"
     });
 
     let response = setup
@@ -201,7 +201,7 @@ async fn test_upload_media_invalid_json_types() {
 // MIME type validation tests
 
 #[tokio::test]
-async fn test_upload_media_invalid_mime_type_text() {
+async fn test_upload_media_invalid_content_type_text() {
     let setup = TestSetup::new(None).await;
 
     let content_digest_sha256 = create_valid_sha256();
@@ -220,11 +220,11 @@ async fn test_upload_media_invalid_mime_type_text() {
 }
 
 #[tokio::test]
-async fn test_upload_media_popular_mime_types() {
+async fn test_upload_media_popular_content_types() {
     let setup = TestSetup::new(None).await;
 
     // Test various allowed MIME types
-    let valid_mime_types = vec![
+    let valid_content_types = vec![
         "image/jpeg",
         "image/png",
         "image/gif",
@@ -239,12 +239,12 @@ async fn test_upload_media_popular_mime_types() {
         "video/avi",
     ];
 
-    for mime_type in valid_mime_types {
+    for content_type in valid_content_types {
         let content_digest_sha256 = create_valid_sha256();
         let payload = create_upload_request(
             content_digest_sha256,
             1_048_576, // 1 MB
-            Some(mime_type.to_string()),
+            Some(content_type.to_string()),
         );
 
         let response = setup
@@ -255,8 +255,8 @@ async fn test_upload_media_popular_mime_types() {
         assert_eq!(
             response.status(),
             StatusCode::OK,
-            "Failed for mime_type: {}",
-            mime_type
+            "Failed for content_type: {}",
+            content_type
         );
     }
 }
@@ -395,7 +395,7 @@ async fn test_upload_media_extra_fields() {
     let payload = json!({
         "content_digest_sha256": create_valid_sha256(),
         "content_length": 1024,
-        "mime_type": "image/png",
+        "content_type": "image/png",
         "extra_field": "should_be_rejected"
     });
 
@@ -425,7 +425,7 @@ async fn test_e2e_upload_happy_path() {
     let upload_request = serde_json::json!({
         "content_digest_sha256": sha256,
         "content_length": image_data.len(),
-        "mime_type": "image/png"
+        "content_type": "image/png"
     });
 
     let response = setup
@@ -525,7 +525,7 @@ async fn test_e2e_upload_happy_path() {
     let duplicate_request = serde_json::json!({
         "content_digest_sha256": sha256,
         "content_length": image_data.len(),
-        "mime_type": "image/png"
+        "content_type": "image/png"
     });
 
     let duplicate_response = setup
@@ -560,7 +560,7 @@ async fn test_e2e_upload_with_wrong_checksum() {
     let upload_request = serde_json::json!({
         "content_digest_sha256": sha256,
         "content_length": image_data.len(),
-        "mime_type": "image/png"
+        "content_type": "image/png"
     });
 
     let response = setup
@@ -655,7 +655,7 @@ async fn test_e2e_upload_with_wrong_content_length() {
     let upload_request = serde_json::json!({
         "content_digest_sha256": sha256,
         "content_length": image_data.len(),
-        "mime_type": "image/png"
+        "content_type": "image/png"
     });
 
     let response = setup
@@ -748,7 +748,7 @@ async fn test_e2e_upload_with_expired_presigned_url() {
     let upload_request = serde_json::json!({
         "content_digest_sha256": sha256,
         "content_length": image_data.len(),
-        "mime_type": "image/png"
+        "content_type": "image/png"
     });
 
     let response = setup
