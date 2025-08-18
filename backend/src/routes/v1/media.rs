@@ -33,12 +33,8 @@ pub struct UploadRequest {
 
 #[derive(Debug, Serialize, Deserialize, JsonSchema)]
 pub struct UploadResponse {
-    /// S3 key of the asset, used in XMTP media message
-    pub asset_id: String,
     /// Presigned URL to upload the asset to S3
     pub presigned_url: String,
-    /// ISO-8601 UTC timestamp when the presigned URL expires
-    pub expires_at: String,
     /// Base64-encoded SHA-256 content digest
     ///
     /// Used in the `x-amz-checksum-sha256` header of the presigned URL
@@ -107,9 +103,7 @@ pub async fn create_presigned_upload_url(
     let content_digest_base64 = MediaStorage::map_sha256_to_b64(&payload.content_digest_sha256)?;
 
     Ok(Json(UploadResponse {
-        asset_id: s3_key,
         presigned_url: presigned_url.url,
-        expires_at: presigned_url.expires_at.to_rfc3339(),
         asset_url,
         content_digest_base64,
     }))

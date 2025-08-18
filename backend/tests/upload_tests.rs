@@ -43,10 +43,8 @@ async fn test_upload_media_happy_path() {
 
     let body = parse_response_body(response).await;
     assert!(body["presigned_url"].is_string());
-    assert!(body["expires_at"].is_string());
     assert!(body["asset_url"].is_string());
     assert!(body["content_digest_base64"].is_string());
-    assert!(body["asset_id"].is_string());
 
     let presigned_url = body["presigned_url"].as_str().unwrap();
     assert!(presigned_url.contains("localhost:4566")); // LocalStack URL
@@ -392,12 +390,6 @@ async fn test_e2e_upload_happy_path() {
     let presigned_url = response_body["presigned_url"]
         .as_str()
         .expect("Missing presigned_url in response");
-    let asset_id = response_body["asset_id"]
-        .as_str()
-        .expect("Missing asset_id in response");
-    let expires_at = response_body["expires_at"]
-        .as_str()
-        .expect("Missing expires_at in response");
     let content_digest_base64 = response_body["content_digest_base64"]
         .as_str()
         .expect("Missing content_digest_base64 in response");
@@ -410,8 +402,6 @@ async fn test_e2e_upload_happy_path() {
         presigned_url.contains("localhost:4566"),
         "Expected LocalStack URL"
     );
-    assert!(!asset_id.is_empty(), "Asset ID should not be empty");
-    assert!(!expires_at.is_empty(), "Expires at should not be empty");
     assert!(
         !content_digest_base64.is_empty(),
         "Content digest base64 should not be empty"
@@ -422,7 +412,6 @@ async fn test_e2e_upload_happy_path() {
     );
 
     println!("Presigned URL obtained: {}", presigned_url);
-    println!("Asset ID: {}", asset_id);
     println!("Asset URL: {}", asset_url);
     println!("Content Digest Base64: {}", content_digest_base64);
 
@@ -536,9 +525,6 @@ async fn test_e2e_upload_with_wrong_checksum() {
     let presigned_url = response_body["presigned_url"]
         .as_str()
         .expect("Missing presigned_url in response");
-    let asset_id = response_body["asset_id"]
-        .as_str()
-        .expect("Missing asset_id in response");
     let asset_url = response_body["asset_url"]
         .as_str()
         .expect("Missing asset_url in response");
@@ -551,14 +537,12 @@ async fn test_e2e_upload_with_wrong_checksum() {
         presigned_url.contains("localhost:4566"),
         "Expected LocalStack URL"
     );
-    assert!(!asset_id.is_empty(), "Asset ID should not be empty");
     assert!(
         asset_url.starts_with("http://localhost:4566/world-chat-media/"),
         "Asset URL should start with LocalStack CDN URL"
     );
 
     println!("Presigned URL obtained: {}", presigned_url);
-    println!("Asset ID: {}", asset_id);
     println!("Asset URL: {}", asset_url);
 
     // Step 3: Upload image to S3 using the presigned URL with WRONG checksum
@@ -636,9 +620,6 @@ async fn test_e2e_upload_with_wrong_content_length() {
     let presigned_url = response_body["presigned_url"]
         .as_str()
         .expect("Missing presigned_url in response");
-    let asset_id = response_body["asset_id"]
-        .as_str()
-        .expect("Missing asset_id in response");
     let asset_url = response_body["asset_url"]
         .as_str()
         .expect("Missing asset_url in response");
@@ -651,14 +632,12 @@ async fn test_e2e_upload_with_wrong_content_length() {
         presigned_url.contains("localhost:4566"),
         "Expected LocalStack URL"
     );
-    assert!(!asset_id.is_empty(), "Asset ID should not be empty");
     assert!(
         asset_url.starts_with("http://localhost:4566/world-chat-media/"),
         "Asset URL should start with LocalStack CDN URL"
     );
 
     println!("Presigned URL obtained: {}", presigned_url);
-    println!("Asset ID: {}", asset_id);
     println!("Asset URL: {}", asset_url);
 
     // Step 3: Upload image to S3 using the presigned URL with correct checksum but wrong content length
@@ -737,9 +716,6 @@ async fn test_e2e_upload_with_expired_presigned_url() {
     let presigned_url = response_body["presigned_url"]
         .as_str()
         .expect("Missing presigned_url in response");
-    let asset_id = response_body["asset_id"]
-        .as_str()
-        .expect("Missing asset_id in response");
     let asset_url = response_body["asset_url"]
         .as_str()
         .expect("Missing asset_url in response");
@@ -752,14 +728,12 @@ async fn test_e2e_upload_with_expired_presigned_url() {
         presigned_url.contains("localhost:4566"),
         "Expected LocalStack URL"
     );
-    assert!(!asset_id.is_empty(), "Asset ID should not be empty");
     assert!(
         asset_url.starts_with("http://localhost:4566/world-chat-media/"),
         "Asset URL should start with LocalStack CDN URL"
     );
 
     println!("Presigned URL obtained: {}", presigned_url);
-    println!("Asset ID: {}", asset_id);
     println!("Asset URL: {}", asset_url);
 
     // Step 3: Try to upload after expiry using the presigned URL
