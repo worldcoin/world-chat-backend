@@ -8,11 +8,21 @@ use serde_json::json;
 pub fn create_upload_request(
     content_digest_sha256: String,
     content_length: i64,
+    content_type: Option<String>,
 ) -> serde_json::Value {
-    json!({
+    let mut request = json!({
         "content_digest_sha256": content_digest_sha256,
         "content_length": content_length
-    })
+    });
+
+    if let Some(mime) = content_type {
+        request["content_type"] = json!(mime);
+    } else {
+        // Default to an image mime type
+        request["content_type"] = json!("image/png");
+    }
+
+    request
 }
 
 // Happy path tests
@@ -22,7 +32,7 @@ async fn test_upload_media_happy_path() {
     let setup = TestSetup::new(None).await;
 
     let content_digest_sha256 = create_valid_sha256();
-    let payload = create_upload_request(content_digest_sha256.clone(), 1024);
+    let payload = create_upload_request(content_digest_sha256.clone(), 1024, None);
 
     let response = setup
         .send_post_request("/v1/media/presigned-urls", payload)
@@ -33,35 +43,14 @@ async fn test_upload_media_happy_path() {
 
     let body = parse_response_body(response).await;
     assert!(body["presigned_url"].is_string());
-    assert!(body["expires_at"].is_string());
+    assert!(body["asset_url"].is_string());
+    assert!(body["content_digest_base64"].is_string());
 
     let presigned_url = body["presigned_url"].as_str().unwrap();
     assert!(presigned_url.contains("localhost:4566")); // LocalStack URL
-}
 
-#[tokio::test]
-async fn test_upload_media_valid_content_lengths() {
-    let setup = TestSetup::new(None).await;
-
-    // Test various valid content lengths
-    let test_cases = vec![1, 1024, 1_048_576, 15_728_640]; // 1 byte to 15 MiB
-
-    for content_length in test_cases {
-        let content_digest_sha256 = create_valid_sha256();
-        let payload = create_upload_request(content_digest_sha256, content_length);
-
-        let response = setup
-            .send_post_request("/v1/media/presigned-urls", payload)
-            .await
-            .expect("Failed to send request");
-
-        assert_eq!(
-            response.status(),
-            StatusCode::OK,
-            "Failed for content_length: {}",
-            content_length
-        );
-    }
+    let asset_url = body["asset_url"].as_str().unwrap();
+    assert!(asset_url.starts_with("http://localhost:4566/world-chat-media/")); // LocalStack CDN URL
 }
 
 // Validation error tests (schemars validation - expect 400 instead of custom errors)
@@ -70,7 +59,7 @@ async fn test_upload_media_valid_content_lengths() {
 async fn test_upload_media_invalid_sha256_format() {
     let setup = TestSetup::new(None).await;
 
-    let payload = create_upload_request("invalid_sha256_digest".to_string(), 1024);
+    let payload = create_upload_request("invalid_sha256_digest".to_string(), 1024, None);
 
     let response = setup
         .send_post_request("/v1/media/presigned-urls", payload)
@@ -84,7 +73,7 @@ async fn test_upload_media_invalid_sha256_format() {
 async fn test_upload_media_short_sha256() {
     let setup = TestSetup::new(None).await;
 
-    let payload = create_upload_request("abc123".to_string(), 1024);
+    let payload = create_upload_request("abc123".to_string(), 1024, None);
 
     let response = setup
         .send_post_request("/v1/media/presigned-urls", payload)
@@ -99,7 +88,7 @@ async fn test_upload_media_content_length_too_large() {
     let setup = TestSetup::new(None).await;
 
     let content_digest_sha256 = create_valid_sha256();
-    let payload = create_upload_request(content_digest_sha256, 15_728_641); // 15 MiB + 1 byte
+    let payload = create_upload_request(content_digest_sha256, 15_728_641, None); // 15 MiB + 1 byte
 
     let response = setup
         .send_post_request("/v1/media/presigned-urls", payload)
@@ -114,7 +103,7 @@ async fn test_upload_media_content_length_zero() {
     let setup = TestSetup::new(None).await;
 
     let content_digest_sha256 = create_valid_sha256();
-    let payload = create_upload_request(content_digest_sha256, 0);
+    let payload = create_upload_request(content_digest_sha256, 0, None);
 
     let response = setup
         .send_post_request("/v1/media/presigned-urls", payload)
@@ -129,7 +118,7 @@ async fn test_upload_media_content_length_negative() {
     let setup = TestSetup::new(None).await;
 
     let content_digest_sha256 = create_valid_sha256();
-    let payload = create_upload_request(content_digest_sha256, -1);
+    let payload = create_upload_request(content_digest_sha256, -1, None);
 
     let response = setup
         .send_post_request("/v1/media/presigned-urls", payload)
@@ -146,7 +135,8 @@ async fn test_upload_media_missing_sha256() {
     let setup = TestSetup::new(None).await;
 
     let payload = json!({
-        "content_length": 1024
+        "content_length": 1024,
+        "content_type": "image/png"
         // Missing content_digest_sha256
     });
 
@@ -163,7 +153,8 @@ async fn test_upload_media_missing_content_length() {
     let setup = TestSetup::new(None).await;
 
     let payload = json!({
-        "content_digest_sha256": create_valid_sha256()
+        "content_digest_sha256": create_valid_sha256(),
+        "content_type": "image/png"
         // Missing content_length
     });
 
@@ -195,7 +186,8 @@ async fn test_upload_media_invalid_json_types() {
 
     let payload = json!({
         "content_digest_sha256": 12345, // Should be string
-        "content_length": "invalid" // Should be number
+        "content_length": "invalid", // Should be number
+        "content_type": "image/png"
     });
 
     let response = setup
@@ -206,14 +198,81 @@ async fn test_upload_media_invalid_json_types() {
     assert_eq!(response.status(), StatusCode::BAD_REQUEST);
 }
 
-// Edge case tests
+// MIME type validation tests
 
 #[tokio::test]
-async fn test_upload_media_exact_max_content_length() {
+async fn test_upload_media_invalid_content_type_text() {
     let setup = TestSetup::new(None).await;
 
     let content_digest_sha256 = create_valid_sha256();
-    let payload = create_upload_request(content_digest_sha256, 15_728_640); // Exactly 15 MiB
+    let payload = create_upload_request(
+        content_digest_sha256,
+        1024,
+        Some("text/plain".to_string()), // Not an allowed mime type
+    );
+
+    let response = setup
+        .send_post_request("/v1/media/presigned-urls", payload)
+        .await
+        .expect("Failed to send request");
+
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+}
+
+#[tokio::test]
+async fn test_upload_media_popular_content_types() {
+    let setup = TestSetup::new(None).await;
+
+    // Test various allowed MIME types
+    let valid_content_types = vec![
+        "image/jpeg",
+        "image/png",
+        "image/gif",
+        "image/webp",
+        "image/heic",
+        "image/heif",
+        "image/tiff",
+        "video/mp4",
+        "video/quicktime",
+        "video/webm",
+        "video/x-matroska",
+        "video/avi",
+    ];
+
+    for content_type in valid_content_types {
+        let content_digest_sha256 = create_valid_sha256();
+        let payload = create_upload_request(
+            content_digest_sha256,
+            1_048_576, // 1 MB
+            Some(content_type.to_string()),
+        );
+
+        let response = setup
+            .send_post_request("/v1/media/presigned-urls", payload)
+            .await
+            .expect("Failed to send request");
+
+        assert_eq!(
+            response.status(),
+            StatusCode::OK,
+            "Failed for content_type: {}",
+            content_type
+        );
+    }
+}
+
+// Edge case tests
+
+#[tokio::test]
+async fn test_upload_media_video_exact_max_content_length() {
+    let setup = TestSetup::new(None).await;
+
+    let content_digest_sha256 = create_valid_sha256();
+    let payload = create_upload_request(
+        content_digest_sha256,
+        15_728_640,
+        Some("video/mp4".to_string()),
+    ); // Exactly 15 MiB
 
     let response = setup
         .send_post_request("/v1/media/presigned-urls", payload)
@@ -224,11 +283,68 @@ async fn test_upload_media_exact_max_content_length() {
 }
 
 #[tokio::test]
+async fn test_upload_media_video_too_large() {
+    let setup = TestSetup::new(None).await;
+
+    let content_digest_sha256 = create_valid_sha256();
+    let payload = create_upload_request(
+        content_digest_sha256,
+        15_728_641,
+        Some("video/mp4".to_string()),
+    ); // 15 MiB + 1 byte
+
+    let response = setup
+        .send_post_request("/v1/media/presigned-urls", payload)
+        .await
+        .expect("Failed to send request");
+
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+}
+
+#[tokio::test]
+async fn test_upload_media_image_exact_max_content_length() {
+    let setup = TestSetup::new(None).await;
+
+    let content_digest_sha256 = create_valid_sha256();
+    let payload = create_upload_request(
+        content_digest_sha256,
+        5_242_880,
+        Some("image/png".to_string()),
+    ); // Exactly 5 MiB
+
+    let response = setup
+        .send_post_request("/v1/media/presigned-urls", payload)
+        .await
+        .expect("Failed to send request");
+
+    assert_eq!(response.status(), StatusCode::OK);
+}
+
+#[tokio::test]
+async fn test_upload_media_image_too_large() {
+    let setup = TestSetup::new(None).await;
+
+    let content_digest_sha256 = create_valid_sha256();
+    let payload = create_upload_request(
+        content_digest_sha256,
+        5_242_881,
+        Some("image/png".to_string()),
+    ); // 5 MiB + 1 byte
+
+    let response = setup
+        .send_post_request("/v1/media/presigned-urls", payload)
+        .await
+        .expect("Failed to send request");
+
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+}
+
+#[tokio::test]
 async fn test_upload_media_minimum_content_length() {
     let setup = TestSetup::new(None).await;
 
     let content_digest_sha256 = create_valid_sha256();
-    let payload = create_upload_request(content_digest_sha256.clone(), 1); // Minimum allowed
+    let payload = create_upload_request(content_digest_sha256.clone(), 1, None); // Minimum allowed
 
     let response = setup
         .send_post_request("/v1/media/presigned-urls", payload)
@@ -245,7 +361,7 @@ async fn test_upload_media_special_hex_characters() {
 
     // Test with all valid hex characters
     let content_digest_sha256 = "abcdef0123456789".repeat(4); // 64 chars of valid hex
-    let payload = create_upload_request(content_digest_sha256, 1024);
+    let payload = create_upload_request(content_digest_sha256, 1024, None);
 
     let response = setup
         .send_post_request("/v1/media/presigned-urls", payload)
@@ -261,7 +377,7 @@ async fn test_upload_media_uppercase_hex() {
 
     // Test uppercase hex (should be rejected by schemars regex)
     let content_digest_sha256 = "ABCDEF0123456789".repeat(4); // 64 chars of uppercase hex
-    let payload = create_upload_request(content_digest_sha256, 1024);
+    let payload = create_upload_request(content_digest_sha256, 1024, None);
 
     let response = setup
         .send_post_request("/v1/media/presigned-urls", payload)
@@ -279,6 +395,7 @@ async fn test_upload_media_extra_fields() {
     let payload = json!({
         "content_digest_sha256": create_valid_sha256(),
         "content_length": 1024,
+        "content_type": "image/png",
         "extra_field": "should_be_rejected"
     });
 
@@ -307,7 +424,8 @@ async fn test_e2e_upload_happy_path() {
     // Step 2: Request presigned URL from the API endpoint
     let upload_request = serde_json::json!({
         "content_digest_sha256": sha256,
-        "content_length": image_data.len()
+        "content_length": image_data.len(),
+        "content_type": "image/png"
     });
 
     let response = setup
@@ -335,31 +453,37 @@ async fn test_e2e_upload_happy_path() {
     let presigned_url = response_body["presigned_url"]
         .as_str()
         .expect("Missing presigned_url in response");
-    let asset_id = response_body["asset_id"]
+    let content_digest_base64 = response_body["content_digest_base64"]
         .as_str()
-        .expect("Missing asset_id in response");
-    let expires_at = response_body["expires_at"]
+        .expect("Missing content_digest_base64 in response");
+    let asset_url = response_body["asset_url"]
         .as_str()
-        .expect("Missing expires_at in response");
+        .expect("Missing asset_url in response");
 
     // Verify response format
     assert!(
         presigned_url.contains("localhost:4566"),
         "Expected LocalStack URL"
     );
-    assert!(!asset_id.is_empty(), "Asset ID should not be empty");
-    assert!(!expires_at.is_empty(), "Expires at should not be empty");
+    assert!(
+        !content_digest_base64.is_empty(),
+        "Content digest base64 should not be empty"
+    );
+    assert!(
+        asset_url.starts_with("http://localhost:4566/world-chat-media/"),
+        "Asset URL should start with LocalStack CDN URL"
+    );
 
     println!("Presigned URL obtained: {}", presigned_url);
-    println!("Asset ID: {}", asset_id);
+    println!("Asset URL: {}", asset_url);
+    println!("Content Digest Base64: {}", content_digest_base64);
 
     // Step 3: Upload image to S3 using the presigned URL with checksum headers
-    let sha256_b64 = hex_sha256_to_base64(&sha256);
     let upload_response = upload_to_s3(
         presigned_url,
         &image_data,
-        Some("application/octet-stream"),
-        Some(&sha256_b64), // Include SHA-256 checksum header in base64 format
+        "image/png",
+        content_digest_base64,
     )
     .await
     .expect("Failed to upload to S3");
@@ -372,12 +496,12 @@ async fn test_e2e_upload_happy_path() {
 
     println!("Successfully uploaded to S3");
 
-    // Step 4: Download image from S3 using the S3 client directly
-    let downloaded_data = download_from_s3(&setup.s3_client, &setup.bucket_name, asset_id)
+    // Step 4: Download image from asset URL using HTTP
+    let downloaded_data = download_from_asset_url(asset_url)
         .await
-        .expect("Failed to download from S3");
+        .expect("Failed to download from asset URL");
 
-    println!("Downloaded {} bytes from S3", downloaded_data.len());
+    println!("Downloaded {} bytes from asset URL", downloaded_data.len());
 
     // Step 5: Verify data integrity by comparing checksums
     assert_eq!(
@@ -400,7 +524,8 @@ async fn test_e2e_upload_happy_path() {
     // Step 6: Test deduplication - second call with same SHA-256 should return 409 Conflict
     let duplicate_request = serde_json::json!({
         "content_digest_sha256": sha256,
-        "content_length": image_data.len()
+        "content_length": image_data.len(),
+        "content_type": "image/png"
     });
 
     let duplicate_response = setup
@@ -434,7 +559,8 @@ async fn test_e2e_upload_with_wrong_checksum() {
     // Step 2: Request presigned URL from the API endpoint
     let upload_request = serde_json::json!({
         "content_digest_sha256": sha256,
-        "content_length": image_data.len()
+        "content_length": image_data.len(),
+        "content_type": "image/png"
     });
 
     let response = setup
@@ -462,31 +588,35 @@ async fn test_e2e_upload_with_wrong_checksum() {
     let presigned_url = response_body["presigned_url"]
         .as_str()
         .expect("Missing presigned_url in response");
-    let asset_id = response_body["asset_id"]
+    let asset_url = response_body["asset_url"]
         .as_str()
-        .expect("Missing asset_id in response");
-    let expires_at = response_body["expires_at"]
+        .expect("Missing asset_url in response");
+    let _content_digest_base64 = response_body["content_digest_base64"]
         .as_str()
-        .expect("Missing expires_at in response");
+        .expect("Missing content_digest_base64 in response"); // Intentionally unused - we use a wrong checksum
 
     // Verify response format
     assert!(
         presigned_url.contains("localhost:4566"),
         "Expected LocalStack URL"
     );
-    assert!(!asset_id.is_empty(), "Asset ID should not be empty");
-    assert!(!expires_at.is_empty(), "Expires at should not be empty");
+    assert!(
+        asset_url.starts_with("http://localhost:4566/world-chat-media/"),
+        "Asset URL should start with LocalStack CDN URL"
+    );
 
     println!("Presigned URL obtained: {}", presigned_url);
-    println!("Asset ID: {}", asset_id);
+    println!("Asset URL: {}", asset_url);
 
-    // Step 3: Upload image to S3 using the presigned URL with checksum headers
-    let wrong_sha256_b64 = hex_sha256_to_base64(&"a".repeat(64));
+    // Step 3: Upload image to S3 using the presigned URL with WRONG checksum
+    // Generate a different checksum to simulate integrity check failure
+    // This is intentionally wrong to test failure case
+    let wrong_checksum_b64 = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="; // Invalid base64 checksum
     let upload_response = upload_to_s3(
         presigned_url,
         &image_data,
-        Some("application/octet-stream"),
-        Some(&wrong_sha256_b64), // Include SHA-256 checksum header in base64 format
+        "image/png",
+        wrong_checksum_b64, // Wrong checksum should cause upload to fail
     )
     .await
     .expect("Failed to upload to S3");
@@ -497,12 +627,12 @@ async fn test_e2e_upload_with_wrong_checksum() {
         "Expected 403 Forbidden error"
     );
 
-    // Step 4: Assert that file doesnt exist
-    let file_exists = s3_object_exists(&setup.s3_client, &setup.bucket_name, asset_id)
+    // Step 4: Assert that file doesnt exist at asset URL
+    let file_exists = asset_exists_at_url(asset_url)
         .await
-        .expect("Failed to check if file exists");
+        .expect("Failed to check if file exists at URL");
 
-    assert!(!file_exists, "File should not exist");
+    assert!(!file_exists, "File should not exist at asset URL");
 
     println!("✅ File does not exist");
 
@@ -524,7 +654,8 @@ async fn test_e2e_upload_with_wrong_content_length() {
     // Step 2: Request presigned URL from the API endpoint
     let upload_request = serde_json::json!({
         "content_digest_sha256": sha256,
-        "content_length": image_data.len()
+        "content_length": image_data.len(),
+        "content_type": "image/png"
     });
 
     let response = setup
@@ -552,31 +683,32 @@ async fn test_e2e_upload_with_wrong_content_length() {
     let presigned_url = response_body["presigned_url"]
         .as_str()
         .expect("Missing presigned_url in response");
-    let asset_id = response_body["asset_id"]
+    let asset_url = response_body["asset_url"]
         .as_str()
-        .expect("Missing asset_id in response");
-    let expires_at = response_body["expires_at"]
+        .expect("Missing asset_url in response");
+    let content_digest_base64 = response_body["content_digest_base64"]
         .as_str()
-        .expect("Missing expires_at in response");
+        .expect("Missing content_digest_base64 in response");
 
     // Verify response format
     assert!(
         presigned_url.contains("localhost:4566"),
         "Expected LocalStack URL"
     );
-    assert!(!asset_id.is_empty(), "Asset ID should not be empty");
-    assert!(!expires_at.is_empty(), "Expires at should not be empty");
+    assert!(
+        asset_url.starts_with("http://localhost:4566/world-chat-media/"),
+        "Asset URL should start with LocalStack CDN URL"
+    );
 
     println!("Presigned URL obtained: {}", presigned_url);
-    println!("Asset ID: {}", asset_id);
+    println!("Asset URL: {}", asset_url);
 
-    // Step 3: Upload image to S3 using the presigned URL with checksum headers
-    let sha256_b64 = hex_sha256_to_base64(&sha256);
+    // Step 3: Upload image to S3 using the presigned URL with correct checksum but wrong content length
     let upload_response = upload_to_s3(
         presigned_url,
-        &image_data[..1024],
-        Some("application/octet-stream"),
-        Some(&sha256_b64), // Include SHA-256 checksum header in base64 format
+        &image_data[..1024], // Upload only partial data
+        "image/png",
+        content_digest_base64, // Use the content_digest_base64 from the response
     )
     .await
     .expect("Failed to upload to S3");
@@ -587,16 +719,16 @@ async fn test_e2e_upload_with_wrong_content_length() {
         "Expected 403 Forbidden error"
     );
 
-    // Step 4: Assert that file doesnt exist
-    let file_exists = s3_object_exists(&setup.s3_client, &setup.bucket_name, asset_id)
+    // Step 4: Assert that file doesnt exist at asset URL
+    let file_exists = asset_exists_at_url(asset_url)
         .await
-        .expect("Failed to check if file exists");
+        .expect("Failed to check if file exists at URL");
 
-    assert!(!file_exists, "File should not exist");
+    assert!(!file_exists, "File should not exist at asset URL");
 
     println!("✅ File does not exist");
 
-    println!("🎉 E2E upload with wrong checksum test completed successfully!");
+    println!("🎉 E2E upload with wrong content length test completed successfully!");
 }
 
 #[tokio::test]
@@ -615,7 +747,8 @@ async fn test_e2e_upload_with_expired_presigned_url() {
     // Step 2: Request presigned URL from the API endpoint
     let upload_request = serde_json::json!({
         "content_digest_sha256": sha256,
-        "content_length": image_data.len()
+        "content_length": image_data.len(),
+        "content_type": "image/png"
     });
 
     let response = setup
@@ -639,37 +772,39 @@ async fn test_e2e_upload_with_expired_presigned_url() {
         serde_json::to_string_pretty(&response_body).unwrap()
     );
 
+    // Wait for the presigned URL to expire
     tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
 
     // Extract response fields
     let presigned_url = response_body["presigned_url"]
         .as_str()
         .expect("Missing presigned_url in response");
-    let asset_id = response_body["asset_id"]
+    let asset_url = response_body["asset_url"]
         .as_str()
-        .expect("Missing asset_id in response");
-    let expires_at = response_body["expires_at"]
+        .expect("Missing asset_url in response");
+    let content_digest_base64 = response_body["content_digest_base64"]
         .as_str()
-        .expect("Missing expires_at in response");
+        .expect("Missing content_digest_base64 in response");
 
     // Verify response format
     assert!(
         presigned_url.contains("localhost:4566"),
         "Expected LocalStack URL"
     );
-    assert!(!asset_id.is_empty(), "Asset ID should not be empty");
-    assert!(!expires_at.is_empty(), "Expires at should not be empty");
+    assert!(
+        asset_url.starts_with("http://localhost:4566/world-chat-media/"),
+        "Asset URL should start with LocalStack CDN URL"
+    );
 
     println!("Presigned URL obtained: {}", presigned_url);
-    println!("Asset ID: {}", asset_id);
+    println!("Asset URL: {}", asset_url);
 
-    // Step 3: Upload image to S3 using the presigned URL with checksum headers
-    let sha256_b64 = hex_sha256_to_base64(&sha256);
+    // Step 3: Try to upload after expiry using the presigned URL
     let upload_response = upload_to_s3(
         presigned_url,
         &image_data,
-        Some("application/octet-stream"),
-        Some(&sha256_b64), // Include SHA-256 checksum header in base64 format
+        "image/png",
+        content_digest_base64, // Use the content_digest_base64 from the response
     )
     .await
     .expect("Failed to upload to S3");
@@ -680,14 +815,14 @@ async fn test_e2e_upload_with_expired_presigned_url() {
         "Expected 403 Forbidden error"
     );
 
-    // Step 4: Assert that file doesnt exist
-    let file_exists = s3_object_exists(&setup.s3_client, &setup.bucket_name, asset_id)
+    // Step 4: Assert that file doesnt exist at asset URL
+    let file_exists = asset_exists_at_url(asset_url)
         .await
-        .expect("Failed to check if file exists");
+        .expect("Failed to check if file exists at URL");
 
-    assert!(!file_exists, "File should not exist");
+    assert!(!file_exists, "File should not exist at asset URL");
 
     println!("✅ File does not exist");
 
-    println!("🎉 E2E upload with wrong checksum test completed successfully!");
+    println!("🎉 E2E upload with expired presigned URL test completed successfully!");
 }

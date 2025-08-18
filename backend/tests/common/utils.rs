@@ -1,5 +1,4 @@
 use axum::response::Response;
-use base64::{engine::general_purpose::STANDARD, Engine as _};
 use http_body_util::BodyExt;
 use rand::RngCore;
 use sha2::{Digest, Sha256};
@@ -33,10 +32,4 @@ pub fn calculate_sha256(data: &[u8]) -> String {
     let mut hasher = Sha256::new();
     hasher.update(data);
     format!("{:x}", hasher.finalize())
-}
-
-/// Convert hex SHA-256 to base64 format (required for AWS checksum headers)
-pub fn hex_sha256_to_base64(hex_sha256: &str) -> String {
-    let bytes = hex::decode(hex_sha256).expect("Invalid hex SHA-256");
-    STANDARD.encode(&bytes)
 }
