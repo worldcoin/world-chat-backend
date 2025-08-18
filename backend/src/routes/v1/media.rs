@@ -1,10 +1,10 @@
-use std::{str::FromStr, sync::Arc};
+use std::sync::Arc;
 
 use axum::{http::StatusCode, Extension};
 use axum_jsonschema::Json;
 use mime::Mime;
 use schemars::JsonSchema;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 use tracing::instrument;
 
 use crate::{
@@ -17,7 +17,7 @@ const MAX_IMAGE_SIZE_BYTES: i64 = 5 * 1024 * 1024;
 /// 15 MB Video size limit
 const MAX_VIDEO_SIZE_BYTES: i64 = 15 * 1024 * 1024;
 
-#[derive(Debug, Deserialize, Serialize, JsonSchema)]
+#[derive(Debug, Deserialize, JsonSchema)]
 #[schemars(deny_unknown_fields)]
 pub struct UploadRequest {
     /// 64-character lowercase hex string (SHA-256 of encrypted blob)
@@ -27,9 +27,23 @@ pub struct UploadRequest {
     #[schemars(range(min = 1, max = 15_728_640))]
     pub content_length: i64,
     /// Only Image and Video MIME types are allowed
-    pub content_type: String,
+    #[serde(deserialize_with = "deserialize_allowed_mime")]
+    #[schemars(with = "String", description = "Mime type must be image/* or video/*")]
+    pub content_type: Mime,
 }
 
+fn deserialize_allowed_mime<'de, D>(d: D) -> Result<Mime, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let s = String::deserialize(d)?;
+    let m: Mime = s.parse().map_err(serde::de::Error::custom)?;
+    if matches!(m.type_(), mime::IMAGE | mime::VIDEO) {
+        Ok(m)
+    } else {
+        Err(serde::de::Error::custom("mime must be image/* or video/*"))
+    }
+}
 #[derive(Debug, Serialize, Deserialize, JsonSchema)]
 pub struct UploadResponse {
     /// Presigned URL to upload the asset to S3
@@ -80,8 +94,7 @@ pub async fn create_presigned_upload_url(
     Json(payload): Json<UploadRequest>,
 ) -> Result<Json<UploadResponse>, AppError> {
     let s3_key = MediaStorage::map_sha256_to_s3_key(&payload.content_digest_sha256);
-    let content_type = validate_content_type(&payload.content_type)?;
-    validate_asset_size(&content_type, payload.content_length)?;
+    validate_asset_size(&payload.content_type, payload.content_length)?;
 
     // Step 2: De-duplication Probe
     let exists = media_storage.check_object_exists(&s3_key).await?;
@@ -94,7 +107,7 @@ pub async fn create_presigned_upload_url(
         .generate_presigned_put_url(
             &payload.content_digest_sha256,
             payload.content_length,
-            content_type.to_string().as_str(),
+            payload.content_type.to_string().as_str(),
         )
         .await?;
 
@@ -106,28 +119,6 @@ pub async fn create_presigned_upload_url(
         asset_url,
         content_digest_base64,
     }))
-}
-
-fn validate_content_type(content_type: &str) -> Result<Mime, AppError> {
-    let content_type = Mime::from_str(content_type).map_err(|_| {
-        AppError::new(
-            StatusCode::BAD_REQUEST,
-            "invalid_content_type",
-            "Mime type is invalid",
-            false,
-        )
-    })?;
-
-    if content_type.type_() != mime::IMAGE && content_type.type_() != mime::VIDEO {
-        return Err(AppError::new(
-            StatusCode::BAD_REQUEST,
-            "invalid_content_type",
-            "Mime Type isn't a valid image/video mime type",
-            false,
-        ));
-    }
-
-    Ok(content_type)
 }
 
 fn validate_asset_size(content_type: &Mime, content_length: i64) -> Result<(), AppError> {
