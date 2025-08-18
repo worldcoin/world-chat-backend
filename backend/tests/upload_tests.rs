@@ -198,6 +198,69 @@ async fn test_upload_media_invalid_json_types() {
     assert_eq!(response.status(), StatusCode::BAD_REQUEST);
 }
 
+// MIME type validation tests
+
+#[tokio::test]
+async fn test_upload_media_invalid_mime_type_text() {
+    let setup = TestSetup::new(None).await;
+
+    let content_digest_sha256 = create_valid_sha256();
+    let payload = create_upload_request(
+        content_digest_sha256,
+        1024,
+        Some("text/plain".to_string()), // Not an allowed mime type
+    );
+
+    let response = setup
+        .send_post_request("/v1/media/presigned-urls", payload)
+        .await
+        .expect("Failed to send request");
+
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+}
+
+#[tokio::test]
+async fn test_upload_media_popular_mime_types() {
+    let setup = TestSetup::new(None).await;
+
+    // Test various allowed MIME types
+    let valid_mime_types = vec![
+        "image/jpeg",
+        "image/png",
+        "image/gif",
+        "image/webp",
+        "image/heic",
+        "image/heif",
+        "image/tiff",
+        "video/mp4",
+        "video/quicktime",
+        "video/webm",
+        "video/x-matroska",
+        "video/avi",
+    ];
+
+    for mime_type in valid_mime_types {
+        let content_digest_sha256 = create_valid_sha256();
+        let payload = create_upload_request(
+            content_digest_sha256,
+            1_048_576, // 1 MB
+            Some(mime_type.to_string()),
+        );
+
+        let response = setup
+            .send_post_request("/v1/media/presigned-urls", payload)
+            .await
+            .expect("Failed to send request");
+
+        assert_eq!(
+            response.status(),
+            StatusCode::OK,
+            "Failed for mime_type: {}",
+            mime_type
+        );
+    }
+}
+
 // Edge case tests
 
 #[tokio::test]

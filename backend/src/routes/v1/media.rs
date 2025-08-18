@@ -27,7 +27,6 @@ pub struct UploadRequest {
     #[schemars(range(min = 1, max = 15_728_640))]
     pub content_length: i64,
     /// Only Image and Video MIME types are allowed
-    #[schemars(regex(pattern = r"^(image|video)/[A-Za-z0-9.+-]+$"))]
     pub mime_type: String,
 }
 
@@ -110,14 +109,25 @@ pub async fn create_presigned_upload_url(
 }
 
 fn validate_mime_type(mime_type: &str) -> Result<Mime, AppError> {
-    Mime::from_str(mime_type).map_err(|_| {
+    let mime_type = Mime::from_str(mime_type).map_err(|_| {
         AppError::new(
+            StatusCode::BAD_REQUEST,
+            "invalid_mime_type",
+            "Mime type is invalid",
+            false,
+        )
+    })?;
+
+    if mime_type.type_() != mime::IMAGE && mime_type.type_() != mime::VIDEO {
+        return Err(AppError::new(
             StatusCode::BAD_REQUEST,
             "invalid_mime_type",
             "Mime Type isn't a valid image/video mime type",
             false,
-        )
-    })
+        ));
+    }
+
+    Ok(mime_type)
 }
 
 fn validate_asset_size(mime_type: &Mime, content_length: i64) -> Result<(), AppError> {
