@@ -19,8 +19,6 @@ pub fn setup_test_env() {
 /// E2E test setup with real dependencies
 pub struct TestSetup {
     pub router: Router,
-    pub s3_client: Arc<S3Client>,
-    pub bucket_name: String,
 }
 
 impl TestSetup {
@@ -47,11 +45,7 @@ impl TestSetup {
             .layer(Extension(media_storage.clone()))
             .into();
 
-        Self {
-            router,
-            s3_client,
-            bucket_name,
-        }
+        Self { router }
     }
 }
 

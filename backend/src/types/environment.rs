@@ -236,6 +236,21 @@ impl Environment {
             },
         }
     }
+
+    /// CDN URL for media assets
+    ///
+    /// # Panics
+    ///
+    /// Panics if the `CDN_URL` environment variable is not set in production/staging
+    #[must_use]
+    pub fn cdn_url(&self) -> String {
+        match self {
+            Self::Production | Self::Staging => {
+                env::var("CDN_URL").expect("CDN_URL environment variable is not set")
+            }
+            Self::Development { .. } => "http://localhost:4566/world-chat-media".to_string(),
+        }
+    }
 }
 
 #[cfg(test)]

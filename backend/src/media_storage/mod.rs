@@ -63,7 +63,7 @@ impl MediaStorage {
     /// # Errors
     ///
     /// Returns `BucketError::InvalidInput` if the input is not a valid 64-character hex string
-    fn map_sha256_to_b64(sha256: &str) -> BucketResult<String> {
+    pub fn map_sha256_to_b64(sha256: &str) -> BucketResult<String> {
         // Validate input length
         if sha256.len() != 64 {
             return Err(BucketError::InvalidInput(format!(
@@ -154,6 +154,7 @@ impl MediaStorage {
         &self,
         content_digest_sha256: &str,
         content_length: i64,
+        mime_type: &str,
     ) -> BucketResult<PresignedUrl> {
         let s3_key = Self::map_sha256_to_s3_key(content_digest_sha256);
         let base64_checksum = Self::map_sha256_to_b64(content_digest_sha256)?;
@@ -170,7 +171,7 @@ impl MediaStorage {
             .bucket(&self.bucket_name)
             .key(s3_key)
             .content_length(content_length)
-            .content_type("application/octet-stream")
+            .content_type(mime_type)
             .checksum_sha256(base64_checksum)
             .checksum_algorithm(ChecksumAlgorithm::Sha256)
             .presigned(presigned_config)
