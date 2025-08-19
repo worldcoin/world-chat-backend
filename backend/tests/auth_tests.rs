@@ -241,3 +241,71 @@ async fn test_authorize_invalid_merkle_root_format() {
         "Expected 400 for invalid merkle root format"
     );
 }
+
+#[tokio::test]
+async fn test_authorize_jwt_is_verifiable_with_josekit() {
+    use josekit::jws::alg::ecdsa::EcdsaJwsAlgorithm;
+
+    let context = TestSetup::new(None).await;
+
+    // Get a valid access token
+    let encrypted_push_id = format!("encrypted-push-{}", Uuid::new_v4());
+    let proof = create_valid_world_id_proof(encrypted_push_id.clone()).await;
+
+    let auth_request = json!({
+        "proof": proof.get_proof_as_string(),
+        "nullifier_hash": proof.get_nullifier_hash().to_hex_string(),
+        "merkle_root": proof.get_merkle_root().to_hex_string(),
+        "encrypted_push_id": encrypted_push_id,
+        "credential_type": proof.get_credential_type(),
+    });
+
+    let response = context
+        .send_post_request("/v1/authorize", auth_request)
+        .await
+        .expect("Failed to send request");
+
+    assert_eq!(response.status(), StatusCode::OK);
+
+    let body = context
+        .parse_response_body(response)
+        .await
+        .expect("Failed to parse response");
+
+    let token = body["access_token"]
+        .as_str()
+        .expect("access_token must be a string");
+
+    // Fetch KMS public key (DER, SubjectPublicKeyInfo)
+    let pk_out = context.kms_client.
+        .get_public_key()
+        .key_id(key_arn)
+        .send()
+        .await
+        .expect("get_public_key failed");
+    let der = pk_out
+        .public_key()
+        .expect("missing public_key in GetPublicKey output")
+        .as_ref()
+        .to_vec();
+
+    // Verify with josekit ES256
+    let verifier = EcdsaJwsAlgorithm::Es256
+        .verifier_from_der(&der)
+        .expect("verifier_from_der failed");
+    let (payload, header) =
+        josekit::jwt::decode_with_verifier(token, &verifier).expect("JWT verification failed");
+
+    // Basic header assertions
+    assert_eq!(header.algorithm(), Some("ES256"));
+    assert_eq!(header.token_type(), Some("JWT"));
+
+    // Ensure payload is a JSON object and contains expected claims shape
+    let payload_json: serde_json::Value =
+        serde_json::from_str(&payload.to_string()).expect("payload should be valid JSON");
+    assert!(payload_json.is_object());
+    assert_eq!(
+        payload_json.get("sub").expect("missing sub").as_str(),
+        Some(encrypted_push_id.as_str())
+    );
+}
