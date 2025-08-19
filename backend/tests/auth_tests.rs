@@ -277,9 +277,10 @@ async fn test_authorize_jwt_is_verifiable_with_josekit() {
         .expect("access_token must be a string");
 
     // Fetch KMS public key (DER, SubjectPublicKeyInfo)
-    let pk_out = context.kms_client.
+    let pk_out = context
+        .kms_client
         .get_public_key()
-        .key_id(key_arn)
+        .key_id(context.environment.jwt_kms_key_arn())
         .send()
         .await
         .expect("get_public_key failed");

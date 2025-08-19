@@ -12,7 +12,18 @@ use tokio::runtime::Runtime;
 
 use crate::jwt::KmsKeyDefinition;
 
-/// Sync JWS signer that delegates ES256 signing to AWS KMS.
+/// Synchronous JWS signer that delegates ES256 signing to AWS KMS.
+///
+/// `josekit`'s `JwsSigner` trait uses a synchronous `sign()` API, while AWS KMS is
+/// asynchronous. To bridge this mismatch safely:
+/// - `sign()` creates a fresh Tokio runtime per call and `block_on`s an async KMS `Sign`.
+/// - Callers invoke `encode_with_signer(...)` inside `spawn_blocking` to avoid blocking the
+///   async scheduler thread while we synchronously wait for KMS.
+/// - KMS returns a DER‑encoded ECDSA signature which we map into the raw `r || s` format
+///   required by JWS for ES256.
+///
+/// **Note:** `josekit` doesn't support async signers, if we see that switching between sync and async context,
+/// we can implement a custom async signer.
 #[derive(Clone, Debug)]
 pub struct KmsEcdsaJwsSigner {
     pub kms_client: KmsClient,
@@ -31,13 +42,19 @@ impl JwsSigner for KmsEcdsaJwsSigner {
     }
 
     fn signature_len(&self) -> usize {
-        64
+        64 // 64 bytes for ES256
     }
 
     fn key_id(&self) -> Option<&str> {
         Some(self.key.id.as_str())
     }
 
+    /// Sign the JWS payload using AWS KMS with ES256.
+    ///
+    /// Steps:
+    /// 1. Create a fresh runtime and `block_on` the KMS `Sign` call.
+    /// 2. Convert the DER‑encoded ECDSA signature to the raw concatenated `r || s` form.
+    /// 3. Return the 64‑byte signature as required by ES256.
     fn sign(&self, message: &[u8]) -> Result<Vec<u8>, JoseError> {
         (|| -> Result<Vec<u8>, anyhow::Error> {
             // Create a fresh runtime per call and block on KMS
@@ -80,12 +97,15 @@ impl JwsSigner for KmsEcdsaJwsSigner {
     }
 }
 
+/// Perform the actual AWS KMS `Sign` request with `ECDSA_SHA_256` over the provided bytes.
+///
+/// Returns the DER‑encoded signature from KMS. The caller is responsible for converting
+/// it into raw `r || s` form for JWS.
 async fn sign_with_kms(
     client: &aws_sdk_kms::Client,
     key_id: &str,
     message: &[u8],
 ) -> Result<Vec<u8>, anyhow::Error> {
-    // We could technically fetch the key ID after signing using a key alias but the `kid` must be known before signing
     let result = client
         .sign()
         .key_id(key_id)

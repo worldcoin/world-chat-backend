@@ -8,7 +8,7 @@
 //!
 //! The `kid` is deterministic and safe to publish. It’s computed from the last path segment
 //! of the KMS key identifier (key ID or alias) using SHA‑224 and base64url, prefixed with
-//! `key_`. This enables easy key rotation and JWKS publication later on.
+//! `key_`. This enables easy key rotation and potential JWKS publication later on.
 
 pub mod error;
 mod signer;
@@ -23,10 +23,15 @@ pub use types::WorldChatJwtPayload;
 
 use crate::types::Environment;
 
-use self::signer::KmsEcdsaJwsSigner;
 use error::JwtError;
+use signer::KmsEcdsaJwsSigner;
 
-/// JWT manager backed by AWS KMS (asymmetric ES256)
+/// High‑level JWT manager backed by AWS KMS (ES256).
+///
+/// Responsibilities:
+/// - Holds the KMS client and the selected key (`KmsKeyDefinition`).
+/// - Issues compact JWS/JWT tokens using `josekit` and a custom signer that delegates to KMS.
+/// - Ensures headers are set consistently (`alg`, `typ`, `kid`).
 #[derive(Clone)]
 pub struct JwtManager {
     kms_client: KmsClient,
@@ -34,10 +39,10 @@ pub struct JwtManager {
 }
 
 impl JwtManager {
-    /// Creates a new JWT manager: derives kid from key ARN and prepares the signer.
+    /// Creates a new JWT manager from the provided environment.
     ///
-    /// # Panics
-    /// Panics if the KMS public key cannot be fetched or parsed
+    /// - Reads the JWT KMS key ARN from `Environment`.
+    /// - Derives a stable, publishable `kid` from that ARN via `KmsKeyDefinition::from_arn`.
     pub fn new(kms_client: KmsClient, environment: &Environment) -> Self {
         let key_arn = environment.jwt_kms_key_arn();
         let key = KmsKeyDefinition::from_arn(key_arn);
@@ -51,12 +56,14 @@ impl JwtManager {
     ///
     /// - Header: `alg=ES256`, `typ=JWT`, `kid=<derived>`
     /// - Claims: `{ sub, exp, iat }`, where `iat` is set to current time
-    /// - Signing: Uses KMS `Sign(ECDSA_SHA_256)` over the `base64url(header).base64url(payload)`
-    ///   bytes. KMS returns a DER-encoded ECDSA signature, which we convert to raw `r||s`.
+    /// - Signing: Uses KMS `Sign(ECDSA_SHA_256)` via a custom `JwsSigner`. Because `JwsSigner`
+    ///   is synchronous, we call `encode_with_signer` from `spawn_blocking` to avoid blocking
+    ///   the async runtime while the signer internally bridges to async (KMS) for each sign.
     ///
     /// # Errors
-    /// Returns `JwtError::SigningError` if KMS signing fails or the signature cannot be
-    /// converted from DER to raw.
+    /// - `JwtError::JoseKitError` for JOSE/JWS encoding or signature mapping issues.
+    /// - `JwtError::JoinError` if the blocking task fails to join.
+    /// - `JwtError::ValidationError` is reserved for decode/verify flows.
     pub async fn issue_token(&self, payload: WorldChatJwtPayload) -> Result<String, JwtError> {
         // Prepare JWS header and payload
         let payload = payload.generate_jwt_payload();
@@ -72,6 +79,4 @@ impl JwtManager {
 
         Ok(token)
     }
-
-    // validate_token intentionally removed for now (not used)
 }
