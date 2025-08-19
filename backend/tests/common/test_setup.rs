@@ -29,8 +29,6 @@ pub fn setup_test_env() {
 pub struct TestSetup {
     pub router: Router,
     pub environment: Environment,
-    pub s3_client: Arc<S3Client>,
-    pub bucket_name: String,
     pub media_storage: Arc<MediaStorage>,
     pub kms_client: KmsClient,
     // Keep DynamoDbTestSetup alive for the duration of the test
@@ -78,8 +76,6 @@ impl TestSetup {
         Self {
             router,
             environment,
-            s3_client,
-            bucket_name,
             media_storage,
             kms_client,
             _dynamodb_setup: dynamodb_test_setup,

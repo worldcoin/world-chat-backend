@@ -59,6 +59,9 @@ walletkit-core = { version = "0.1.4", features= ["semaphore"], default-features 
 semaphore-rs = { version = "0.5" }
 reqwest = { workspace = true }
 
+# Mime types
+mime = { workspace = true }
+
 # JWT / JWS
 josekit = "0.10.0"
 sha2 = { workspace = true }
