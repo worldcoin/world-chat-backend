@@ -286,11 +286,20 @@ impl From<WorldIdError> for AppError {
 /// Convert JWT errors to application errors
 impl From<JwtError> for AppError {
     fn from(err: JwtError) -> Self {
-        use JwtError::{HeaderError, PublicKeyLoadError, SigningError, ValidationError};
+        use JwtError::{JoinError, JoseKitError, ValidationError};
 
         match &err {
-            SigningError(e) => {
+            JoseKitError(e) => {
                 tracing::error!("JWT signing error: {e}");
+                Self::new(
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "token_generation_failed",
+                    "Failed to generate access token",
+                    false,
+                )
+            }
+            JoinError(e) => {
+                tracing::error!("JWT signing task join error: {e}");
                 Self::new(
                     StatusCode::INTERNAL_SERVER_ERROR,
                     "token_generation_failed",
@@ -307,21 +316,6 @@ impl From<JwtError> for AppError {
                     false,
                 )
             }
-            PublicKeyLoadError(msg) => {
-                tracing::error!("JWT public key load error: {msg}");
-                Self::new(
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    "configuration_error",
-                    "Service configuration error",
-                    false,
-                )
-            }
-            HeaderError(_) => Self::new(
-                StatusCode::UNAUTHORIZED,
-                "invalid_token",
-                "Invalid or expired token",
-                false,
-            ),
         }
     }
 }

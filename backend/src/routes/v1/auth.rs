@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use walletkit_core::CredentialType;
 
 use crate::{
-    jwt::JwtManager,
+    jwt::{JwtManager, WorldChatJwtPayload},
     types::{AppError, Environment},
     world_id::verifier::verify_world_id_proof,
 };
@@ -32,9 +32,6 @@ pub struct AuthRequest {
 pub struct AuthResponse {
     pub access_token: String,
 }
-
-/// Token expiration time in seconds (7 days)
-const TOKEN_EXPIRATION_SECS: i64 = 7 * 24 * 60 * 60;
 
 /// Authenticates a user with World ID proof and issues a JWT token.
 ///
@@ -77,7 +74,9 @@ pub async fn authorize_handler(
 
     // 3. Issue JWT token with stored encrypted push id
     let access_token = jwt_manager
-        .issue_token(&auth_proof.encrypted_push_id, TOKEN_EXPIRATION_SECS)
+        .issue_token(WorldChatJwtPayload {
+            encrypted_push_id: auth_proof.encrypted_push_id,
+        })
         .await?;
 
     Ok(Json(AuthResponse { access_token }))

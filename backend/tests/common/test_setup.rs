@@ -59,7 +59,7 @@ impl TestSetup {
 
         // Initialize JWT manager (KMS-backed)
         let kms_client = KmsClient::new(&environment.aws_config().await);
-        let jwt_manager = Arc::new(JwtManager::new(kms_client, &environment).await);
+        let jwt_manager = Arc::new(JwtManager::new(kms_client, &environment));
 
         // Initialize auth proof storage with test table
         let auth_proof_storage = Arc::new(AuthProofStorage::new(
