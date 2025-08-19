@@ -1,23 +1,33 @@
-//! JWT token management with cached secrets for high performance
+//! JWT token management using AWS KMS (ES256) and derived kid from key ARN
 
 pub mod error;
 
-use std::sync::Arc;
-
-use aws_sdk_secretsmanager::Client as SecretsManagerClient;
+use aws_sdk_kms::{
+    primitives::Blob,
+    types::{MessageType, SigningAlgorithmSpec},
+    Client as KmsClient,
+};
+use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
 use chrono::Utc;
-use jsonwebtoken::{decode, encode, Algorithm, DecodingKey, EncodingKey, Header, Validation};
+use josekit::{
+    jws::{JwsHeader, ES256},
+    jwt,
+    util::der::{DerReader, DerType},
+};
 use serde::{Deserialize, Serialize};
+use sha2::Digest;
 
 use crate::types::Environment;
 use error::JwtError;
 
-/// JWT manager with cached secrets for blazing fast token operations
+/// JWT manager backed by AWS KMS (asymmetric ES256)
 #[derive(Clone)]
 pub struct JwtManager {
-    signing_key: Arc<EncodingKey>,
-    validation_key: Arc<DecodingKey>,
-    validation: Validation,
+    kms_client: KmsClient,
+    key_arn: String,
+    kid: String,
+    public_key_der: Vec<u8>,
+    leeway_secs: i64,
 }
 
 /// JWT claims structure
@@ -32,69 +42,43 @@ pub struct Claims {
 }
 
 impl JwtManager {
-    /// Creates a new JWT manager with the secret loaded once at startup.
+    /// Creates a new JWT manager: fetches public key and derives kid from key ARN.
     ///
     /// # Panics
-    ///
-    /// Panics if `JWT_SECRET_NAME` or `JWT_SECRET_ARN` environment variable is not set
-    /// or if the secret cannot be loaded from AWS Secrets Manager
-    pub async fn new(
-        secrets_manager_client: SecretsManagerClient,
-        environment: &Environment,
-    ) -> Self {
-        // Always load from AWS Secrets Manager (including LocalStack in dev)
-        let secret = Self::load_from_secrets_manager(secrets_manager_client, environment)
+    /// Panics if the KMS public key cannot be fetched or parsed
+    pub async fn new(kms_client: KmsClient, environment: &Environment) -> Self {
+        let key_arn = environment.jwt_kms_key_arn();
+        let kid = derive_kid_from_arn(&key_arn);
+
+        // Fetch public key once and cache DER
+        let public_key = kms_client
+            .get_public_key()
+            .key_id(key_arn.clone())
+            .send()
             .await
-            .expect("Failed to load JWT secret from Secrets Manager");
+            .expect("Failed to fetch public key from KMS");
+        let public_key_der = public_key
+            .public_key()
+            .expect("KMS public key missing")
+            .as_ref()
+            .to_vec();
 
-        let signing_key = Arc::new(EncodingKey::from_secret(secret.as_bytes()));
-        let validation_key = Arc::new(DecodingKey::from_secret(secret.as_bytes()));
-        let validation = Validation::new(Algorithm::HS256);
-
-        tracing::info!("JWT manager initialized successfully");
+        tracing::info!("KMS JWT manager initialized with key {kid}");
 
         Self {
-            signing_key,
-            validation_key,
-            validation,
+            kms_client,
+            key_arn,
+            kid,
+            public_key_der,
+            leeway_secs: 60,
         }
     }
 
-    /// Load secret from AWS Secrets Manager (works with both AWS and `LocalStack`)
-    ///
-    /// # Panics
-    ///
-    /// Panics if `JWT_SECRET_NAME` environment variable is not set
-    async fn load_from_secrets_manager(
-        secrets_manager_client: SecretsManagerClient,
-        environment: &Environment,
-    ) -> Result<String, JwtError> {
-        let response = secrets_manager_client
-            .get_secret_value()
-            .secret_id(environment.jwt_secret_id())
-            .send()
-            .await
-            .map_err(|e| {
-                JwtError::SecretLoadError(format!(
-                    "Failed to fetch secret from Secrets Manager: {e}"
-                ))
-            })?;
-
-        // Parse the secret - it could be plain text or JSON
-        let secret_string = response.secret_string().ok_or_else(|| {
-            JwtError::SecretLoadError("Secret is binary, expected string".to_string())
-        })?;
-
-        Ok(secret_string.to_string())
-    }
-
     /// Issues a JWT token with the given subject and expiry time.
-    /// This operation is BLAZING FAST (sub-millisecond) since it uses cached keys.
     ///
     /// # Errors
-    ///
-    /// Returns `JwtError` if JWT encoding fails
-    pub fn issue_token(
+    /// Returns `JwtError` if signing fails
+    pub async fn issue_token(
         &self,
         encrypted_push_id: &str,
         expiry_secs: i64,
@@ -106,18 +90,117 @@ impl JwtManager {
             iat: now,
         };
 
-        encode(&Header::new(Algorithm::HS256), &claims, &self.signing_key).map_err(JwtError::from)
+        // Build header
+        let mut header = JwsHeader::new();
+        header.set_token_type("JWT");
+        header.set_algorithm("ES256");
+        header.set_key_id(self.kid.clone());
+
+        // Serialize header and payload
+        let header_json = header.to_string();
+        let payload_json =
+            serde_json::to_string(&claims).map_err(|e| JwtError::SigningError(e.to_string()))?;
+
+        let signing_input = format!(
+            "{}.{}",
+            URL_SAFE_NO_PAD.encode(header_json),
+            URL_SAFE_NO_PAD.encode(payload_json)
+        );
+
+        // KMS sign (message is the signing input bytes)
+        let sign_output = self
+            .kms_client
+            .sign()
+            .key_id(self.key_arn.clone())
+            .message(Blob::new(signing_input.as_bytes()))
+            .message_type(MessageType::Raw)
+            .signing_algorithm(SigningAlgorithmSpec::EcdsaSha256)
+            .send()
+            .await
+            .map_err(|e| JwtError::SigningError(e.to_string()))?;
+
+        let der_signature = sign_output
+            .signature()
+            .ok_or_else(|| JwtError::SigningError("No signature returned from KMS".to_string()))?;
+
+        // Convert DER signature to raw r||s
+        let raw_signature =
+            der_to_raw_signature(der_signature.as_ref(), 64).map_err(JwtError::SigningError)?;
+
+        let jwt = format!(
+            "{}.{}",
+            signing_input,
+            URL_SAFE_NO_PAD.encode(raw_signature)
+        );
+
+        Ok(jwt)
     }
 
     /// Validates a JWT token and returns the claims if valid.
-    /// This operation is also BLAZING FAST since it uses cached keys.
     ///
     /// # Errors
-    ///
     /// Returns `JwtError` if token is invalid or expired
     pub fn validate_token(&self, token: &str) -> Result<Claims, JwtError> {
-        decode::<Claims>(token, &self.validation_key, &self.validation)
-            .map(|data| data.claims)
-            .map_err(|_| JwtError::ValidationError)
+        // Verify signature
+        let verifier = ES256
+            .verifier_from_der(&self.public_key_der)
+            .map_err(|e| JwtError::PublicKeyLoadError(e.to_string()))?;
+
+        let (payload, header) =
+            jwt::decode_with_verifier(token, &verifier).map_err(|_| JwtError::ValidationError)?;
+
+        // Enforce alg and kid
+        if header.claim("alg").and_then(|v| v.as_str()) != Some("ES256") {
+            return Err(JwtError::HeaderError("Unexpected alg".to_string()));
+        }
+        if let Some(kid) = header.claim("kid").and_then(|v| v.as_str()) {
+            if kid != self.kid {
+                return Err(JwtError::HeaderError("Unexpected kid".to_string()));
+            }
+        }
+
+        // Parse and validate claims
+        let claims: Claims =
+            serde_json::from_str(&payload.to_string()).map_err(|_| JwtError::ValidationError)?;
+
+        let now = Utc::now().timestamp();
+        if claims.exp <= now {
+            return Err(JwtError::ValidationError);
+        }
+        if claims.iat > now + self.leeway_secs {
+            return Err(JwtError::ValidationError);
+        }
+
+        Ok(claims)
     }
+}
+
+fn derive_kid_from_arn(arn: &str) -> String {
+    let last = arn.split('/').next_back().unwrap_or(arn);
+    let hash = sha2::Sha224::digest(last.as_bytes());
+    let encoded = URL_SAFE_NO_PAD.encode(hash);
+    format!("key_{encoded}")
+}
+
+fn der_to_raw_signature(der: &[u8], signature_len: usize) -> Result<Vec<u8>, String> {
+    let mut signature = Vec::with_capacity(signature_len);
+    let der_vec = der.to_vec();
+    let mut reader = DerReader::from_bytes(&der_vec);
+    match reader.next() {
+        Ok(Some(DerType::Sequence)) => {}
+        _ => return Err("Invalid DER signature".to_string()),
+    }
+    match reader.next() {
+        Ok(Some(DerType::Integer)) => {
+            signature.extend_from_slice(&reader.to_be_bytes(false, signature_len / 2));
+        }
+        _ => return Err("Invalid DER signature".to_string()),
+    }
+    match reader.next() {
+        Ok(Some(DerType::Integer)) => {
+            signature.extend_from_slice(&reader.to_be_bytes(false, signature_len / 2));
+        }
+        _ => return Err("Invalid DER signature".to_string()),
+    }
+    Ok(signature)
 }

@@ -39,7 +39,7 @@ aws-config = { workspace = true }
 aws-sdk-s3 = { workspace = true }
 aws-sdk-dynamodb = { workspace = true }
 aws-sdk-sqs = { workspace = true }
-aws-sdk-secretsmanager = { workspace = true }
+aws-sdk-kms = { workspace = true }
 
 # Time
 chrono = { workspace = true }
@@ -59,8 +59,9 @@ walletkit-core = { version = "0.1.4", features= ["semaphore"], default-features 
 semaphore-rs = { version = "0.5" }
 reqwest = { workspace = true }
 
-# JWT
-jsonwebtoken = { workspace = true }
+# JWT / JWS
+josekit = "0.10.0"
+sha2 = { workspace = true }
 
 [dev-dependencies]
 http-body-util = { workspace = true }

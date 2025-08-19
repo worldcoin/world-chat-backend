@@ -178,22 +178,14 @@ impl Environment {
         env::var("WORLD_ID_ACTION").expect("WORLD_ID_ACTION environment variable is not set")
     }
 
-    /// Returns the JWT secret id in the AWS Secrets Manager
+    /// Returns the KMS key ARN (or alias ARN) used for JWT signing
     ///
     /// # Panics
     ///
-    /// Panics if:
-    /// - The `JWT_SECRET_ARN` environment variable is not set in production/staging
-    /// - The `JWT_SECRET_NAME` environment variable is not set in development
+    /// Panics if the `JWT_KMS_KEY_ARN` environment variable is not set
     #[must_use]
-    pub fn jwt_secret_id(&self) -> String {
-        match self {
-            Self::Production | Self::Staging => {
-                env::var("JWT_SECRET_ARN").expect("JWT_SECRET_ARN environment variable is not set")
-            }
-            Self::Development { .. } => env::var("JWT_SECRET_NAME")
-                .expect("JWT_SECRET_NAME environment variable is not set"),
-        }
+    pub fn jwt_kms_key_arn(&self) -> String {
+        env::var("JWT_KMS_KEY_ARN").expect("JWT_KMS_KEY_ARN environment variable is not set")
     }
 
     /// Returns the Dynamo DB table name for auth proofs

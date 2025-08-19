@@ -16,7 +16,7 @@ services:
     ports:
       - "4566:4566"
     environment:
-      - SERVICES=s3,dynamodb,sqs,secretsmanager
+      - SERVICES=s3,dynamodb,sqs,kms
       - DISABLE_EVENTS=1
       # Localstack disables signature validation by default, but we need it for testing
       # https://docs.localstack.cloud/aws/capabilities/config/configuration/#s3
@@ -30,7 +30,7 @@ services:
         awslocal s3 ls && \
         awslocal dynamodb list-tables && \
         awslocal sqs list-queues && \
-        awslocal secretsmanager list-secrets
+        awslocal kms list-keys
       interval: 5s
       timeout: 10s
       retries: 10

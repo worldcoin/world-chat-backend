@@ -76,8 +76,9 @@ pub async fn authorize_handler(
         .await?;
 
     // 3. Issue JWT token with stored encrypted push id
-    let access_token =
-        jwt_manager.issue_token(&auth_proof.encrypted_push_id, TOKEN_EXPIRATION_SECS)?;
+    let access_token = jwt_manager
+        .issue_token(&auth_proof.encrypted_push_id, TOKEN_EXPIRATION_SECS)
+        .await?;
 
     Ok(Json(AuthResponse { access_token }))
 }

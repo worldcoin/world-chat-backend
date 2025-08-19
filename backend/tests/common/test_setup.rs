@@ -1,8 +1,9 @@
 use aws_config::{BehaviorVersion, Region};
 use aws_credential_types::Credentials;
 use aws_sdk_dynamodb::Client as DynamoDbClient;
+use aws_sdk_kms::types::{KeySpec, KeyUsageType};
+use aws_sdk_kms::Client as KmsClient;
 use aws_sdk_s3::Client as S3Client;
-use aws_sdk_secretsmanager::Client as SecretsManagerClient;
 use axum::{body::Body, http::Request, response::Response, Extension, Router};
 use backend::{jwt::JwtManager, media_storage::MediaStorage, routes, types::Environment};
 use backend_storage::auth_proof::AuthProofStorage;
@@ -56,9 +57,9 @@ impl TestSetup {
         let dynamodb_client = Arc::new(DynamoDbClient::new(&environment.aws_config().await));
         let dynamodb_test_setup = DynamoDbTestSetup::new(dynamodb_client.clone()).await;
 
-        // Initialize JWT manager
-        let secrets_manager_client = SecretsManagerClient::new(&environment.aws_config().await);
-        let jwt_manager = Arc::new(JwtManager::new(secrets_manager_client, &environment).await);
+        // Initialize JWT manager (KMS-backed)
+        let kms_client = KmsClient::new(&environment.aws_config().await);
+        let jwt_manager = Arc::new(JwtManager::new(kms_client, &environment).await);
 
         // Initialize auth proof storage with test table
         let auth_proof_storage = Arc::new(AuthProofStorage::new(
