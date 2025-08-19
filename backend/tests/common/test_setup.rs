@@ -111,4 +111,16 @@ impl TestSetup {
         let json = serde_json::from_slice(&body)?;
         Ok(json)
     }
+
+    pub async fn send_get_request(
+        &self,
+        route: &str,
+    ) -> Result<Response, Box<dyn std::error::Error>> {
+        let request = Request::builder()
+            .uri(route)
+            .method("GET")
+            .body(Body::empty())?;
+        let response = self.router.clone().oneshot(request).await?;
+        Ok(response)
+    }
 }
