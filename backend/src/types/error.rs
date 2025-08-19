@@ -285,8 +285,9 @@ impl From<WorldIdError> for AppError {
 
 /// Convert JWT errors to application errors
 impl From<JwtError> for AppError {
+    #[allow(clippy::cognitive_complexity)]
     fn from(err: JwtError) -> Self {
-        use JwtError::{JoinError, JoseKitError, ValidationError};
+        use JwtError::{JoinError, JoseKitError, JwksRetrievalError, ValidationError};
 
         match &err {
             JoseKitError(e) => {
@@ -304,6 +305,15 @@ impl From<JwtError> for AppError {
                     StatusCode::INTERNAL_SERVER_ERROR,
                     "token_generation_failed",
                     "Failed to generate access token",
+                    false,
+                )
+            }
+            JwksRetrievalError(e) => {
+                tracing::error!("JWKS retrieval failed: {e}");
+                Self::new(
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "jwks_error",
+                    "Failed to prepare JWKS",
                     false,
                 )
             }

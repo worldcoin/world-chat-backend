@@ -11,6 +11,7 @@
 //! `key_`. This enables easy key rotation and potential JWKS publication later on.
 
 pub mod error;
+mod jwk_ext;
 mod signer;
 mod types;
 
@@ -22,8 +23,10 @@ use types::KmsKeyDefinition;
 pub use types::WorldChatJwtPayload;
 
 use crate::types::Environment;
+use serde_json::{Map, Value};
 
 use error::JwtError;
+use openssl::pkey::PKey;
 use signer::KmsEcdsaJwsSigner;
 
 /// High‑level JWT manager backed by AWS KMS (ES256).
@@ -43,11 +46,10 @@ impl JwtManager {
     ///
     /// - Reads the JWT KMS key ARN from `Environment`.
     /// - Derives a stable, publishable `kid` from that ARN via `KmsKeyDefinition::from_arn`.
+    #[must_use]
     pub fn new(kms_client: KmsClient, environment: &Environment) -> Self {
         let key_arn = environment.jwt_kms_key_arn();
         let key = KmsKeyDefinition::from_arn(key_arn);
-
-        tracing::info!("KMS JWT manager initialized with key {}", key.id);
 
         Self { kms_client, key }
     }
@@ -69,6 +71,7 @@ impl JwtManager {
         let payload = payload.generate_jwt_payload();
         let mut header = JwsHeader::new();
         header.set_token_type("JWT");
+        header.set_key_id(self.key.id.clone());
 
         let signer = KmsEcdsaJwsSigner::new(self.kms_client.clone(), self.key.clone());
 
@@ -78,5 +81,42 @@ impl JwtManager {
         .await??;
 
         Ok(token)
+    }
+
+    /// Build a single JWK (ES256, P-256) from the KMS public key using a custom
+    /// `josekit::jwk::Jwk` extension.
+    ///
+    /// # Errors
+    /// - `JwtError::JwksRetrievalError` that abstracts various errors due to KMS, OpenSSL, or josekit.
+    // #[allow(clippy::redundant_closure_call)]
+    pub async fn current_jwk(&self) -> Result<Map<String, Value>, JwtError> {
+        // Use an async block to map all the errors to an anyhow::Error
+        // to avoid mapping every error to JwtError manually, this would only fail if we can't retrive the public key from KMS
+        let res: anyhow::Result<Map<String, Value>> = (async {
+            let der = self
+                .kms_client
+                .get_public_key()
+                .key_id(self.key.arn.clone())
+                .send()
+                .await?
+                .public_key()
+                .ok_or_else(|| anyhow::anyhow!("missing public key in KMS response"))?
+                .as_ref()
+                .to_vec();
+
+            // Parse the DER public key
+            let pkey = PKey::public_key_from_der(&der)?;
+
+            // Use JWK extension to construct the JWK
+            let jwk = {
+                use crate::jwt::jwk_ext::JwkExt;
+                josekit::jwk::Jwk::new_ec_p256_from_openssl(&pkey, self.key.id.clone())
+            }?;
+
+            Ok(jwk.into())
+        })
+        .await;
+
+        res.map_err(JwtError::JwksRetrievalError)
     }
 }

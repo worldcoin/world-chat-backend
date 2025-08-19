@@ -17,4 +17,8 @@ pub enum JwtError {
     /// `JOSEKit` error
     #[error("`JOSEKit` error: {0}")]
     JoseKitError(#[from] JoseError),
+
+    /// Aggregate error for JWKS retrieval/construction
+    #[error("Failed to retrieve JWKS: {0}")]
+    JwksRetrievalError(#[from] anyhow::Error),
 }
