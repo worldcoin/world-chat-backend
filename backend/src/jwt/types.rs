@@ -34,6 +34,7 @@ impl WorldChatJwtPayload {
         payload.set_issued_at(&SystemTime::now());
         payload.set_expires_at(&(SystemTime::now() + TOKEN_EXPIRATION_SECS));
         payload.set_subject(self.encrypted_push_id.clone());
+        payload.set_issuer("chat.toolsforhumanity.com");
 
         payload
     }

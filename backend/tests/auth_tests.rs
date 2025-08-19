@@ -372,7 +372,11 @@ async fn test_jwks_wellknown_verifies_token_signature() {
     let payload_json: serde_json::Value =
         serde_json::from_str(&payload.to_string()).expect("payload should be valid JSON");
     assert_eq!(
-        payload_json.get("sub").expect("missing sub").as_str(),
+        payload_json.get("sub").expect("missing subject").as_str(),
         Some(encrypted_push_id.as_str())
+    );
+    assert_eq!(
+        payload_json.get("iss").expect("missing issuer").as_str(),
+        Some("chat.toolsforhumanity.com")
     );
 }
