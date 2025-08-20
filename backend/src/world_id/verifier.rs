@@ -145,10 +145,13 @@ pub async fn verify_world_id_proof(
     };
 
     // Get the appropriate sequencer endpoint based on credential type and environment
-    let endpoint = credential_type.get_sign_up_sequencer_host(world_id_environment);
+    let endpoint = format!(
+        "{}/v2/semaphore-proof/verify",
+        credential_type.get_sign_up_sequencer_host(world_id_environment)
+    );
 
     // Send the verification request to the sequencer
-    verify_world_id_proof_with_sequencer(&request, endpoint).await
+    verify_world_id_proof_with_sequencer(&request, &endpoint).await
 }
 
 /// Handles error responses from the World ID sequencer.
@@ -177,7 +180,7 @@ fn handle_sequencer_error(error_text: &str, status: reqwest::StatusCode) -> Worl
 #[cfg(test)]
 mod tests {
     use super::*;
-    use walletkit_core::{CredentialType, Environment};
+    use walletkit_core::{world_id::WorldId, CredentialType, Environment};
 
     /// Tests the WorldIdProof construction and verification flow.
     ///
@@ -268,5 +271,40 @@ mod tests {
             }
             _ => panic!("Invalid proof should not have been accepted"),
         }
+    }
+
+    #[tokio::test]
+    async fn test_verify_valid_world_id_proof() {
+        // Create a valid proof
+        let app_id = "app_staging_509648994ab005fe79c4ddd0449606ca";
+        let action = "test_action";
+        let signal = "test_signal";
+
+        let world_id = WorldId::new(b"not_a_real_secret", &walletkit_core::Environment::Staging);
+        let context = ProofContext::new(
+            app_id,
+            Some(action.to_string()),
+            Some(signal.to_string()),
+            CredentialType::Device,
+        );
+
+        let proof = world_id
+            .generate_proof(&context)
+            .await
+            .expect("Failed to generate proof");
+
+        let result = verify_world_id_proof(
+            app_id,
+            action,
+            &proof.get_proof_as_string(),
+            &proof.get_nullifier_hash().to_hex_string(),
+            &proof.get_merkle_root().to_hex_string(),
+            CredentialType::Device,
+            signal,
+            &walletkit_core::Environment::Staging,
+        )
+        .await;
+
+        assert!(result.is_ok(), "Valid proof was rejected");
     }
 }

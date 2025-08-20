@@ -299,3 +299,163 @@ async fn test_ping_auth_proof() {
     assert!(pinged.ttl > now, "TTL should be set to a future timestamp");
     assert_eq!(pinged.nullifier, auth_proof_request.nullifier);
 }
+
+#[tokio::test]
+async fn test_get_or_insert_creates_new() {
+    let context = setup_test().await;
+
+    let auth_proof_request = create_test_auth_proof_request();
+    let nullifier = auth_proof_request.nullifier.clone();
+
+    // Verify it doesn't exist yet
+    let not_exists = context
+        .storage
+        .get_by_nullifier(&nullifier)
+        .await
+        .expect("Failed to check existence");
+    assert!(not_exists.is_none(), "Should not exist initially");
+
+    // Call get_or_insert - should create new entry
+    let created = context
+        .storage
+        .get_or_insert(auth_proof_request.clone())
+        .await
+        .expect("Failed to get_or_insert");
+
+    // Verify it was created with correct values
+    assert_eq!(created.nullifier, nullifier);
+    assert_eq!(
+        created.encrypted_push_id,
+        auth_proof_request.encrypted_push_id
+    );
+
+    // Verify TTL is set to future
+    let now: i64 = Utc::now().timestamp();
+    assert!(created.ttl > now, "TTL should be set to a future timestamp");
+
+    // Verify it's actually rounded to midnight (00:00:00)
+    const SECONDS_IN_DAY: i64 = 86400;
+    assert_eq!(
+        created.push_id_rotated_at % SECONDS_IN_DAY,
+        0,
+        "push_id_rotated_at should be rounded to midnight (00:00:00)"
+    );
+
+    // Verify it's close to current time (within 1 day)
+    let diff = (now - created.push_id_rotated_at).abs();
+    assert!(
+        diff <= SECONDS_IN_DAY,
+        "push_id_rotated_at should be within 1 day of current time, but diff is {} seconds",
+        diff
+    );
+}
+
+#[tokio::test]
+async fn test_get_or_insert_returns_existing() {
+    let context = setup_test().await;
+
+    let auth_proof_request = create_test_auth_proof_request();
+    let nullifier = auth_proof_request.nullifier.clone();
+
+    // First, insert an auth proof
+    let inserted = context
+        .storage
+        .insert(auth_proof_request.clone())
+        .await
+        .expect("Failed to insert auth proof");
+
+    // Create a different request with same nullifier but different encrypted_push_id
+    let different_request = AuthProofInsertRequest {
+        nullifier: nullifier.clone(),
+        encrypted_push_id: format!("different-encrypted-{}", Uuid::new_v4()),
+    };
+
+    // Call get_or_insert - should return existing entry, NOT create new
+    let existing = context
+        .storage
+        .get_or_insert(different_request.clone())
+        .await
+        .expect("Failed to get_or_insert");
+
+    // Verify it returned the ORIGINAL values, not the new ones
+    assert_eq!(existing.nullifier, inserted.nullifier);
+    assert_eq!(
+        existing.encrypted_push_id, inserted.encrypted_push_id,
+        "Should return original encrypted_push_id, not the new one"
+    );
+    assert_eq!(
+        existing.push_id_rotated_at, inserted.push_id_rotated_at,
+        "Should return original push_id_rotated_at"
+    );
+    assert_eq!(existing.ttl, inserted.ttl, "Should return original ttl");
+
+    // Verify the different_request values were NOT used
+    assert_ne!(
+        existing.encrypted_push_id, different_request.encrypted_push_id,
+        "Should NOT have used the new encrypted_push_id"
+    );
+}
+
+#[tokio::test]
+async fn test_get_or_insert_atomic_concurrent() {
+    let context = setup_test().await;
+
+    // Create multiple requests with the same nullifier
+    let nullifier = format!("concurrent-nullifier-{}", Uuid::new_v4());
+    let requests: Vec<AuthProofInsertRequest> = (0..5)
+        .map(|i| AuthProofInsertRequest {
+            nullifier: nullifier.clone(),
+            encrypted_push_id: format!("encrypted-concurrent-{}-{}", i, Uuid::new_v4()),
+        })
+        .collect();
+
+    // Run get_or_insert concurrently
+    let futures: Vec<_> = requests
+        .into_iter()
+        .map(|req| {
+            let storage = context.storage.clone();
+            async move { storage.get_or_insert(req.clone()).await }
+        })
+        .collect();
+
+    let results = futures::future::join_all(futures).await;
+
+    // All should succeed
+    for result in &results {
+        assert!(
+            result.is_ok(),
+            "All concurrent get_or_insert should succeed"
+        );
+    }
+
+    // Extract successful results
+    let auth_proofs: Vec<_> = results.into_iter().map(|r| r.unwrap()).collect();
+
+    // All should have the same values (atomicity check)
+    let first = &auth_proofs[0];
+    for auth_proof in &auth_proofs[1..] {
+        assert_eq!(auth_proof.nullifier, first.nullifier);
+        assert_eq!(
+            auth_proof.encrypted_push_id, first.encrypted_push_id,
+            "All concurrent calls should return the same encrypted_push_id"
+        );
+        assert_eq!(
+            auth_proof.push_id_rotated_at, first.push_id_rotated_at,
+            "All concurrent calls should return the same push_id_rotated_at"
+        );
+        assert_eq!(
+            auth_proof.ttl, first.ttl,
+            "All concurrent calls should return the same ttl"
+        );
+    }
+
+    // Verify only one entry exists in the database
+    let final_check = context
+        .storage
+        .get_by_nullifier(&nullifier)
+        .await
+        .expect("Failed to get final state")
+        .expect("Should exist");
+
+    assert_eq!(final_check.encrypted_push_id, first.encrypted_push_id);
+}

@@ -68,6 +68,7 @@ pub struct AuthProofInsertRequest {
 ///
 /// The `push_id_rotated_at` is used to track when the push ID was last changed. In the app layer we will handle cooldown period to avoid
 /// impersonation attacks.
+#[derive(Clone)]
 pub struct AuthProofStorage {
     dynamodb_client: Arc<DynamoDbClient>,
     table_name: String,
@@ -261,6 +262,82 @@ impl AuthProofStorage {
             .map_err(|e| AuthProofStorageError::SerializationError(e.to_string()))?;
 
         Ok(item)
+    }
+
+    /// Atomically gets an existing auth proof or inserts a new one if it doesn't exist
+    ///
+    /// This method performs an atomic get-or-insert operation in a single `DynamoDB` request
+    /// without using transactions. It uses `UpdateItem` with conditional expressions to:
+    /// - Return the existing item if it exists
+    /// - Create and return a new item if it doesn't exist
+    ///
+    /// # Arguments
+    ///
+    /// * `auth_proof_request` - The auth proof to insert if it doesn't exist
+    ///
+    /// # Returns
+    ///
+    /// Returns the existing auth proof if found, or the newly created auth proof
+    ///
+    /// # Errors
+    ///
+    /// Returns `AuthProofStorageError` if the `DynamoDB` operation fails
+    pub async fn get_or_insert(
+        &self,
+        auth_proof_request: AuthProofInsertRequest,
+    ) -> AuthProofStorageResult<AuthProof> {
+        let now = Utc::now().timestamp();
+        let rounded_now = Self::round_to_nearest_day(now);
+        let ttl = Self::generate_ttl();
+
+        let response = self
+            .dynamodb_client
+            .update_item()
+            .table_name(&self.table_name)
+            .key(
+                AuthProofAttribute::Nullifier.to_string(),
+                AttributeValue::S(auth_proof_request.nullifier.clone()),
+            )
+            // Only set these attributes if they don't already exist
+            .update_expression(
+                "SET #encrypted_push_id = if_not_exists(#encrypted_push_id, :encrypted_push_id), \
+                 #push_id_rotated_at = if_not_exists(#push_id_rotated_at, :push_id_rotated_at), \
+                 #ttl = if_not_exists(#ttl, :ttl)",
+            )
+            .expression_attribute_names(
+                "#encrypted_push_id",
+                AuthProofAttribute::EncryptedPushId.to_string(),
+            )
+            .expression_attribute_names(
+                "#push_id_rotated_at",
+                AuthProofAttribute::PushIdRotatedAt.to_string(),
+            )
+            .expression_attribute_names("#ttl", AuthProofAttribute::Ttl.to_string())
+            .expression_attribute_values(
+                ":encrypted_push_id",
+                AttributeValue::S(auth_proof_request.encrypted_push_id.clone()),
+            )
+            .expression_attribute_values(
+                ":push_id_rotated_at",
+                AttributeValue::N(rounded_now.to_string()),
+            )
+            .expression_attribute_values(":ttl", AttributeValue::N(ttl.to_string()))
+            // Return all attributes after the update
+            .return_values(aws_sdk_dynamodb::types::ReturnValue::AllNew)
+            .send()
+            .await?;
+
+        // Parse the returned item
+        let item = response.attributes().ok_or_else(|| {
+            AuthProofStorageError::SerializationError(
+                "No attributes returned from update operation".to_string(),
+            )
+        })?;
+
+        let auth_proof = serde_dynamo::from_item(item.clone())
+            .map_err(|e| AuthProofStorageError::SerializationError(e.to_string()))?;
+
+        Ok(auth_proof)
     }
 
     /// Pings an auth proof to refresh its TTL

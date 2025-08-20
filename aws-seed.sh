@@ -2,6 +2,10 @@
 # Create S3 bucket for media storage
 awslocal s3 mb s3://world-chat-media
 
+# Create KMS key for JWT signing and alias
+KMS_KEY_ID=$(awslocal kms create-key --key-usage SIGN_VERIFY --key-spec ECC_NIST_P256 --query 'KeyMetadata.KeyId' --output text)
+awslocal kms create-alias --alias-name alias/world-chat-jwt --target-key-id "$KMS_KEY_ID"
+
 # Create DynamoDB table for push subscriptions
 awslocal dynamodb create-table \
     --table-name world-chat-push-subscriptions \

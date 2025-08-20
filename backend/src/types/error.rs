@@ -10,6 +10,7 @@ use backend_storage::auth_proof::AuthProofStorageError;
 use schemars::JsonSchema;
 use serde::Serialize;
 
+use crate::jwt::error::JwtError;
 use crate::media_storage::BucketError;
 use crate::world_id::error::WorldIdError;
 
@@ -276,6 +277,53 @@ impl From<WorldIdError> for AppError {
                     "sequencer_error",
                     "World ID verification service error",
                     true,
+                )
+            }
+        }
+    }
+}
+
+/// Convert JWT errors to application errors
+impl From<JwtError> for AppError {
+    #[allow(clippy::cognitive_complexity)]
+    fn from(err: JwtError) -> Self {
+        use JwtError::{JoinError, JoseKitError, JwksRetrievalError, ValidationError};
+
+        match &err {
+            JoseKitError(e) => {
+                tracing::error!("JWT signing error: {e}");
+                Self::new(
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "token_generation_failed",
+                    "Failed to generate access token",
+                    false,
+                )
+            }
+            JoinError(e) => {
+                tracing::error!("JWT signing task join error: {e}");
+                Self::new(
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "token_generation_failed",
+                    "Failed to generate access token",
+                    false,
+                )
+            }
+            JwksRetrievalError(e) => {
+                tracing::error!("JWKS retrieval failed: {e}");
+                Self::new(
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "jwks_error",
+                    "Failed to prepare JWKS",
+                    false,
+                )
+            }
+            ValidationError => {
+                tracing::debug!("JWT validation failed");
+                Self::new(
+                    StatusCode::UNAUTHORIZED,
+                    "invalid_token",
+                    "Invalid or expired token",
+                    false,
                 )
             }
         }

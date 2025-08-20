@@ -71,24 +71,9 @@ jobs:
       - name: Cache dependencies
         uses: Swatinem/rust-cache@v2
 
-      - name: Start LocalStack
+      - name: Start LocalStack and wait for it to be healthy
         run: |
-          docker compose up -d
-          # Wait for services to be ready
-          sleep 5
-
-      - name: Wait for LocalStack
-        run: |
-          for i in {1..10}; do
-            if curl -s http://localhost:4566/_localstack/health | jq -e '.services.s3 == "running"' && \
-               curl -s http://localhost:4566/_localstack/health | jq -e '.services.dynamodb == "running"' && \
-               curl -s http://localhost:4566/_localstack/health | jq -e '.services.sqs == "running"'; then
-              echo "LocalStack services are ready!"
-              break
-            fi
-            echo "Waiting for LocalStack... attempt $i/10"
-            sleep 1
-          done
+          docker compose up -d --wait localstack
 
       - name: Run tests
         run: cargo test -- --nocapture
@@ -154,13 +139,19 @@ jobs:
           cache-to: type=gha,mode=max
           platforms: linux/amd64
 
+      - name: Start LocalStack and wait for it to be healthy
+        run: |
+          docker compose up -d --wait localstack
+
       - name: Run backend container
         run: |
+          # Use the explicit network defined in docker-compose.yml
           docker run -d \
             --name world-chat-backend-test \
+            --network world-chat-network \
             -p 8000:8000 \
-            -e APP_ENV=development \
-            -e S3_BUCKET_NAME=test-bucket \
+            -e AWS_ENDPOINT_URL=http://localstack:4566 \
+            --env-file backend/.env.example \
             world-chat-backend:latest
 
           # Wait for the application to start
@@ -176,3 +167,4 @@ jobs:
         run: |
           docker stop world-chat-backend-test || true
           docker rm world-chat-backend-test || true
+          docker compose down

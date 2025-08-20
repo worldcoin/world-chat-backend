@@ -12,12 +12,6 @@ targets = ["x86_64-unknown-linux-gnu"]
 unknown-registry = "deny"
 
 [bans]
-# Deny specific crates
-deny = [
-    { name = "openssl-sys", reason = "increases complexity for foreign binding compilation and bundle size" },
-    { name = "openssl", reason = "increases complexity for foreign binding compilation and bundle size" },
-]
-
 # Allow multiple versions of these crates - they're commonly duplicated in the ecosystem
 multiple-versions = "allow"
 

@@ -39,6 +39,7 @@ aws-config = { workspace = true }
 aws-sdk-s3 = { workspace = true }
 aws-sdk-dynamodb = { workspace = true }
 aws-sdk-sqs = { workspace = true }
+aws-sdk-kms = { workspace = true }
 
 # Time
 chrono = { workspace = true }
@@ -54,12 +55,19 @@ hex = { workspace = true }
 backend_storage = { workspace = true }
 
 # World ID
-walletkit-core = { version = "0.1.3", features= ["semaphore"], default-features = false }
+walletkit-core = { version = "0.1.4", features= ["semaphore"], default-features = false }
 semaphore-rs = { version = "0.5" }
 reqwest = { workspace = true }
 
 # Mime types
 mime = { workspace = true }
+
+# JWT / JWS
+josekit = "0.10.0"
+sha2 = { workspace = true }
+
+# OpenSSL
+openssl = { workspace = true }
 
 [dev-dependencies]
 http-body-util = { workspace = true }
@@ -74,3 +82,4 @@ dotenvy = { workspace = true }
 serial_test = { workspace = true }
 rand = { workspace = true }
 http = { workspace = true }
+aws-credential-types = { version = "1.2.5" , features = ["hardcoded-credentials"]}

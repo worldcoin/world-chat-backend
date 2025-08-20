@@ -2,13 +2,14 @@ use std::sync::Arc;
 
 use aide::openapi::OpenApi;
 use axum::Extension;
+use backend_storage::auth_proof::AuthProofStorage;
 use datadog_tracing::axum::{shutdown_signal, OtelAxumLayer, OtelInResponseLayer};
 use tokio::net::TcpListener;
 
 use crate::routes;
-use crate::{media_storage::MediaStorage, types::Environment};
+use crate::{jwt::JwtManager, media_storage::MediaStorage, types::Environment};
 
-/// Starts the server with the given environment and image storage
+/// Starts the server with the given environment and dependencies
 ///
 /// # Errors
 ///
@@ -16,6 +17,8 @@ use crate::{media_storage::MediaStorage, types::Environment};
 pub async fn start(
     environment: Environment,
     media_storage: Arc<MediaStorage>,
+    jwt_manager: Arc<JwtManager>,
+    auth_proof_storage: Arc<AuthProofStorage>,
 ) -> anyhow::Result<()> {
     let mut openapi = OpenApi::default();
 
@@ -24,6 +27,8 @@ pub async fn start(
         .layer(Extension(openapi))
         .layer(Extension(environment))
         .layer(Extension(media_storage))
+        .layer(Extension(jwt_manager))
+        .layer(Extension(auth_proof_storage))
         // Include trace context as header into the response
         .layer(OtelInResponseLayer)
         // Start OpenTelemetry trace on incoming request
