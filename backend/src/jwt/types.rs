@@ -5,8 +5,15 @@ use sha2::Digest;
 
 use crate::jwt::error::JwtError;
 
+/// Default access token lifetime.
 pub const TOKEN_EXPIRATION: Duration = Duration::days(7);
 
+/// Compact JWS header used for ES256 tokens.
+///
+/// Fields follow RFC 7515/7518 conventions:
+/// - `alg`: algorithm, fixed to "ES256"
+/// - `typ`: token type, fixed to "JWT"
+/// - `kid`: key identifier derived from the AWS KMS key ARN
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct JwsHeader {
     #[serde(rename = "alg")]
@@ -17,6 +24,9 @@ pub struct JwsHeader {
     pub kid: String,
 }
 
+/// World Chat JWT claims (payload). Minimal subset we use today.
+///
+/// Times are seconds since epoch. Optional to accommodate different flows.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct JwsPayload {
     #[serde(rename = "sub")]
@@ -46,6 +56,10 @@ impl JwsPayload {
     }
 }
 
+/// Definition of the KMS key used for signing/verifying JWTs.
+///
+/// `id` is a stable `kid` derived from the ARN (SHA-224, base64url, prefixed),
+/// so we can rotate keys without breaking validation routing.
 #[derive(Debug, Clone)]
 pub struct KmsKeyDefinition {
     pub id: String,
@@ -63,6 +77,8 @@ impl KmsKeyDefinition {
     }
 }
 
+/// Borrowing view over a compact JWS (header.payload.signature)
+/// used only during validation to avoid allocations.
 pub struct JwsTokenParts<'a> {
     pub header: &'a str,
     pub payload: &'a str,

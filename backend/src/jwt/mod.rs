@@ -1,5 +1,18 @@
-//! JWT token management using AWS KMS (ES256) and a stable `kid` derived from the key ARN.
-//! Rewritten to use `jwt-compact` and `p256` (no OpenSSL, no josekit).
+//! JWT/JWS management using AWS KMS (ES256) with `p256` verification.
+//!
+//! Overview:
+//! - We hand-roll compact JWS (header.payload.signature) per RFC 7515/7518
+//! - Signing uses AWS KMS `Sign` with `EcdsaSha256` over the compact input
+//! - KMS returns DER-encoded ECDSA signatures; we convert to raw r||s
+//! - Verification uses `p256`'s `VerifyingKey` over SHA-256 of the compact input
+//! - `kid` is derived deterministically from the KMS key ARN and embedded in the header
+//!
+//! Rationale:
+//! - Most rust jwt libraries didn't support external signing
+//! - From the libraries that did, they supported only synchronous signing, leading to sync/async gymnastics
+//! - We also wanted to avoid using OpenSSL
+//! - eg. `josekit` `JwsSigner` trait is sync and used OpenSSL
+//! - eg. `jwt-compact` even though it didn't use OpenSSL it still had a sync `Algorithm` trait without a good support for Errors
 
 pub mod error;
 mod types;
@@ -46,7 +59,7 @@ impl JwtManager {
     /// Create a new JWT manager backed by AWS KMS.
     ///
     /// # Errors
-    /// Returns an error if the KMS public key cannot be retrieved.
+    /// Returns an error if the KMS public key cannot be retrieved or parsed.
     pub async fn new(kms_client: KmsClient, environment: &Environment) -> Result<Self, JwtError> {
         let key = KmsKeyDefinition::from_arn(environment.jwt_kms_key_arn());
         let spki = kms_client
@@ -70,10 +83,10 @@ impl JwtManager {
         })
     }
 
-    /// Issue a compact JWT string using ES256.
+    /// Issue a compact JWS (JWT) string using ES256 via AWS KMS.
     ///
     /// # Errors
-    /// Returns an error if token creation fails.
+    /// Returns an error if header/payload serialization fails or KMS signing fails.
     pub async fn issue_token(&self, payload: JwsPayload) -> Result<String, JwtError> {
         let header = JwsHeader {
             alg: ALG_ES256.to_string(),
@@ -82,7 +95,7 @@ impl JwtManager {
         };
         let signing_input = Self::craft_signing_input(&header, &payload)?;
 
-        // Sign via KMS asynchronously and DER->raw (r||s) convert using p256::ecdsa::Signature
+        // Sign via KMS asynchronously and convert DER -> raw (r||s).
         let der_sig = self
             .kms_client
             .sign()
@@ -107,14 +120,15 @@ impl JwtManager {
         Ok(token)
     }
 
-    /// Validate a JWT string and return parsed claims on success.
+    /// Validate a compact JWS (JWT) string and return parsed claims on success.
     ///
     /// # Errors
-    /// Returns an error if parsing or signature validation fails.
+    /// Returns an error if parsing fails, header is unexpected, signature is invalid,
+    /// or time-based claims fail validation.
     pub fn validate(&self, token_str: &str) -> Result<JwsPayload, JwtError> {
         let parts = JwsTokenParts::try_from(token_str)?;
 
-        // Header checks
+        // Header checks: enforce alg, typ, and kid to prevent alg confusion
         let header: JwsHeader = decode_json_b64(parts.header)?;
         if header.alg != ALG_ES256 || header.typ != TYP_JWT || header.kid != self.kid {
             return Err(JwtError::InvalidToken);
@@ -133,6 +147,7 @@ impl JwtManager {
 
 /// Private methods/helpers
 impl JwtManager {
+    /// Verify ES256 signature over the compact input `header.payload`.
     fn verify_signature(&self, parts: &JwsTokenParts<'_>) -> Result<(), JwtError> {
         let mut digest = Sha256::new();
         digest.update(parts.header.as_bytes());
@@ -149,6 +164,7 @@ impl JwtManager {
             .map_err(|_| JwtError::InvalidSignature)
     }
 
+    /// Validate `nbf` and `exp` with a small clock skew allowance.
     const fn validate_claims(claims: &JwsPayload, now: i64, skew: i64) -> Result<(), JwtError> {
         if let Some(nbf) = claims.not_before {
             if now + skew < nbf {
@@ -163,6 +179,7 @@ impl JwtManager {
         Ok(())
     }
 
+    /// Serialize + base64url-encode header and payload, and join with a dot.
     fn craft_signing_input(header: &JwsHeader, payload: &JwsPayload) -> Result<String, JwtError> {
         let header_json = serde_json::to_vec(header)
             .map_err(|e| JwtError::SigningInput(format!("serialize header: {e}")))?;

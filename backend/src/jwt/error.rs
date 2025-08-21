@@ -1,4 +1,7 @@
-//! JWT-related error types
+//! JWT-related error types for our hand-rolled JWS (ES256) implementation.
+//!
+//! These errors intentionally avoid dependencies on JWT libraries so that the
+//! rest of the codebase deals with a small, well-defined set of cases.
 
 use thiserror::Error;
 
