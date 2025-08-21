@@ -18,7 +18,7 @@ async fn main() -> anyhow::Result<()> {
 
     // Initialize JWT manager backed by AWS KMS
     let kms_client = KmsClient::new(&environment.aws_config().await);
-    let jwt_manager = Arc::new(JwtManager::new(kms_client, &environment));
+    let jwt_manager = Arc::new(JwtManager::new(kms_client, &environment).await?);
 
     // Initialize S3 client and media storage
     let s3_client = Arc::new(S3Client::from_conf(environment.s3_client_config().await));

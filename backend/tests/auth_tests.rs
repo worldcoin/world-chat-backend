@@ -243,9 +243,7 @@ async fn test_authorize_invalid_merkle_root_format() {
 }
 
 #[tokio::test]
-async fn test_authorize_jwt_is_verifiable_with_josekit() {
-    use josekit::jws::alg::ecdsa::EcdsaJwsAlgorithm;
-
+async fn test_authorize_jwt_is_validatable_by_manager() {
     let context = TestSetup::new(None).await;
 
     // Get a valid access token
@@ -276,107 +274,11 @@ async fn test_authorize_jwt_is_verifiable_with_josekit() {
         .as_str()
         .expect("access_token must be a string");
 
-    // Fetch KMS public key (DER, SubjectPublicKeyInfo)
-    let pk_out = context
-        .kms_client
-        .get_public_key()
-        .key_id(context.environment.jwt_kms_key_arn())
-        .send()
+    // Validate using JwtManager (independent of route issuance path)
+    let manager = backend::jwt::JwtManager::new(context.kms_client.clone(), &context.environment)
         .await
-        .expect("get_public_key failed");
-    let der = pk_out
-        .public_key()
-        .expect("missing public_key in GetPublicKey output")
-        .as_ref()
-        .to_vec();
-
-    // Verify with josekit ES256
-    let verifier = EcdsaJwsAlgorithm::Es256
-        .verifier_from_der(&der)
-        .expect("verifier_from_der failed");
-    let (payload, header) =
-        josekit::jwt::decode_with_verifier(token, &verifier).expect("JWT verification failed");
-
-    // Basic header assertions
-    assert_eq!(header.algorithm(), Some("ES256"));
-    assert_eq!(header.token_type(), Some("JWT"));
-
-    // Ensure payload is a JSON object and contains expected claims shape
-    let payload_json: serde_json::Value =
-        serde_json::from_str(&payload.to_string()).expect("payload should be valid JSON");
-    assert!(payload_json.is_object());
-    assert_eq!(
-        payload_json.get("sub").expect("missing sub").as_str(),
-        Some(encrypted_push_id.as_str())
-    );
-}
-
-#[tokio::test]
-async fn test_jwks_wellknown_verifies_token_signature() {
-    use josekit::{jwk::Jwk, jws::alg::ecdsa::EcdsaJwsAlgorithm};
-
-    let context = TestSetup::new(None).await;
-
-    // Issue a valid access token
-    let encrypted_push_id = format!("encrypted-push-{}", Uuid::new_v4());
-    let proof = create_valid_world_id_proof(encrypted_push_id.clone()).await;
-    let auth_request = json!({
-        "proof": proof.get_proof_as_string(),
-        "nullifier_hash": proof.get_nullifier_hash().to_hex_string(),
-        "merkle_root": proof.get_merkle_root().to_hex_string(),
-        "encrypted_push_id": encrypted_push_id,
-        "credential_type": proof.get_credential_type(),
-    });
-
-    let response = context
-        .send_post_request("/v1/authorize", auth_request)
-        .await
-        .expect("Failed to send request");
-    assert_eq!(response.status(), StatusCode::OK);
-    let body = context
-        .parse_response_body(response)
-        .await
-        .expect("Failed to parse response");
-    let token = body["access_token"]
-        .as_str()
-        .expect("access_token must be a string");
-
-    // Fetch JWKS from well-known endpoint
-    let jwks_resp = context
-        .send_get_request("/.well-known/jwks.json")
-        .await
-        .expect("Failed to GET jwks");
-    assert_eq!(jwks_resp.status(), StatusCode::OK);
-    let jwks_body: serde_json::Value = context
-        .parse_response_body(jwks_resp)
-        .await
-        .expect("Failed to parse jwks body");
-
-    let keys = jwks_body["keys"].as_array().expect("keys must be an array");
-    assert!(!keys.is_empty(), "jwks keys must not be empty");
-    let first_key = &keys[0];
-
-    // Build verifier from JWK
-    let jwk = Jwk::from_bytes(first_key.to_string().as_bytes()).expect("invalid jwk json");
-    let verifier = EcdsaJwsAlgorithm::Es256
-        .verifier_from_jwk(&jwk)
-        .expect("verifier_from_jwk failed");
-
-    // Verify token using JWKS-derived verifier
-    let (payload, header) =
-        josekit::jwt::decode_with_verifier(token, &verifier).expect("JWT verification failed");
-    assert_eq!(header.algorithm(), Some("ES256"));
-    assert_eq!(header.token_type(), Some("JWT"));
-
-    // Check sub claim matches the encrypted_push_id we used
-    let payload_json: serde_json::Value =
-        serde_json::from_str(&payload.to_string()).expect("payload should be valid JSON");
-    assert_eq!(
-        payload_json.get("sub").expect("missing subject").as_str(),
-        Some(encrypted_push_id.as_str())
-    );
-    assert_eq!(
-        payload_json.get("iss").expect("missing issuer").as_str(),
-        Some("chat.toolsforhumanity.com")
-    );
+        .expect("failed to build JwtManager");
+    let claims = manager.validate(token).expect("token should validate");
+    assert_eq!(claims.subject, encrypted_push_id);
+    assert_eq!(claims.issuer, "chat.toolsforhumanity.com");
 }

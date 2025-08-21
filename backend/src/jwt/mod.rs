@@ -1,122 +1,181 @@
 //! JWT token management using AWS KMS (ES256) and a stable `kid` derived from the key ARN.
-//!
-//! This module signs JWTs via AWS KMS using ECDSA P‑256 + SHA‑256 (ES256). The private
-//! key never leaves KMS. The JWT header includes:
-//! - `alg = "ES256"`
-//! - `typ = "JWT"`
-//! - `kid = <derived from KMS key ARN>`
-//!
-//! The `kid` is deterministic and safe to publish. It’s computed from the last path segment
-//! of the KMS key identifier (key ID or alias) using SHA‑224 and base64url, prefixed with
-//! `key_`. This enables easy key rotation and potential JWKS publication later on.
+//! Rewritten to use `jwt-compact` and `p256` (no OpenSSL, no josekit).
 
 pub mod error;
-mod jwk_ext;
-mod signer;
 mod types;
 
-use aws_sdk_kms::Client as KmsClient;
-use josekit::{jws::JwsHeader, jwt};
-
-use types::KmsKeyDefinition;
-// Export payload type for use in routes
-pub use types::WorldChatJwtPayload;
-
-use crate::types::Environment;
-use serde_json::{Map, Value};
-
 use error::JwtError;
-use openssl::pkey::PKey;
-use signer::KmsEcdsaJwsSigner;
+pub use types::{JwsPayload, KmsKeyDefinition};
 
-/// High‑level JWT manager backed by AWS KMS (ES256).
-///
-/// Responsibilities:
-/// - Holds the KMS client and the selected key (`KmsKeyDefinition`).
-/// - Issues compact JWS/JWT tokens using `josekit` and a custom signer that delegates to KMS.
-/// - Ensures headers are set consistently (`alg`, `typ`, `kid`).
+use aws_sdk_kms::{
+    primitives::Blob,
+    types::{MessageType, SigningAlgorithmSpec},
+    Client as KmsClient,
+};
+use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine as _};
+use p256::ecdsa::{signature::DigestVerifier, Signature, VerifyingKey};
+use p256::pkcs8::DecodePublicKey;
+use serde::de::DeserializeOwned;
+use sha2::{Digest, Sha256};
+
+use crate::{
+    jwt::types::{JwsHeader, JwsTokenParts},
+    types::Environment,
+};
+
+const ALG_ES256: &str = "ES256";
+const TYP_JWT: &str = "JWT";
+const MAX_SKEW_SECS: i64 = 60;
+
+fn decode_json_b64<T: DeserializeOwned>(b64: &str) -> Result<T, JwtError> {
+    let bytes = URL_SAFE_NO_PAD
+        .decode(b64)
+        .map_err(|_| JwtError::InvalidToken)?;
+    serde_json::from_slice(&bytes).map_err(|_| JwtError::InvalidToken)
+}
+
 #[derive(Clone)]
 pub struct JwtManager {
+    verifying_key: VerifyingKey,
+    kid: String,
     kms_client: KmsClient,
-    key: KmsKeyDefinition,
+    key_arn: String,
 }
 
 impl JwtManager {
-    /// Creates a new JWT manager from the provided environment.
-    ///
-    /// - Reads the JWT KMS key ARN from `Environment`.
-    /// - Derives a stable, publishable `kid` from that ARN via `KmsKeyDefinition::from_arn`.
-    #[must_use]
-    pub fn new(kms_client: KmsClient, environment: &Environment) -> Self {
-        let key_arn = environment.jwt_kms_key_arn();
-        let key = KmsKeyDefinition::from_arn(key_arn);
-
-        Self { kms_client, key }
-    }
-
-    /// Issues a compact JWT signed by KMS.
-    ///
-    /// - Header: `alg=ES256`, `typ=JWT`, `kid=<derived>`
-    /// - Claims: `{ sub, exp, iat }`, where `iat` is set to current time
-    /// - Signing: Uses KMS `Sign(ECDSA_SHA_256)` via a custom `JwsSigner`. Because `JwsSigner`
-    ///   is synchronous, we call `encode_with_signer` from `spawn_blocking` to avoid blocking
-    ///   the async runtime while the signer internally bridges to async (KMS) for each sign.
+    /// Create a new JWT manager backed by AWS KMS.
     ///
     /// # Errors
-    /// - `JwtError::JoseKitError` for JOSE/JWS encoding or signature mapping issues.
-    /// - `JwtError::JoinError` if the blocking task fails to join.
-    /// - `JwtError::ValidationError` is reserved for decode/verify flows.
-    pub async fn issue_token(&self, payload: WorldChatJwtPayload) -> Result<String, JwtError> {
-        // Prepare JWS header and payload
-        let payload = payload.generate_jwt_payload();
-        let mut header = JwsHeader::new();
-        header.set_token_type("JWT");
-        header.set_key_id(self.key.id.clone());
+    /// Returns an error if the KMS public key cannot be retrieved.
+    pub async fn new(kms_client: KmsClient, environment: &Environment) -> Result<Self, JwtError> {
+        let key = KmsKeyDefinition::from_arn(environment.jwt_kms_key_arn());
+        let spki = kms_client
+            .get_public_key()
+            .key_id(&key.arn)
+            .send()
+            .await
+            .map_err(|e| JwtError::Kms(Box::new(e.into())))?
+            .public_key()
+            .ok_or_else(|| anyhow::anyhow!("missing public key in KMS response"))?
+            .as_ref()
+            .to_vec();
 
-        let signer = KmsEcdsaJwsSigner::new(self.kms_client.clone(), self.key.clone());
-
-        let token = tokio::task::spawn_blocking(move || {
-            jwt::encode_with_signer(&payload, &header, &signer)
+        let verifying_key =
+            VerifyingKey::from_public_key_der(&spki).map_err(|e| JwtError::Other(e.into()))?;
+        Ok(Self {
+            verifying_key,
+            kid: key.id,
+            kms_client,
+            key_arn: key.arn,
         })
-        .await??;
+    }
 
+    /// Issue a compact JWT string using ES256.
+    ///
+    /// # Errors
+    /// Returns an error if token creation fails.
+    pub async fn issue_token(&self, payload: JwsPayload) -> Result<String, JwtError> {
+        let header = JwsHeader {
+            alg: ALG_ES256.to_string(),
+            typ: TYP_JWT.to_string(),
+            kid: self.kid.clone(),
+        };
+        let signing_input = Self::craft_signing_input(&header, &payload)?;
+
+        // Sign via KMS asynchronously and DER->raw (r||s) convert using p256::ecdsa::Signature
+        let der_sig = self
+            .kms_client
+            .sign()
+            .key_id(&self.key_arn)
+            .message(Blob::new(signing_input.as_bytes()))
+            .message_type(MessageType::Raw)
+            .signing_algorithm(SigningAlgorithmSpec::EcdsaSha256)
+            .send()
+            .await
+            .map_err(|e| JwtError::Kms(Box::new(e.into())))?
+            .signature
+            .ok_or_else(|| anyhow::anyhow!("empty signature from KMS"))?;
+
+        let sig = Signature::from_der(der_sig.as_ref())
+            .map_err(|e| JwtError::Other(e.into()))?
+            .to_bytes();
+        let sig_b64 = URL_SAFE_NO_PAD.encode(sig);
+
+        let mut token = signing_input;
+        token.push('.');
+        token.push_str(&sig_b64);
         Ok(token)
     }
 
-    /// Build a single JWK (ES256, P-256) from the KMS public key using a custom
-    /// `josekit::jwk::Jwk` extension.
+    /// Validate a JWT string and return parsed claims on success.
     ///
     /// # Errors
-    /// - `JwtError::JwksRetrievalError` that abstracts various errors due to KMS, OpenSSL, or josekit.
-    // #[allow(clippy::redundant_closure_call)]
-    pub async fn current_jwk(&self) -> Result<Map<String, Value>, JwtError> {
-        // Use an async block to map all the errors to an anyhow::Error
-        // to avoid mapping every error to JwtError manually, this would only fail if we can't retrive the public key from KMS
-        let res: anyhow::Result<Map<String, Value>> = (async {
-            let der = self
-                .kms_client
-                .get_public_key()
-                .key_id(self.key.arn.clone())
-                .send()
-                .await?
-                .public_key()
-                .ok_or_else(|| anyhow::anyhow!("missing public key in KMS response"))?
-                .as_ref()
-                .to_vec();
+    /// Returns an error if parsing or signature validation fails.
+    pub fn validate(&self, token_str: &str) -> Result<JwsPayload, JwtError> {
+        let parts = JwsTokenParts::try_from(token_str)?;
 
-            // Parse the DER public key
-            let pkey = PKey::public_key_from_der(&der)?;
+        // Header checks
+        let header: JwsHeader = decode_json_b64(parts.header)?;
+        if header.alg != ALG_ES256 || header.typ != TYP_JWT || header.kid != self.kid {
+            return Err(JwtError::InvalidToken);
+        }
 
-            // Use JWK extension to construct the JWK
-            let jwk = {
-                use crate::jwt::jwk_ext::JwkExt;
-                josekit::jwk::Jwk::new_ec_p256_from_openssl(&pkey, self.key.id.clone())
-            }?;
+        // Signature verification
+        self.verify_signature(&parts)?;
 
-            Ok(jwk.into())
-        })
-        .await;
+        // Claims + time validation with small skew
+        let claims: JwsPayload = decode_json_b64(parts.payload)?;
+        let now = chrono::Utc::now().timestamp();
+        Self::validate_claims(&claims, now, MAX_SKEW_SECS)?;
+        Ok(claims)
+    }
+}
 
-        res.map_err(JwtError::JwksRetrievalError)
+/// Private methods/helpers
+impl JwtManager {
+    fn verify_signature(&self, parts: &JwsTokenParts<'_>) -> Result<(), JwtError> {
+        let mut digest = Sha256::new();
+        digest.update(parts.header.as_bytes());
+        digest.update(b".");
+        digest.update(parts.payload.as_bytes());
+
+        let sig_bytes = URL_SAFE_NO_PAD
+            .decode(parts.signature)
+            .map_err(|_| JwtError::InvalidToken)?;
+        let sig =
+            Signature::try_from(sig_bytes.as_slice()).map_err(|_| JwtError::InvalidSignature)?;
+        self.verifying_key
+            .verify_digest(digest, &sig)
+            .map_err(|_| JwtError::InvalidSignature)
+    }
+
+    const fn validate_claims(claims: &JwsPayload, now: i64, skew: i64) -> Result<(), JwtError> {
+        if let Some(nbf) = claims.not_before {
+            if now + skew < nbf {
+                return Err(JwtError::InvalidToken);
+            }
+        }
+        if let Some(exp) = claims.expires_at {
+            if now - skew >= exp {
+                return Err(JwtError::InvalidToken);
+            }
+        }
+        Ok(())
+    }
+
+    fn craft_signing_input(header: &JwsHeader, payload: &JwsPayload) -> Result<String, JwtError> {
+        let header_json = serde_json::to_vec(header)
+            .map_err(|e| JwtError::SigningInput(format!("serialize header: {e}")))?;
+        let payload_json = serde_json::to_vec(payload)
+            .map_err(|e| JwtError::SigningInput(format!("serialize payload: {e}")))?;
+
+        let header_b64 = URL_SAFE_NO_PAD.encode(header_json);
+        let payload_b64 = URL_SAFE_NO_PAD.encode(payload_json);
+
+        let mut signing_input = String::with_capacity(header_b64.len() + 1 + payload_b64.len());
+        signing_input.push_str(&header_b64);
+        signing_input.push('.');
+        signing_input.push_str(&payload_b64);
+        Ok(signing_input)
     }
 }

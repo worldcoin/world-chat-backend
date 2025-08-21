@@ -1,24 +1,21 @@
 //! JWT-related error types
 
-use josekit::JoseError;
 use thiserror::Error;
 
-/// Errors that can occur during JWT operations
 #[derive(Error, Debug)]
 pub enum JwtError {
-    /// JWT validation failed (signature invalid or claims rejected)
-    #[error("Invalid or expired token")]
-    ValidationError,
+    #[error("Invalid or malformed token")]
+    InvalidToken,
 
-    /// Failed to join the blocking task
-    #[error("Failed to join the blocking task: {0}")]
-    JoinError(#[from] tokio::task::JoinError),
+    #[error("Invalid signature")]
+    InvalidSignature,
 
-    /// `JOSEKit` error
-    #[error("`JOSEKit` error: {0}")]
-    JoseKitError(#[from] JoseError),
+    #[error("Signing input build error: {0}")]
+    SigningInput(String),
 
-    /// Aggregate error for JWKS retrieval/construction
-    #[error("Failed to retrieve JWKS: {0}")]
-    JwksRetrievalError(#[from] anyhow::Error),
+    #[error("AWS KMS error: {0}")]
+    Kms(#[from] Box<aws_sdk_kms::Error>),
+
+    #[error("Other: {0}")]
+    Other(#[from] anyhow::Error),
 }
