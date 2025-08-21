@@ -17,7 +17,7 @@ async fn main() -> anyhow::Result<()> {
     let (_guard, tracer_shutdown) = datadog_tracing::init()?;
 
     // Initialize JWT manager backed by AWS KMS
-    let kms_client = KmsClient::new(&environment.aws_config().await);
+    let kms_client = Arc::new(KmsClient::new(&environment.aws_config().await));
     let jwt_manager = Arc::new(JwtManager::new(kms_client, &environment).await?);
 
     // Initialize S3 client and media storage

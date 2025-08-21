@@ -30,6 +30,7 @@ use p256::ecdsa::{signature::DigestVerifier, Signature, VerifyingKey};
 use p256::pkcs8::DecodePublicKey;
 use serde::de::DeserializeOwned;
 use sha2::{Digest, Sha256};
+use std::sync::Arc;
 
 use crate::{
     jwt::types::{JwsHeader, JwsTokenParts},
@@ -51,7 +52,7 @@ fn decode_json_b64<T: DeserializeOwned>(b64: &str) -> Result<T, JwtError> {
 pub struct JwtManager {
     verifying_key: VerifyingKey,
     kid: String,
-    kms_client: KmsClient,
+    kms_client: Arc<KmsClient>,
     key_arn: String,
 }
 
@@ -60,7 +61,10 @@ impl JwtManager {
     ///
     /// # Errors
     /// Returns an error if the KMS public key cannot be retrieved or parsed.
-    pub async fn new(kms_client: KmsClient, environment: &Environment) -> Result<Self, JwtError> {
+    pub async fn new(
+        kms_client: Arc<KmsClient>,
+        environment: &Environment,
+    ) -> Result<Self, JwtError> {
         let key = KmsKeyDefinition::from_arn(environment.jwt_kms_key_arn());
         let spki = kms_client
             .get_public_key()
