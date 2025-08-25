@@ -16,11 +16,8 @@ pub const TOKEN_EXPIRATION: Duration = Duration::days(7);
 /// - `kid`: key identifier derived from the AWS KMS key ARN
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct JwsHeader {
-    #[serde(rename = "alg")]
     pub alg: String,
-    #[serde(rename = "typ")]
     pub typ: String,
-    #[serde(rename = "kid")]
     pub kid: String,
 }
 
