@@ -287,42 +287,45 @@ impl From<WorldIdError> for AppError {
 impl From<JwtError> for AppError {
     #[allow(clippy::cognitive_complexity)]
     fn from(err: JwtError) -> Self {
-        use JwtError::{JoinError, JoseKitError, JwksRetrievalError, ValidationError};
+        use JwtError::{InvalidSignature, InvalidToken, Kms, Other, SigningInput};
 
         match &err {
-            JoseKitError(e) => {
-                tracing::error!("JWT signing error: {e}");
+            InvalidToken => Self::new(
+                StatusCode::UNAUTHORIZED,
+                "invalid_token",
+                "Invalid or malformed token",
+                false,
+            ),
+            Kms(e) => {
+                tracing::error!("KMS error: {e}");
+                Self::new(
+                    StatusCode::SERVICE_UNAVAILABLE,
+                    "kms_error",
+                    "Key management service temporarily unavailable",
+                    true,
+                )
+            }
+            InvalidSignature => Self::new(
+                StatusCode::UNAUTHORIZED,
+                "invalid_token",
+                "Invalid or expired token",
+                false,
+            ),
+            SigningInput(msg) => {
+                tracing::error!("JWT signing input error: {msg}");
                 Self::new(
                     StatusCode::INTERNAL_SERVER_ERROR,
-                    "token_generation_failed",
-                    "Failed to generate access token",
+                    "internal_error",
+                    "Internal server error",
                     false,
                 )
             }
-            JoinError(e) => {
-                tracing::error!("JWT signing task join error: {e}");
+            Other(e) => {
+                tracing::error!("Other JWT error: {e}");
                 Self::new(
                     StatusCode::INTERNAL_SERVER_ERROR,
-                    "token_generation_failed",
-                    "Failed to generate access token",
-                    false,
-                )
-            }
-            JwksRetrievalError(e) => {
-                tracing::error!("JWKS retrieval failed: {e}");
-                Self::new(
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    "jwks_error",
-                    "Failed to prepare JWKS",
-                    false,
-                )
-            }
-            ValidationError => {
-                tracing::debug!("JWT validation failed");
-                Self::new(
-                    StatusCode::UNAUTHORIZED,
-                    "invalid_token",
-                    "Invalid or expired token",
+                    "internal_error",
+                    "Internal server error",
                     false,
                 )
             }

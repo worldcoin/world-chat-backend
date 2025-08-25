@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use walletkit_core::CredentialType;
 
 use crate::{
-    jwt::{JwtManager, WorldChatJwtPayload},
+    jwt::{JwsPayload, JwtManager},
     types::{AppError, Environment},
     world_id::verifier::verify_world_id_proof,
 };
@@ -73,11 +73,8 @@ pub async fn authorize_handler(
         .await?;
 
     // 3. Issue JWT token with stored encrypted push id
-    let access_token = jwt_manager
-        .issue_token(WorldChatJwtPayload {
-            encrypted_push_id: auth_proof.encrypted_push_id,
-        })
-        .await?;
+    let jws_payload = JwsPayload::from_encrypted_push_id(auth_proof.encrypted_push_id);
+    let access_token = jwt_manager.issue_token(jws_payload).await?;
 
     Ok(Json(AuthResponse { access_token }))
 }

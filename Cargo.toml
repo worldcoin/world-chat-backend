@@ -76,8 +76,8 @@ reqwest = { version = "0.12", features = ["json", "stream", "rustls-tls"], defau
 # Mime types
 mime = "0.3.0"
 
-# OpenSSL
-openssl = { version = "0.10.73", features = ["vendored"] }
+# Crypto
+p256 = { version = "0.13", features = ["ecdsa", "pkcs8"] }
 
 # Test dependencies
 http-body-util = "0.1.3"

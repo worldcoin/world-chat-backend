@@ -30,7 +30,7 @@ pub struct TestSetup {
     pub router: Router,
     pub environment: Environment,
     pub media_storage: Arc<MediaStorage>,
-    pub kms_client: KmsClient,
+    pub kms_client: Arc<KmsClient>,
     // Keep DynamoDbTestSetup alive for the duration of the test
     _dynamodb_setup: DynamoDbTestSetup,
 }
@@ -57,8 +57,12 @@ impl TestSetup {
         let dynamodb_test_setup = DynamoDbTestSetup::new(dynamodb_client.clone()).await;
 
         // Initialize JWT manager (KMS-backed)
-        let kms_client = KmsClient::new(&environment.aws_config().await);
-        let jwt_manager = Arc::new(JwtManager::new(kms_client.clone(), &environment));
+        let kms_client = Arc::new(KmsClient::new(&environment.aws_config().await));
+        let jwt_manager = Arc::new(
+            JwtManager::new(kms_client.clone(), &environment)
+                .await
+                .expect("jwt manager"),
+        );
 
         // Initialize auth proof storage with test table
         let auth_proof_storage = Arc::new(AuthProofStorage::new(
