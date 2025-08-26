@@ -28,7 +28,7 @@ use aws_sdk_kms::{
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine as _};
 use p256::ecdsa::{signature::DigestVerifier, Signature, VerifyingKey};
 use p256::pkcs8::DecodePublicKey;
-use serde::de::DeserializeOwned;
+// use serde::de::DeserializeOwned; // no longer needed
 use sha2::{Digest, Sha256};
 use std::sync::Arc;
 
@@ -41,12 +41,7 @@ const ALG_ES256: &str = "ES256";
 const TYP_JWT: &str = "JWT";
 const MAX_SKEW_SECS: i64 = 60;
 
-fn decode_json_b64<T: DeserializeOwned>(b64: &str) -> Result<T, JwtError> {
-    let bytes = URL_SAFE_NO_PAD
-        .decode(b64)
-        .map_err(|_| JwtError::InvalidToken)?;
-    serde_json::from_slice(&bytes).map_err(|_| JwtError::InvalidToken)
-}
+// removed helper: decoding now lives on `JwsTokenParts`
 
 #[derive(Clone)]
 pub struct JwtManager {
@@ -133,7 +128,7 @@ impl JwtManager {
         let parts = JwsTokenParts::try_from(token_str)?;
 
         // Header checks: enforce alg, typ, and kid to prevent alg confusion
-        let header: JwsHeader = decode_json_b64(parts.header)?;
+        let header: &JwsHeader = &parts.header;
         if header.alg != ALG_ES256 || header.typ != TYP_JWT || header.kid != self.kid {
             return Err(JwtError::InvalidToken);
         }
@@ -142,7 +137,7 @@ impl JwtManager {
         self.verify_signature(&parts)?;
 
         // Claims + time validation with small skew
-        let claims: JwsPayload = decode_json_b64(parts.payload)?;
+        let claims: JwsPayload = parts.payload;
         let now = chrono::Utc::now().timestamp();
         Self::validate_claims(&claims, now, MAX_SKEW_SECS)?;
         Ok(claims)
@@ -154,9 +149,9 @@ impl JwtManager {
     /// Verify ES256 signature over the compact input `header.payload`.
     fn verify_signature(&self, parts: &JwsTokenParts<'_>) -> Result<(), JwtError> {
         let mut digest = Sha256::new();
-        digest.update(parts.header.as_bytes());
+        digest.update(parts.header_b64.as_bytes());
         digest.update(b".");
-        digest.update(parts.payload.as_bytes());
+        digest.update(parts.payload_b64.as_bytes());
 
         let sig_bytes = URL_SAFE_NO_PAD
             .decode(parts.signature)

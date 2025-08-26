@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 use sha2::Digest;
 
 use crate::jwt::error::JwtError;
+// no extra serde imports needed here
 
 /// Default access token lifetime.
 pub const TOKEN_EXPIRATION: Duration = Duration::days(7);
@@ -77,9 +78,11 @@ impl KmsKeyDefinition {
 /// Borrowing view over a compact JWS (header.payload.signature)
 /// used only during validation to avoid allocations.
 pub struct JwsTokenParts<'a> {
-    pub header: &'a str,
-    pub payload: &'a str,
+    pub header_b64: &'a str,
+    pub payload_b64: &'a str,
     pub signature: &'a str,
+    pub header: JwsHeader,
+    pub payload: JwsPayload,
 }
 
 impl<'a> TryFrom<&'a str> for JwsTokenParts<'a> {
@@ -87,11 +90,27 @@ impl<'a> TryFrom<&'a str> for JwsTokenParts<'a> {
     fn try_from(token: &'a str) -> Result<Self, Self::Error> {
         let mut parts = token.split('.');
         match (parts.next(), parts.next(), parts.next()) {
-            (Some(h), Some(p), Some(s)) if parts.next().is_none() => Ok(Self {
-                header: h,
-                payload: p,
-                signature: s,
-            }),
+            (Some(h_b64), Some(p_b64), Some(s)) if parts.next().is_none() => {
+                let header_bytes = URL_SAFE_NO_PAD
+                    .decode(h_b64)
+                    .map_err(|_| JwtError::InvalidToken)?;
+                let header_decoded: JwsHeader =
+                    serde_json::from_slice(&header_bytes).map_err(|_| JwtError::InvalidToken)?;
+
+                let payload_bytes = URL_SAFE_NO_PAD
+                    .decode(p_b64)
+                    .map_err(|_| JwtError::InvalidToken)?;
+                let payload_decoded: JwsPayload =
+                    serde_json::from_slice(&payload_bytes).map_err(|_| JwtError::InvalidToken)?;
+
+                Ok(Self {
+                    header_b64: h_b64,
+                    payload_b64: p_b64,
+                    signature: s,
+                    header: header_decoded,
+                    payload: payload_decoded,
+                })
+            }
             _ => Err(JwtError::InvalidToken),
         }
     }
