@@ -16,6 +16,7 @@ pub const TOKEN_EXPIRATION: Duration = Duration::days(7);
 /// - `typ`: token type, fixed to "JWT"
 /// - `kid`: key identifier derived from the AWS KMS key ARN
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct JwsHeader {
     pub alg: String,
     pub typ: String,
@@ -26,6 +27,7 @@ pub struct JwsHeader {
 ///
 /// Times are seconds since epoch. Optional to accommodate different flows.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct JwsPayload {
     #[serde(rename = "sub")]
     pub subject: String,

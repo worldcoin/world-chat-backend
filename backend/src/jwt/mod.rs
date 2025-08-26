@@ -39,6 +39,7 @@ use crate::{
 
 const ALG_ES256: &str = "ES256";
 const TYP_JWT: &str = "JWT";
+const ISSUER: &str = "chat.toolsforhumanity.com";
 const MAX_SKEW_SECS: i64 = 60;
 
 // removed helper: decoding now lives on `JwsTokenParts`
@@ -92,7 +93,7 @@ impl JwtManager {
             typ: TYP_JWT.to_string(),
             kid: self.kid.clone(),
         };
-        let signing_input = Self::craft_signing_input(&header, &payload)?;
+        let signing_input = craft_signing_input(&header, &payload)?;
 
         // Sign via KMS asynchronously and convert DER -> raw (r||s).
         let der_sig = self
@@ -134,64 +135,83 @@ impl JwtManager {
         }
 
         // Signature verification
-        self.verify_signature(&parts)?;
+        verify_signature_with_key(&parts, &self.verifying_key)?;
 
         // Claims + time validation with small skew
         let claims: JwsPayload = parts.payload;
         let now = chrono::Utc::now().timestamp();
-        Self::validate_claims(&claims, now, MAX_SKEW_SECS)?;
+        validate_claims(&claims, now, MAX_SKEW_SECS)?;
         Ok(claims)
     }
 }
 
-/// Private methods/helpers
-impl JwtManager {
-    /// Verify ES256 signature over the compact input `header.payload`.
-    fn verify_signature(&self, parts: &JwsTokenParts<'_>) -> Result<(), JwtError> {
-        let mut digest = Sha256::new();
-        digest.update(parts.header_b64.as_bytes());
-        digest.update(b".");
-        digest.update(parts.payload_b64.as_bytes());
+// Extracted functions for testability
 
-        let sig_bytes = URL_SAFE_NO_PAD
-            .decode(parts.signature)
-            .map_err(|_| JwtError::InvalidToken)?;
-        let sig =
-            Signature::try_from(sig_bytes.as_slice()).map_err(|_| JwtError::InvalidSignature)?;
-        self.verifying_key
-            .verify_digest(digest, &sig)
-            .map_err(|_| JwtError::InvalidSignature)
-    }
+/// Verify ES256 signature over the compact input using a known key.
+pub(crate) fn verify_signature_with_key(
+    parts: &JwsTokenParts<'_>,
+    verifying_key: &VerifyingKey,
+) -> Result<(), JwtError> {
+    let mut digest = Sha256::new();
+    digest.update(parts.header_b64.as_bytes());
+    digest.update(b".");
+    digest.update(parts.payload_b64.as_bytes());
 
-    /// Validate `nbf` and `exp` with a small clock skew allowance.
-    const fn validate_claims(claims: &JwsPayload, now: i64, skew: i64) -> Result<(), JwtError> {
-        if let Some(nbf) = claims.not_before {
-            if now + skew < nbf {
-                return Err(JwtError::InvalidToken);
-            }
-        }
-        if let Some(exp) = claims.expires_at {
-            if now - skew >= exp {
-                return Err(JwtError::InvalidToken);
-            }
-        }
-        Ok(())
-    }
-
-    /// Serialize + base64url-encode header and payload, and join with a dot.
-    fn craft_signing_input(header: &JwsHeader, payload: &JwsPayload) -> Result<String, JwtError> {
-        let header_json = serde_json::to_vec(header)
-            .map_err(|e| JwtError::SigningInput(format!("serialize header: {e}")))?;
-        let payload_json = serde_json::to_vec(payload)
-            .map_err(|e| JwtError::SigningInput(format!("serialize payload: {e}")))?;
-
-        let header_b64 = URL_SAFE_NO_PAD.encode(header_json);
-        let payload_b64 = URL_SAFE_NO_PAD.encode(payload_json);
-
-        let mut signing_input = String::with_capacity(header_b64.len() + 1 + payload_b64.len());
-        signing_input.push_str(&header_b64);
-        signing_input.push('.');
-        signing_input.push_str(&payload_b64);
-        Ok(signing_input)
-    }
+    let sig_bytes = URL_SAFE_NO_PAD
+        .decode(parts.signature)
+        .map_err(|_| JwtError::InvalidToken)?;
+    let sig = Signature::try_from(sig_bytes.as_slice()).map_err(|_| JwtError::InvalidSignature)?;
+    verifying_key
+        .verify_digest(digest, &sig)
+        .map_err(|_| JwtError::InvalidSignature)
 }
+
+/// Validate issuer, `nbf`, `exp`, and `iat` with a small clock skew allowance.
+pub(crate) fn validate_claims(claims: &JwsPayload, now: i64, skew: i64) -> Result<(), JwtError> {
+    // Enforce known issuer
+    if claims.issuer != ISSUER {
+        return Err(JwtError::InvalidToken);
+    }
+    if let Some(nbf) = claims.not_before {
+        if now + skew < nbf {
+            return Err(JwtError::InvalidToken);
+        }
+    }
+    if let Some(exp) = claims.expires_at {
+        if now - skew >= exp {
+            return Err(JwtError::InvalidToken);
+        }
+    }
+    if let Some(iat) = claims.issued_at {
+        // Follow josekit validator practice: iat must not be in the future.
+        if iat > now + skew {
+            return Err(JwtError::InvalidToken);
+        }
+    }
+    Ok(())
+}
+
+/// Serialize + base64url-encode header and payload, and join with a dot.
+pub(crate) fn craft_signing_input(
+    header: &JwsHeader,
+    payload: &JwsPayload,
+) -> Result<String, JwtError> {
+    let header_json = serde_json::to_vec(header)
+        .map_err(|e| JwtError::SigningInput(format!("serialize header: {e}")))?;
+    let payload_json = serde_json::to_vec(payload)
+        .map_err(|e| JwtError::SigningInput(format!("serialize payload: {e}")))?;
+
+    let header_b64 = URL_SAFE_NO_PAD.encode(header_json);
+    let payload_b64 = URL_SAFE_NO_PAD.encode(payload_json);
+
+    let mut signing_input = String::with_capacity(header_b64.len() + 1 + payload_b64.len());
+    signing_input.push_str(&header_b64);
+    signing_input.push('.');
+    signing_input.push_str(&payload_b64);
+    Ok(signing_input)
+}
+
+// issuer validation is handled inside validate_claims
+
+#[cfg(test)]
+mod tests;

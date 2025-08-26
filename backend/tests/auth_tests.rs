@@ -1,5 +1,6 @@
 mod common;
 
+use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine as _};
 use common::TestSetup;
 use http::StatusCode;
 use serde_json::json;
@@ -281,4 +282,151 @@ async fn test_authorize_jwt_is_validatable_by_manager() {
     let claims = manager.validate(token).expect("token should validate");
     assert_eq!(claims.subject, encrypted_push_id);
     assert_eq!(claims.issuer, "chat.toolsforhumanity.com");
+}
+
+#[tokio::test]
+async fn test_validate_rejects_wrong_alg() {
+    let context = TestSetup::new(None).await;
+
+    let encrypted_push_id = format!("encrypted-push-{}", Uuid::new_v4());
+    let proof = create_valid_world_id_proof(encrypted_push_id.clone()).await;
+
+    let auth_request = json!({
+        "proof": proof.get_proof_as_string(),
+        "nullifier_hash": proof.get_nullifier_hash().to_hex_string(),
+        "merkle_root": proof.get_merkle_root().to_hex_string(),
+        "encrypted_push_id": encrypted_push_id,
+        "credential_type": proof.get_credential_type(),
+    });
+
+    let response = context
+        .send_post_request("/v1/authorize", auth_request)
+        .await
+        .expect("Failed to send request");
+    assert_eq!(response.status(), StatusCode::OK);
+
+    let body = context
+        .parse_response_body(response)
+        .await
+        .expect("Failed to parse response");
+
+    let token = body["access_token"]
+        .as_str()
+        .expect("access_token must be a string");
+    let parts: Vec<&str> = token.split('.').collect();
+    assert_eq!(parts.len(), 3);
+
+    // Decode header, change alg to HS256, re-encode
+    let mut header_json: serde_json::Value =
+        serde_json::from_slice(&URL_SAFE_NO_PAD.decode(parts[0]).expect("header b64 decode"))
+            .expect("parse header json");
+    header_json["alg"] = serde_json::Value::String("HS256".to_string());
+    let header_b64 =
+        URL_SAFE_NO_PAD.encode(serde_json::to_vec(&header_json).expect("serialize header"));
+    let tampered = format!("{}.{}.{}", header_b64, parts[1], parts[2]);
+
+    let manager = backend::jwt::JwtManager::new(context.kms_client.clone(), &context.environment)
+        .await
+        .expect("failed to build JwtManager");
+    let result = manager.validate(&tampered);
+    assert!(result.is_err(), "wrong alg should be rejected");
+}
+
+#[tokio::test]
+async fn test_validate_rejects_wrong_kid() {
+    let context = TestSetup::new(None).await;
+
+    let encrypted_push_id = format!("encrypted-push-{}", Uuid::new_v4());
+    let proof = create_valid_world_id_proof(encrypted_push_id.clone()).await;
+
+    let auth_request = json!({
+        "proof": proof.get_proof_as_string(),
+        "nullifier_hash": proof.get_nullifier_hash().to_hex_string(),
+        "merkle_root": proof.get_merkle_root().to_hex_string(),
+        "encrypted_push_id": encrypted_push_id,
+        "credential_type": proof.get_credential_type(),
+    });
+
+    let response = context
+        .send_post_request("/v1/authorize", auth_request)
+        .await
+        .expect("Failed to send request");
+    assert_eq!(response.status(), StatusCode::OK);
+
+    let body = context
+        .parse_response_body(response)
+        .await
+        .expect("Failed to parse response");
+
+    let token = body["access_token"]
+        .as_str()
+        .expect("access_token must be a string");
+    let parts: Vec<&str> = token.split('.').collect();
+    assert_eq!(parts.len(), 3);
+
+    // Decode header, change kid, re-encode
+    let mut header_json: serde_json::Value =
+        serde_json::from_slice(&URL_SAFE_NO_PAD.decode(parts[0]).expect("header b64 decode"))
+            .expect("parse header json");
+    header_json["kid"] = serde_json::Value::String("invalid_kid".to_string());
+    let header_b64 =
+        URL_SAFE_NO_PAD.encode(serde_json::to_vec(&header_json).expect("serialize header"));
+    let tampered = format!("{}.{}.{}", header_b64, parts[1], parts[2]);
+
+    let manager = backend::jwt::JwtManager::new(context.kms_client.clone(), &context.environment)
+        .await
+        .expect("failed to build JwtManager");
+    let result = manager.validate(&tampered);
+    assert!(result.is_err(), "wrong kid should be rejected");
+}
+
+#[tokio::test]
+async fn test_validate_rejects_payload_tamper() {
+    let context = TestSetup::new(None).await;
+
+    let encrypted_push_id = format!("encrypted-push-{}", Uuid::new_v4());
+    let proof = create_valid_world_id_proof(encrypted_push_id.clone()).await;
+
+    let auth_request = json!({
+        "proof": proof.get_proof_as_string(),
+        "nullifier_hash": proof.get_nullifier_hash().to_hex_string(),
+        "merkle_root": proof.get_merkle_root().to_hex_string(),
+        "encrypted_push_id": encrypted_push_id,
+        "credential_type": proof.get_credential_type(),
+    });
+
+    let response = context
+        .send_post_request("/v1/authorize", auth_request)
+        .await
+        .expect("Failed to send request");
+    assert_eq!(response.status(), StatusCode::OK);
+
+    let body = context
+        .parse_response_body(response)
+        .await
+        .expect("Failed to parse response");
+
+    let token = body["access_token"]
+        .as_str()
+        .expect("access_token must be a string");
+    let parts: Vec<&str> = token.split('.').collect();
+    assert_eq!(parts.len(), 3);
+
+    // Decode payload, modify subject, re-encode
+    let mut payload_json: serde_json::Value = serde_json::from_slice(
+        &URL_SAFE_NO_PAD
+            .decode(parts[1])
+            .expect("payload b64 decode"),
+    )
+    .expect("parse payload json");
+    payload_json["sub"] = serde_json::Value::String("tampered-subject".to_string());
+    let payload_b64 =
+        URL_SAFE_NO_PAD.encode(serde_json::to_vec(&payload_json).expect("serialize payload"));
+    let tampered = format!("{}.{}.{}", parts[0], payload_b64, parts[2]);
+
+    let manager = backend::jwt::JwtManager::new(context.kms_client.clone(), &context.environment)
+        .await
+        .expect("failed to build JwtManager");
+    let result = manager.validate(&tampered);
+    assert!(result.is_err(), "payload tamper should be rejected");
 }
