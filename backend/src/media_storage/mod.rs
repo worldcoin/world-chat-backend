@@ -172,8 +172,8 @@ impl MediaStorage {
             .key(s3_key)
             .content_length(content_length)
             .content_type(content_type)
-            .checksum_sha256(base64_checksum)
-            .checksum_algorithm(ChecksumAlgorithm::Sha256)
+            // .checksum_sha256(base64_checksum)
+            // .checksum_algorithm(ChecksumAlgorithm::Sha256)
             .presigned(presigned_config)
             .await
             .map_err(|e| BucketError::S3Error(format!("Failed to generate presigned URL: {e}")))?;
