@@ -62,12 +62,9 @@ reqwest = { workspace = true }
 # Mime types
 mime = { workspace = true }
 
-# JWT / JWS
-josekit = "0.10.0"
+# Crypto / hashing
+p256 = { workspace = true }
 sha2 = { workspace = true }
-
-# OpenSSL
-openssl = { workspace = true }
 
 [dev-dependencies]
 http-body-util = { workspace = true }
