@@ -1,10 +1,11 @@
 use std::sync::Arc;
 
+use crate::xmtp::message_api::v1::Envelope;
 use backend_storage::queue::{Notification, NotificationQueue};
 use tokio_util::sync::CancellationToken;
-use tracing::{error, info};
 
-use super::XmtpEnvelope;
+use tracing::{debug, error, info};
+
 use crate::utils::is_v3_topic;
 
 /// `MessageProcessor` handles individual message processing
@@ -28,7 +29,7 @@ impl MessageProcessor {
     #[allow(clippy::cognitive_complexity)]
     pub async fn run(
         &self,
-        receiver: flume::Receiver<XmtpEnvelope>,
+        receiver: flume::Receiver<Envelope>,
         shutdown_token: CancellationToken,
     ) {
         info!("Message processor {} started", self.worker_id);
@@ -55,20 +56,25 @@ impl MessageProcessor {
     }
 
     /// Processes a single message
-    async fn process_message(&self, message: &XmtpEnvelope) {
+    async fn process_message(&self, message: &Envelope) {
         // Step 1: Filter out messages that are not V3, following example from XMTP
         if !is_v3_topic(&message.content_topic) {
             return;
         }
 
-        // Log the message
-        info!(
+        debug!(
             "Worker {} processing message - Topic: {}, Timestamp: {}, Message size: {} bytes",
             self.worker_id,
             message.content_topic,
             message.timestamp_ns,
             message.message.len()
         );
+
+        //step 2: extract message context
+        //step 2.5: filter by shouldPush
+        //step 3: fetch subscriptions
+        //step 4: filter out self-notifications
+        //step 5: deliver message
 
         // Convert XMTP message to notification
         let notification = Self::convert_to_notification(message);
@@ -91,7 +97,7 @@ impl MessageProcessor {
     }
 
     /// Converts an XMTP message to a notification
-    fn convert_to_notification(message: &XmtpEnvelope) -> Notification {
+    fn convert_to_notification(message: &Envelope) -> Notification {
         // TODO: Finalise type conversion: Include sender hmac and payload
         Notification {
             topic: message.content_topic.clone(),
