@@ -1,51 +1,65 @@
-use std::time::SystemTime;
-
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
-use josekit::jwt::JwtPayload;
+use chrono::{Duration, Utc};
+use serde::{Deserialize, Serialize};
 use sha2::Digest;
 
-/// Token expiration window for issued access tokens.
-///
-/// Currently set to 7 days. Adjust this constant to tune session lifetime.
-pub const TOKEN_EXPIRATION_SECS: std::time::Duration =
-    std::time::Duration::from_secs(7 * 24 * 60 * 60);
+use crate::jwt::error::JwtError;
+// no extra serde imports needed here
 
-/// High‑level payload used by the application when issuing JWTs.
+/// Default access token lifetime.
+pub const TOKEN_EXPIRATION: Duration = Duration::days(7);
+
+/// Compact JWS header used for ES256 tokens.
 ///
-/// The fields in this struct are translated into standard JWT claims by
-/// [`WorldChatJwtPayload::generate_jwt_payload`]. Today we only include a
-/// stable subject (`sub`) which is the `encrypted_push_id`, along with
-/// `iat` and `exp` timestamps.
-pub struct WorldChatJwtPayload {
-    pub encrypted_push_id: String,
+/// Fields follow RFC 7515/7518 conventions:
+/// - `alg`: algorithm, fixed to "ES256"
+/// - `typ`: token type, fixed to "JWT"
+/// - `kid`: key identifier derived from the AWS KMS key ARN
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct JwsHeader {
+    pub alg: String,
+    pub typ: String,
+    pub kid: String,
 }
 
-impl WorldChatJwtPayload {
-    /// Convert this high‑level payload into a concrete `josekit::jwt::JwtPayload`.
-    ///
-    /// Claims set:
-    /// - `sub`: the `encrypted_push_id` used by the client
-    /// - `iat`: current time
-    /// - `exp`: `iat + TOKEN_EXPIRATION_SECS`
+/// World Chat JWT claims (payload). Minimal subset we use today.
+///
+/// Times are seconds since epoch. Optional to accommodate different flows.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct JwsPayload {
+    #[serde(rename = "sub")]
+    pub subject: String,
+    #[serde(rename = "iss")]
+    pub issuer: String,
+    #[serde(rename = "iat", skip_serializing_if = "Option::is_none")]
+    pub issued_at: Option<i64>,
+    #[serde(rename = "exp", skip_serializing_if = "Option::is_none")]
+    pub expires_at: Option<i64>,
+    #[serde(rename = "nbf", skip_serializing_if = "Option::is_none")]
+    pub not_before: Option<i64>,
+}
+
+impl JwsPayload {
     #[must_use]
-    pub fn generate_jwt_payload(&self) -> JwtPayload {
-        let mut payload = JwtPayload::new();
-
-        payload.set_issued_at(&SystemTime::now());
-        payload.set_expires_at(&(SystemTime::now() + TOKEN_EXPIRATION_SECS));
-        payload.set_subject(self.encrypted_push_id.clone());
-        payload.set_issuer("chat.toolsforhumanity.com");
-
-        payload
+    pub fn from_encrypted_push_id(encrypted_push_id: String) -> Self {
+        let now = Utc::now().timestamp();
+        let exp = (Utc::now() + TOKEN_EXPIRATION).timestamp();
+        Self {
+            subject: encrypted_push_id,
+            issuer: "chat.toolsforhumanity.com".to_owned(),
+            issued_at: Some(now),
+            expires_at: Some(exp),
+            not_before: Some(now),
+        }
     }
 }
 
-/// Describes the KMS key used to sign JWTs and the stable `kid` we publish.
+/// Definition of the KMS key used for signing/verifying JWTs.
 ///
-/// - `arn`: Full KMS key identifier (key ID or alias ARN).
-/// - `id` (kid): Deterministic identifier derived from the last ARN segment,
-///   hashed with SHA‑224 and base64url‑encoded without padding, prefixed with
-///   `key_`. This keeps the `kid` stable, short, and safe to share publicly.
+/// `id` is a stable `kid` derived from the ARN (SHA-224, base64url, prefixed),
+/// so we can rotate keys without breaking validation routing.
 #[derive(Debug, Clone)]
 pub struct KmsKeyDefinition {
     pub id: String,
@@ -53,13 +67,6 @@ pub struct KmsKeyDefinition {
 }
 
 impl KmsKeyDefinition {
-    /// Build a key definition from a full key ARN (or alias ARN), deriving a stable `id`.
-    ///
-    /// Rationale for custom `kid` format:
-    /// - Stability: only the last path segment (key UUID or alias name) is used.
-    /// - Privacy: hashing avoids leaking full ARNs, accounts, or region details.
-    /// - Interop: base64url without padding is URL/JWT friendly; the `key_` prefix
-    ///   provides an explicit namespace that is easy to filter in logs and JWKS.
     #[must_use]
     pub fn from_arn(arn: String) -> Self {
         let last = arn.split('/').next_back().unwrap_or(&arn);
@@ -67,5 +74,46 @@ impl KmsKeyDefinition {
         let encoded = URL_SAFE_NO_PAD.encode(hash);
         let id = format!("key_{encoded}");
         Self { id, arn }
+    }
+}
+
+/// Borrowing view over a compact JWS (header.payload.signature)
+/// used only during validation to avoid allocations.
+pub struct JwsTokenParts<'a> {
+    pub header_b64: &'a str,
+    pub payload_b64: &'a str,
+    pub signature: &'a str,
+    pub header: JwsHeader,
+    pub payload: JwsPayload,
+}
+
+impl<'a> TryFrom<&'a str> for JwsTokenParts<'a> {
+    type Error = JwtError;
+    fn try_from(token: &'a str) -> Result<Self, Self::Error> {
+        let mut parts = token.split('.');
+        match (parts.next(), parts.next(), parts.next()) {
+            (Some(h_b64), Some(p_b64), Some(s)) if parts.next().is_none() => {
+                let header_bytes = URL_SAFE_NO_PAD
+                    .decode(h_b64)
+                    .map_err(|_| JwtError::InvalidToken)?;
+                let header_decoded: JwsHeader =
+                    serde_json::from_slice(&header_bytes).map_err(|_| JwtError::InvalidToken)?;
+
+                let payload_bytes = URL_SAFE_NO_PAD
+                    .decode(p_b64)
+                    .map_err(|_| JwtError::InvalidToken)?;
+                let payload_decoded: JwsPayload =
+                    serde_json::from_slice(&payload_bytes).map_err(|_| JwtError::InvalidToken)?;
+
+                Ok(Self {
+                    header_b64: h_b64,
+                    payload_b64: p_b64,
+                    signature: s,
+                    header: header_decoded,
+                    payload: payload_decoded,
+                })
+            }
+            _ => Err(JwtError::InvalidToken),
+        }
     }
 }
