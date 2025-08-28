@@ -420,7 +420,7 @@ async fn test_validate_rejects_payload_tamper() {
         .parse_response_body(response)
         .await
         .expect("Failed to parse response");
- 
+
     let token = body["access_token"]
         .as_str()
         .expect("access_token must be a string");
