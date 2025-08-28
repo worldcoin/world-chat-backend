@@ -32,13 +32,13 @@ pub enum MessageType {
 impl From<&str> for MessageType {
     fn from(content_topic: &str) -> Self {
         if content_topic.starts_with("test-") {
-            MessageType::Test
+            Self::Test
         } else if content_topic.starts_with(V3_GROUP_TOPIC_PREFIX) {
-            MessageType::V3Group
+            Self::V3Group
         } else if content_topic.starts_with(V3_WELCOME_TOPIC_PREFIX) {
-            MessageType::V3Welcome
+            Self::V3Welcome
         } else {
-            MessageType::Unknown
+            Self::Unknown
         }
     }
 }
@@ -53,12 +53,16 @@ pub struct MessageContext {
 }
 
 impl MessageContext {
-    #[must_use]
-    pub fn from_xmtp_envelope(envelope: &Envelope) -> anyhow::Result<MessageContext> {
+    /// Creates a message context from an XMTP envelope.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the envelope contains a V3 group message that cannot be decoded.
+    pub fn from_xmtp_envelope(envelope: &Envelope) -> anyhow::Result<Self> {
         let message_type = MessageType::from(envelope.content_topic.as_str());
 
         if message_type != MessageType::V3Group {
-            return Ok(MessageContext {
+            return Ok(Self {
                 message_type,
                 sender_hmac: None,
                 should_push: None,
@@ -67,7 +71,7 @@ impl MessageContext {
         }
 
         let group_message = decode_group_message(envelope)?;
-        Ok(MessageContext {
+        Ok(Self {
             message_type,
             sender_hmac: Some(group_message.sender_hmac),
             should_push: Some(group_message.should_push),
@@ -75,7 +79,11 @@ impl MessageContext {
         })
     }
 
-    #[must_use]
+    /// Checks if the message sender matches the provided HMAC key.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if sender HMAC or HMAC inputs are missing, or if the HMAC key is invalid.
     pub fn is_sender(&self, hmac_key: &[u8]) -> anyhow::Result<bool> {
         let sender = self
             .sender_hmac
@@ -94,7 +102,13 @@ impl MessageContext {
     }
 }
 
-#[must_use]
+/// Decodes a `GroupMessage` V1 from an XMTP envelope.
+///
+/// # Errors
+///
+/// Returns an error if:
+/// - The envelope message cannot be decoded as a `GroupMessage`
+/// - The `GroupMessage` is not a V1 variant
 pub fn decode_group_message(envelope: &Envelope) -> anyhow::Result<group_message::V1> {
     let group_message = GroupMessage::decode(envelope.message.as_slice())
         .context("Failed to decode GroupMessage")?;

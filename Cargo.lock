@@ -3400,6 +3400,7 @@ dependencies = [
  "aws-sdk-dynamodb",
  "aws-sdk-sqs",
  "backend_storage",
+ "base64 0.22.1",
  "chrono",
  "clap",
  "flume",

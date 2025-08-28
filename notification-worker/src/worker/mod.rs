@@ -7,11 +7,13 @@ use std::time::Duration;
 use crate::types::environment::Environment;
 use crate::worker::xmtp_listener::XmtpListenerConfig;
 use crate::xmtp::message_api::v1::Envelope;
+use aws_sdk_dynamodb::Client as DynamoDbClient;
 use aws_sdk_sqs::Client as SqsClient;
 
 /// Result type for worker operations
 pub type WorkerResult<T> = anyhow::Result<T>;
 
+use backend_storage::push_notification::PushNotificationStorage;
 use backend_storage::queue::NotificationQueue;
 use tokio::task::JoinHandle;
 use tokio_util::sync::CancellationToken;
@@ -29,6 +31,7 @@ pub struct XmtpWorker {
     client: MessageApiClient<Channel>,
     shutdown_token: CancellationToken,
     notification_queue: Arc<NotificationQueue>,
+    subscription_storage: Arc<PushNotificationStorage>,
 }
 
 impl XmtpWorker {
@@ -60,10 +63,18 @@ impl XmtpWorker {
         let client = MessageApiClient::new(channel);
 
         // Initialize notification queue
-        let sqs_client = Arc::new(SqsClient::from_conf(env.sqs_client_config().await));
+        let sqs_client = Arc::new(SqsClient::new(&env.aws_config().await));
         let notification_queue = Arc::new(NotificationQueue::new(
             sqs_client,
             env.notification_queue_config(),
+        ));
+
+        // Initialise Push Notification Subscription storage
+        let dynamodb_client = Arc::new(DynamoDbClient::new(&env.aws_config().await));
+        let subscription_storage = Arc::new(PushNotificationStorage::new(
+            dynamodb_client,
+            env.push_subscription_table_name(),
+            env.push_subscription_gsi_name(),
         ));
 
         Ok(Self {
@@ -71,6 +82,7 @@ impl XmtpWorker {
             client,
             shutdown_token: CancellationToken::new(),
             notification_queue,
+            subscription_storage,
         })
     }
 
@@ -147,7 +159,11 @@ impl XmtpWorker {
         let mut handles = Vec::new();
 
         for i in 0..self.env.num_workers() {
-            let processor = MessageProcessor::new(i, Arc::clone(&self.notification_queue));
+            let processor = MessageProcessor::new(
+                i,
+                Arc::clone(&self.notification_queue),
+                Arc::clone(&self.subscription_storage),
+            );
             let rx = receiver.clone();
             let shutdown_token = self.shutdown_token.clone();
 
