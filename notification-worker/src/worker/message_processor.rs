@@ -4,7 +4,8 @@ use backend_storage::queue::{Notification, NotificationQueue};
 use tokio_util::sync::CancellationToken;
 use tracing::{error, info};
 
-use super::Message;
+use super::XmtpEnvelope;
+use crate::utils::is_v3_topic;
 
 /// `MessageProcessor` handles individual message processing
 pub struct MessageProcessor {
@@ -25,7 +26,11 @@ impl MessageProcessor {
 
     /// Runs the message processor loop
     #[allow(clippy::cognitive_complexity)]
-    pub async fn run(&self, receiver: flume::Receiver<Message>, shutdown_token: CancellationToken) {
+    pub async fn run(
+        &self,
+        receiver: flume::Receiver<XmtpEnvelope>,
+        shutdown_token: CancellationToken,
+    ) {
         info!("Message processor {} started", self.worker_id);
 
         loop {
@@ -50,7 +55,12 @@ impl MessageProcessor {
     }
 
     /// Processes a single message
-    async fn process_message(&self, message: &Message) {
+    async fn process_message(&self, message: &XmtpEnvelope) {
+        // Step 1: Filter out messages that are not V3, following example from XMTP
+        if !is_v3_topic(&message.content_topic) {
+            return;
+        }
+
         // Log the message
         info!(
             "Worker {} processing message - Topic: {}, Timestamp: {}, Message size: {} bytes",
@@ -81,7 +91,7 @@ impl MessageProcessor {
     }
 
     /// Converts an XMTP message to a notification
-    fn convert_to_notification(message: &Message) -> Notification {
+    fn convert_to_notification(message: &XmtpEnvelope) -> Notification {
         // TODO: Finalise type conversion: Include sender hmac and payload
         Notification {
             topic: message.content_topic.clone(),

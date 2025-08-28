@@ -11,7 +11,7 @@ use aws_sdk_sqs::Client as SqsClient;
 
 // Type aliases
 /// Message type that flows through the worker pipeline
-pub type Message = Envelope;
+pub type XmtpEnvelope = Envelope;
 
 /// Result type for worker operations
 pub type WorkerResult<T> = anyhow::Result<T>;
@@ -105,8 +105,10 @@ impl XmtpWorker {
     }
 
     /// Creates and logs the message channel
-    fn create_message_channel(&self) -> (flume::Sender<Message>, flume::Receiver<Message>) {
-        let (message_tx, message_rx) = flume::bounded::<Message>(self.env.channel_capacity());
+    fn create_message_channel(
+        &self,
+    ) -> (flume::Sender<XmtpEnvelope>, flume::Receiver<XmtpEnvelope>) {
+        let (message_tx, message_rx) = flume::bounded::<XmtpEnvelope>(self.env.channel_capacity());
         info!(
             "Created flume channel with capacity: {}",
             self.env.channel_capacity()
@@ -115,7 +117,7 @@ impl XmtpWorker {
     }
 
     /// Runs the XMTP listener and handles results
-    async fn run_xmtp_listener(&self, message_tx: flume::Sender<Message>) {
+    async fn run_xmtp_listener(&self, message_tx: flume::Sender<XmtpEnvelope>) {
         let listener_result = XmtpListener::new(
             self.client.clone(),
             message_tx,
@@ -147,7 +149,7 @@ impl XmtpWorker {
     }
 
     /// Spawns message processor tasks
-    fn spawn_processors(&self, receiver: &flume::Receiver<Message>) -> Vec<JoinHandle<()>> {
+    fn spawn_processors(&self, receiver: &flume::Receiver<XmtpEnvelope>) -> Vec<JoinHandle<()>> {
         let mut handles = Vec::new();
 
         for i in 0..self.env.num_workers() {
