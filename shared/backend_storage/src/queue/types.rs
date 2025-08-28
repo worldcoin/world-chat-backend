@@ -33,17 +33,16 @@ pub enum SubscriptionRequest {
 pub struct Notification {
     /// Topic for the notification
     pub topic: String,
-    /// HMAC of the sender
-    pub sender_hmac: String,
-    /// Notification payload
-    /// TODO: This is a placeholder type
-    pub payload: String,
+    /// Encrypted Push IDs of the subscribers
+    pub subscribed_encrypted_push_ids: Vec<String>,
+    /// Encrypted Message Base64 encoded
+    pub encrypted_message_base64: String,
 }
 
 /// Notification recipient
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct TopicMember {
-    /// Encrypted Braze ID
+    /// Encrypted Push ID
     pub encrypted_push_id: String,
     /// HMAC identifier
     pub hmac: String,
