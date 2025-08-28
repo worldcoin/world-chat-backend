@@ -8,8 +8,8 @@ pub enum SubscriptionRequest {
     Subscribe {
         /// HMAC derrived from user, topic and is installation specific
         hmac: String,
-        /// Encrypted Braze ID
-        encrypted_braze_id: String,
+        /// Encrypted Push ID
+        encrypted_push_id: String,
         /// Topic to subscribe to
         topic: String,
         /// Time-to-live duration (unix timestamp in seconds)
@@ -19,8 +19,8 @@ pub enum SubscriptionRequest {
     Unsubscribe {
         /// HMAC derrived from user, topic and is installation specific
         hmac: String,
-        /// Encrypted Braze ID of the user who is unsubscribing
-        encrypted_braze_id: String,
+        /// Encrypted Push ID of the user who is unsubscribing
+        encrypted_push_id: String,
         /// Topic to unsubscribe from
         topic: String,
         /// Subscribers of the same topic
@@ -44,7 +44,7 @@ pub struct Notification {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct TopicMember {
     /// Encrypted Braze ID
-    pub encrypted_braze_id: String,
+    pub encrypted_push_id: String,
     /// HMAC identifier
     pub hmac: String,
 }
