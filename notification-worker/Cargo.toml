@@ -35,6 +35,9 @@ prost = "0.13"
 prost-types = "0.13"
 rustls = { version = "0.23", features = ["ring"] }
 
+sha2 = { workspace = true }
+hmac = { workspace = true }
+
 [dev-dependencies]
 serial_test = { workspace = true }
 
