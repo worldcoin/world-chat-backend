@@ -25,6 +25,38 @@ pub fn create_upload_request(
     request
 }
 
+#[tokio::test]
+async fn test_config_enforced_max_image_size_plus_one_fails() {
+    let setup = TestSetup::new(None).await;
+
+    // Fetch media config
+    let response = setup
+        .send_get_request("/v1/media/config")
+        .await
+        .expect("Failed to send GET /v1/media/config");
+    assert_eq!(response.status(), StatusCode::OK);
+    let body = parse_response_body(response).await;
+
+    let max_image_size_bytes = body["max_image_size_bytes"]
+        .as_i64()
+        .expect("max_image_size_bytes should be an integer");
+
+    // Prepare an upload one byte larger than allowed
+    let content_digest_sha256 = create_valid_sha256();
+    let payload = create_upload_request(
+        content_digest_sha256,
+        max_image_size_bytes + 1,
+        Some("image/png".to_string()),
+    );
+
+    let response = setup
+        .send_post_request("/v1/media/presigned-urls", payload)
+        .await
+        .expect("Failed to send POST /v1/media/presigned-urls");
+
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+}
+
 // Happy path tests
 
 #[tokio::test]
