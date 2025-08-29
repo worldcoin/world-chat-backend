@@ -1,4 +1,6 @@
 mod dynamodb_setup;
+pub mod xmtp;
+
 use backend_storage::push_notification::PushNotificationStorage;
 use dynamodb_setup::DynamoDbTestSetup;
 
@@ -13,8 +15,10 @@ use backend_storage::queue::NotificationQueue;
 use notification_worker::types::environment::Environment;
 use notification_worker::worker::XmtpWorker;
 
+use crate::utils::xmtp::XmtpTestClient;
+
 /// Setup test environment variables with all the required configuration
-pub fn setup_test_env() {
+fn setup_test_env() {
     // Load test environment variables
     dotenvy::from_path(".env.example").ok();
 
@@ -31,9 +35,9 @@ pub struct TestContext {
     pub environment: Environment,
     pub notification_queue: Arc<NotificationQueue>,
     pub subscription_storage: Arc<PushNotificationStorage>,
-    // Worker management (optional - just for aborting if needed)
-    worker_handle: JoinHandle<()>,
-    // Keep DynamoDbTestSetup alive for the duration of the test
+    pub xmtp_test_client: XmtpTestClient,
+    // Background handles for test duration
+    _worker_background_handle: JoinHandle<()>,
     _dynamodb_setup: DynamoDbTestSetup,
 }
 
@@ -69,31 +73,24 @@ impl TestContext {
         .await
         .expect("Failed to create XMTP worker - test cannot proceed");
 
-        info!("Successfully created XMTP worker for tests");
-
         // Spawn the worker in the background
-        let worker_handle = tokio::spawn(async move {
+        let _worker_background_handle = tokio::spawn(async move {
             if let Err(e) = worker.start().await {
                 panic!("Worker encountered error during test: {}", e);
             }
         });
 
-        // Give the worker a moment to establish connections
-        //TODO: benchmark this
-        tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
+        let xmtp_test_client = XmtpTestClient::new(environment.xmtp_endpoint())
+            .await
+            .expect("Failed to create XMTP test client");
 
         Self {
             environment,
             notification_queue,
             subscription_storage,
-            worker_handle,
+            xmtp_test_client,
+            _worker_background_handle,
             _dynamodb_setup: dynamodb_test_setup,
         }
-    }
-}
-
-impl Drop for TestContext {
-    fn drop(&mut self) {
-        self.worker_handle.abort();
     }
 }
