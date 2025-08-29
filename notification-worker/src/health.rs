@@ -35,7 +35,7 @@ pub async fn start_health_server(shutdown_token: CancellationToken) -> anyhow::R
 
     let addr = SocketAddr::from((
         [0, 0, 0, 0],
-        std::env::var("PORT").map_or(Ok(8000), |p| p.parse())?,
+        std::env::var("PORT").map_or(Ok(8001), |p| p.parse())?,
     ));
     let listener = TcpListener::bind(addr).await?;
     info!("Health check server listening on {}", addr);
