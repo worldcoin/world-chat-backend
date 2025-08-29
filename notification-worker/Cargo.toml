@@ -39,8 +39,12 @@ sha2 = { workspace = true }
 hmac = { workspace = true }
 base64 = {workspace = true}
 
+# Testing dependencies
 [dev-dependencies]
+uuid = { workspace = true }
 serial_test = { workspace = true }
+dotenvy = { workspace = true }
+
 
 # Build dependencies
 [build-dependencies]

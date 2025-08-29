@@ -3403,6 +3403,7 @@ dependencies = [
  "base64 0.22.1",
  "chrono",
  "clap",
+ "dotenvy",
  "flume",
  "futures",
  "glob",
@@ -3424,6 +3425,7 @@ dependencies = [
  "tonic-build",
  "tracing",
  "tracing-subscriber 0.3.19",
+ "uuid",
 ]
 
 [[package]]
