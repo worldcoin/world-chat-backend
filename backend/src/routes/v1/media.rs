@@ -178,13 +178,18 @@ pub struct MediaConfigResponse {
     max_image_size_bytes: i64,
     /// Maximum video size in bytes
     max_video_size_bytes: i64,
+    /// Trusted CDN URL
+    trusted_cdn_url: String,
 }
 
 #[instrument]
-pub async fn get_media_config() -> Json<MediaConfigResponse> {
+pub async fn get_media_config(
+    Extension(environment): Extension<Environment>,
+) -> Json<MediaConfigResponse> {
     Json(MediaConfigResponse {
         max_assets_per_message: MAX_ASSETS_PER_MESSAGE,
         max_image_size_bytes: MAX_IMAGE_SIZE_BYTES,
         max_video_size_bytes: MAX_VIDEO_SIZE_BYTES,
+        trusted_cdn_url: environment.cdn_url(),
     })
 }
