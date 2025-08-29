@@ -117,9 +117,22 @@ jobs:
           command: check ${{ matrix.checks }}
           rust-version: stable
 
-  build-docker-backend:
+  build-docker:
     name: Build and Test Docker
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service:
+          - name: backend
+            dockerfile: backend/Dockerfile
+            tag: world-chat-backend
+            port: 8000
+            health_endpoint: /health
+          - name: notification-worker
+            dockerfile: notification-worker/Dockerfile
+            tag: notification-worker
+            port: 8001
+            health_endpoint: /health
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -127,14 +140,14 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Build backend Docker image
+      - name: Build ${{ matrix.service.name }} Docker image
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: backend/Dockerfile
+          file: ${{ matrix.service.dockerfile }}
           push: false
           load: true
-          tags: world-chat-backend:latest
+          tags: ${{ matrix.service.tag }}:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
           platforms: linux/amd64
@@ -143,28 +156,29 @@ jobs:
         run: |
           docker compose up -d --wait localstack
 
-      - name: Run backend container
+      - name: Run ${{ matrix.service.name }} container
         run: |
           # Use the explicit network defined in docker-compose.yml
           docker run -d \
-            --name world-chat-backend-test \
+            --name ${{ matrix.service.tag }}-test \
             --network world-chat-network \
-            -p 8000:8000 \
+            -p ${{ matrix.service.port }}:${{ matrix.service.port }} \
             -e AWS_ENDPOINT_URL=http://localstack:4566 \
-            --env-file backend/.env.example \
-            world-chat-backend:latest
+            -e APP_ENV=development \
+            --env-file ${{ matrix.service.name }}/.env.example \
+            ${{ matrix.service.tag }}:latest
 
           # Wait for the application to start
           sleep 5
 
           # Output logs for debugging
-          docker logs world-chat-backend-test
+          docker logs ${{ matrix.service.tag }}-test
 
       - name: Health check Docker container
-        run: curl -f http://0.0.0.0:8000/health
+        run: curl -f http://0.0.0.0:${{ matrix.service.port }}${{ matrix.service.health_endpoint }}
 
       - name: Clean up
         run: |
-          docker stop world-chat-backend-test || true
-          docker rm world-chat-backend-test || true
+          docker stop ${{ matrix.service.tag }}-test || true
+          docker rm ${{ matrix.service.tag }}-test || true
           docker compose down

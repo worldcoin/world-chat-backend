@@ -1,6 +1,7 @@
 use tracing::{error, info};
 use tracing_subscriber::EnvFilter;
 
+use notification_worker::health;
 use notification_worker::types::environment::Environment;
 use notification_worker::worker::XmtpWorker;
 
@@ -21,19 +22,28 @@ async fn main() -> anyhow::Result<()> {
     info!("Starting XMTP Notification Worker in {:?} environment", env);
 
     // Create and start the worker
-    match XmtpWorker::new(env).await {
+    match XmtpWorker::new(env.clone()).await {
         Ok(worker) => {
             info!("Successfully connected to XMTP node");
 
             // Get shutdown token for signal handling
             let shutdown_token = worker.shutdown_token();
 
+            // Start health check server
+            let health_shutdown = shutdown_token.clone();
+            tokio::spawn(async move {
+                if let Err(e) = health::start_health_server(health_shutdown).await {
+                    error!("Health server error: {}", e);
+                }
+            });
+
             // Spawn signal handler
+            let signal_shutdown = shutdown_token.clone();
             tokio::spawn(async move {
                 match tokio::signal::ctrl_c().await {
                     Ok(()) => {
                         info!("Received Ctrl+C, initiating graceful shutdown...");
-                        shutdown_token.cancel();
+                        signal_shutdown.cancel();
                     }
                     Err(e) => {
                         error!("Failed to listen for Ctrl+C: {}", e);

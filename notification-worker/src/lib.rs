@@ -15,5 +15,6 @@ pub mod xmtp {
     }
 }
 
+pub mod health;
 pub mod types;
 pub mod worker;

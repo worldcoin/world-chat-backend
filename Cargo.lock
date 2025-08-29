@@ -3399,6 +3399,7 @@ dependencies = [
  "aws-config",
  "aws-sdk-dynamodb",
  "aws-sdk-sqs",
+ "axum 0.7.9",
  "backend_storage",
  "chrono",
  "clap",
@@ -3419,6 +3420,7 @@ dependencies = [
  "toml",
  "tonic",
  "tonic-build",
+ "tower 0.5.2",
  "tracing",
  "tracing-subscriber 0.3.19",
 ]
