@@ -571,6 +571,16 @@ async fn test_e2e_upload_happy_path() {
         "Expected 409 Conflict for duplicate SHA-256"
     );
 
+    let duplicate_response_body = setup
+        .parse_response_body(duplicate_response)
+        .await
+        .expect("Failed to parse response body");
+
+    assert_eq!(
+        duplicate_response_body["asset_url"], asset_url,
+        "Expected asset_url to be the same as the original"
+    );
+
     println!("✅ Deduplication works correctly (409 Conflict)");
 
     println!("🎉 E2E upload happy path test completed successfully!");
