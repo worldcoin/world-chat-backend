@@ -78,5 +78,5 @@ pub mod xmtp {
 }
 
 pub mod types;
-pub mod utils;
 pub mod worker;
+pub mod xmtp_utils;

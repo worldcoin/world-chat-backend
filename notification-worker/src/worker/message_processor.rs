@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use crate::{utils::MessageContext, xmtp::message_api::v1::Envelope};
+use crate::{xmtp::message_api::v1::Envelope, xmtp_utils::MessageContext};
 use anyhow::Context;
 use backend_storage::{
     push_notification::PushNotificationStorage,
@@ -11,7 +11,7 @@ use tokio_util::sync::CancellationToken;
 
 use tracing::{debug, error, info};
 
-use crate::utils::is_v3_topic;
+use crate::xmtp_utils::is_v3_topic;
 
 /// `MessageProcessor` handles individual message processing
 pub struct MessageProcessor {
