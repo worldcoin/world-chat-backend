@@ -1,6 +1,7 @@
 mod common;
 
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine as _};
+use chrono::Utc;
 use common::TestSetup;
 use http::StatusCode;
 use serde_json::json;
@@ -13,17 +14,13 @@ use walletkit_core::{
 
 /// Helper to create a request with a valid World ID proof
 /// Uses `walletkit` to create a staging identity and proof
-async fn create_valid_world_id_proof(encrypted_push_id: String) -> ProofOutput {
+async fn create_valid_world_id_proof(encrypted_push_id: String, timestamp: i64) -> ProofOutput {
     let app_id = std::env::var("WORLD_ID_APP_ID").expect("WORLD_ID_APP_ID must be set");
     let action = std::env::var("WORLD_ID_ACTION").expect("WORLD_ID_ACTION must be set");
 
     let world_id = WorldId::new(b"not_a_real_secret", &walletkit_core::Environment::Staging);
-    let context = ProofContext::new(
-        &app_id,
-        Some(action),
-        Some(encrypted_push_id.to_string()),
-        CredentialType::Device,
-    );
+    let signal = format!("{}:{}", encrypted_push_id, timestamp);
+    let context = ProofContext::new(&app_id, Some(action), Some(signal), CredentialType::Device);
 
     world_id
         .generate_proof(&context)
@@ -36,13 +33,15 @@ async fn test_authorize_with_valid_world_id_proof() {
     let context = TestSetup::new(None).await;
 
     let encrypted_push_id = format!("encrypted-push-{}", Uuid::new_v4());
-    let proof = create_valid_world_id_proof(encrypted_push_id.clone()).await;
+    let timestamp = Utc::now().timestamp();
+    let proof = create_valid_world_id_proof(encrypted_push_id.clone(), timestamp).await;
 
     let auth_request = json!({
         "proof": proof.get_proof_as_string(),
         "nullifier_hash": proof.get_nullifier_hash().to_hex_string(),
         "merkle_root": proof.get_merkle_root().to_hex_string(),
         "encrypted_push_id": encrypted_push_id,
+        "timestamp": timestamp,
         "credential_type": proof.get_credential_type(),
     });
 
@@ -66,7 +65,8 @@ async fn test_authorize_with_stolen_proof() {
     let context = TestSetup::new(None).await;
 
     let encrypted_push_id_user1 = format!("encrypted-push-{}", Uuid::new_v4());
-    let proof = create_valid_world_id_proof(encrypted_push_id_user1.clone()).await;
+    let timestamp = Utc::now().timestamp();
+    let proof = create_valid_world_id_proof(encrypted_push_id_user1.clone(), timestamp).await;
 
     let encrypted_push_id_user2 = format!("encrypted-push-{}", Uuid::new_v4());
 
@@ -75,6 +75,7 @@ async fn test_authorize_with_stolen_proof() {
         "nullifier_hash": proof.get_nullifier_hash().to_hex_string(),
         "merkle_root": proof.get_merkle_root().to_hex_string(),
         "encrypted_push_id": encrypted_push_id_user2,
+        "timestamp": timestamp,
         "credential_type": proof.get_credential_type(),
     });
 
@@ -96,6 +97,7 @@ async fn test_authorize_invalid_proof_format() {
         "nullifier_hash": "0x1234567890abcdef",
         "merkle_root": "0x2a7c09e8af01f39a87d89e9f0a9ba66fbf6fb304cc643051dd4ea24c4e9f7e8d",
         "encrypted_push_id": "encrypted-push-123",
+        "timestamp": Utc::now().timestamp(),
         "credential_type": "orb"
     });
 
@@ -124,6 +126,7 @@ async fn test_authorize_missing_fields() {
                 "nullifier_hash": "0x1234567890abcdef",
                 "merkle_root": "0x2a7c09e8af01f39a87d89e9f0a9ba66fbf6fb304cc643051dd4ea24c4e9f7e8d",
                 "encrypted_push_id": "encrypted-push-123",
+                "timestamp": Utc::now().timestamp(),
                 "credential_type": "orb"
             }),
             "missing proof",
@@ -134,6 +137,7 @@ async fn test_authorize_missing_fields() {
                 // Missing nullifier_hash
                 "merkle_root": "0x2a7c09e8af01f39a87d89e9f0a9ba66fbf6fb304cc643051dd4ea24c4e9f7e8d",
                 "encrypted_push_id": "encrypted-push-123",
+                "timestamp": Utc::now().timestamp(),
                 "credential_type": "orb"
             }),
             "missing nullifier_hash",
@@ -144,6 +148,7 @@ async fn test_authorize_missing_fields() {
                 "nullifier_hash": "0x1234567890abcdef",
                 "merkle_root": "0x2a7c09e8af01f39a87d89e9f0a9ba66fbf6fb304cc643051dd4ea24c4e9f7e8d",
                 // Missing encrypted_push_id
+                "timestamp": Utc::now().timestamp(),
                 "credential_type": "orb"
             }),
             "missing encrypted_push_id",
@@ -175,6 +180,7 @@ async fn test_authorize_malformed_world_id_proof() {
         "nullifier_hash": "0x1359a81e3a42dc1c34786cbefbcc672a3d730510dba7a3be9941b207b0cf52fa",
         "merkle_root": "0x2a7c09e8af01f39a87d89e9f0a9ba66fbf6fb304cc643051dd4ea24c4e9f7e8d",
         "encrypted_push_id": "encrypted-push-123",
+        "timestamp": Utc::now().timestamp(),
         "credential_type": "orb"
     });
 
@@ -201,6 +207,7 @@ async fn test_authorize_invalid_nullifier_format() {
         "nullifier_hash": "invalid_nullifier", // Not hex format
         "merkle_root": "0x2a7c09e8af01f39a87d89e9f0a9ba66fbf6fb304cc643051dd4ea24c4e9f7e8d",
         "encrypted_push_id": "encrypted-push-123",
+        "timestamp": Utc::now().timestamp(),
         "credential_type": "orb"
     });
 
@@ -227,6 +234,7 @@ async fn test_authorize_invalid_merkle_root_format() {
         "nullifier_hash": "0x1359a81e3a42dc1c34786cbefbcc672a3d730510dba7a3be9941b207b0cf52fa",
         "merkle_root": "not_a_valid_root", // Invalid format
         "encrypted_push_id": "encrypted-push-123",
+        "timestamp": Utc::now().timestamp(),
         "credential_type": "orb"
     });
 
@@ -249,13 +257,15 @@ async fn test_authorize_jwt_is_validatable_by_manager() {
 
     // Get a valid access token
     let encrypted_push_id = format!("encrypted-push-{}", Uuid::new_v4());
-    let proof = create_valid_world_id_proof(encrypted_push_id.clone()).await;
+    let timestamp = Utc::now().timestamp();
+    let proof = create_valid_world_id_proof(encrypted_push_id.clone(), timestamp).await;
 
     let auth_request = json!({
         "proof": proof.get_proof_as_string(),
         "nullifier_hash": proof.get_nullifier_hash().to_hex_string(),
         "merkle_root": proof.get_merkle_root().to_hex_string(),
         "encrypted_push_id": encrypted_push_id,
+        "timestamp": timestamp,
         "credential_type": proof.get_credential_type(),
     });
 
@@ -289,13 +299,15 @@ async fn test_validate_rejects_wrong_alg() {
     let context = TestSetup::new(None).await;
 
     let encrypted_push_id = format!("encrypted-push-{}", Uuid::new_v4());
-    let proof = create_valid_world_id_proof(encrypted_push_id.clone()).await;
+    let timestamp = Utc::now().timestamp();
+    let proof = create_valid_world_id_proof(encrypted_push_id.clone(), timestamp).await;
 
     let auth_request = json!({
         "proof": proof.get_proof_as_string(),
         "nullifier_hash": proof.get_nullifier_hash().to_hex_string(),
         "merkle_root": proof.get_merkle_root().to_hex_string(),
         "encrypted_push_id": encrypted_push_id,
+        "timestamp": timestamp,
         "credential_type": proof.get_credential_type(),
     });
 
@@ -337,13 +349,14 @@ async fn test_validate_rejects_wrong_kid() {
     let context = TestSetup::new(None).await;
 
     let encrypted_push_id = format!("encrypted-push-{}", Uuid::new_v4());
-    let proof = create_valid_world_id_proof(encrypted_push_id.clone()).await;
-
+    let timestamp = Utc::now().timestamp();
+    let proof = create_valid_world_id_proof(encrypted_push_id.clone(), timestamp).await;
     let auth_request = json!({
         "proof": proof.get_proof_as_string(),
         "nullifier_hash": proof.get_nullifier_hash().to_hex_string(),
         "merkle_root": proof.get_merkle_root().to_hex_string(),
         "encrypted_push_id": encrypted_push_id,
+        "timestamp": timestamp,
         "credential_type": proof.get_credential_type(),
     });
 
@@ -385,13 +398,15 @@ async fn test_validate_rejects_payload_tamper() {
     let context = TestSetup::new(None).await;
 
     let encrypted_push_id = format!("encrypted-push-{}", Uuid::new_v4());
-    let proof = create_valid_world_id_proof(encrypted_push_id.clone()).await;
+    let timestamp = Utc::now().timestamp();
+    let proof = create_valid_world_id_proof(encrypted_push_id.clone(), timestamp).await;
 
     let auth_request = json!({
         "proof": proof.get_proof_as_string(),
         "nullifier_hash": proof.get_nullifier_hash().to_hex_string(),
         "merkle_root": proof.get_merkle_root().to_hex_string(),
         "encrypted_push_id": encrypted_push_id,
+        "timestamp": timestamp,
         "credential_type": proof.get_credential_type(),
     });
 
@@ -429,4 +444,55 @@ async fn test_validate_rejects_payload_tamper() {
         .expect("failed to build JwtManager");
     let result = manager.validate(&tampered);
     assert!(result.is_err(), "payload tamper should be rejected");
+}
+
+#[tokio::test]
+async fn test_authorize_with_future_timestamp() {
+    let context = TestSetup::new(None).await;
+
+    let encrypted_push_id = format!("encrypted-push-{}", Uuid::new_v4());
+    let timestamp = Utc::now().timestamp() + 60; // 1 minute in the future
+    let proof = create_valid_world_id_proof(encrypted_push_id.clone(), timestamp).await;
+
+    let auth_request = json!({
+        "proof": proof.get_proof_as_string(),
+        "nullifier_hash": proof.get_nullifier_hash().to_hex_string(),
+        "merkle_root": proof.get_merkle_root().to_hex_string(),
+        "encrypted_push_id": encrypted_push_id,
+        "timestamp": timestamp,
+        "credential_type": proof.get_credential_type(),
+    });
+
+    let response = context
+        .send_post_request("/v1/authorize", auth_request)
+        .await
+        .expect("Failed to send request");
+
+    assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+}
+
+#[tokio::test]
+async fn test_authorize_with_expired_timestamp() {
+    let context = TestSetup::new(None).await;
+
+    let encrypted_push_id = format!("encrypted-push-{}", Uuid::new_v4());
+    // Expired by 1 second beyond 5 minutes
+    let timestamp = Utc::now().timestamp() - (5 * 60 + 1);
+    let proof = create_valid_world_id_proof(encrypted_push_id.clone(), timestamp).await;
+
+    let auth_request = json!({
+        "proof": proof.get_proof_as_string(),
+        "nullifier_hash": proof.get_nullifier_hash().to_hex_string(),
+        "merkle_root": proof.get_merkle_root().to_hex_string(),
+        "encrypted_push_id": encrypted_push_id,
+        "timestamp": timestamp,
+        "credential_type": proof.get_credential_type(),
+    });
+
+    let response = context
+        .send_post_request("/v1/authorize", auth_request)
+        .await
+        .expect("Failed to send request");
+
+    assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
 }
