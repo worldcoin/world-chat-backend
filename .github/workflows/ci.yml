@@ -124,13 +124,9 @@ jobs:
       matrix:
         service:
           - name: backend
-            dockerfile: backend/Dockerfile
-            tag: world-chat-backend
             port: 8000
             health_endpoint: /health
           - name: notification-worker
-            dockerfile: notification-worker/Dockerfile
-            tag: notification-worker
             port: 8001
             health_endpoint: /health
     steps:
@@ -144,41 +140,40 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: ${{ matrix.service.dockerfile }}
+          file: ${{ matrix.service.name }}/Dockerfile
           push: false
           load: true
-          tags: ${{ matrix.service.tag }}:latest
+          tags: ${{ matrix.service.name }}:latest
+          build-args: GIT_REV=${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
           platforms: linux/amd64
 
-      - name: Start LocalStack and wait for it to be healthy
+      - name: Start LocalStack and XMTP Node and wait for it to be healthy
         run: |
-          docker compose up -d --wait localstack
+          docker compose up -d --wait localstack xmtp-node
 
       - name: Run ${{ matrix.service.name }} container
         run: |
           # Use the explicit network defined in docker-compose.yml
           docker run -d \
-            --name ${{ matrix.service.tag }}-test \
+            --name ${{ matrix.service.name }}-test \
             --network world-chat-network \
             -p ${{ matrix.service.port }}:${{ matrix.service.port }} \
-            -e AWS_ENDPOINT_URL=http://localstack:4566 \
-            -e APP_ENV=development \
             --env-file ${{ matrix.service.name }}/.env.example \
-            ${{ matrix.service.tag }}:latest
+            ${{ matrix.service.name }}:latest
 
           # Wait for the application to start
           sleep 5
 
           # Output logs for debugging
-          docker logs ${{ matrix.service.tag }}-test
+          docker logs ${{ matrix.service.name }}-test
 
       - name: Health check Docker container
         run: curl -f http://0.0.0.0:${{ matrix.service.port }}${{ matrix.service.health_endpoint }}
 
       - name: Clean up
         run: |
-          docker stop ${{ matrix.service.tag }}-test || true
-          docker rm ${{ matrix.service.tag }}-test || true
+          docker stop ${{ matrix.service.name }}-test || true
+          docker rm ${{ matrix.service.name }}-test || true
           docker compose down
