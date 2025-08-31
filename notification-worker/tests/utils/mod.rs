@@ -1,5 +1,7 @@
+#![allow(unused_imports, dead_code)]
+
 mod dynamodb_setup;
-pub mod xmtp;
+mod sqs_setup;
 
 use backend_storage::push_notification::PushNotificationStorage;
 use dynamodb_setup::DynamoDbTestSetup;
@@ -8,14 +10,12 @@ use std::sync::Arc;
 
 use aws_sdk_dynamodb::Client as DynamoDbClient;
 use aws_sdk_sqs::Client as SqsClient;
-use tokio::task::JoinHandle;
-use tracing::{error, info};
-
-use backend_storage::queue::NotificationQueue;
+use backend_storage::queue::{NotificationQueue, QueueConfig};
 use notification_worker::types::environment::Environment;
-use notification_worker::worker::XmtpWorker;
 
-use crate::utils::xmtp::XmtpTestClient;
+use notification_worker::worker::message_processor::MessageProcessor;
+
+use crate::utils::sqs_setup::SqsSetup;
 
 /// Setup test environment variables with all the required configuration
 fn setup_test_env() {
@@ -30,15 +30,14 @@ fn setup_test_env() {
 }
 
 /// Base test setup with core dependencies and XMTP worker
-#[allow(dead_code)]
 pub struct TestContext {
     pub environment: Environment,
     pub notification_queue: Arc<NotificationQueue>,
     pub subscription_storage: Arc<PushNotificationStorage>,
-    pub xmtp_test_client: XmtpTestClient,
+    pub message_processor: MessageProcessor,
     // Background handles for test duration
-    _worker_background_handle: JoinHandle<()>,
     _dynamodb_setup: DynamoDbTestSetup,
+    _sqs_setup: SqsSetup,
 }
 
 impl TestContext {
@@ -59,38 +58,31 @@ impl TestContext {
 
         // Initialize notification queue
         let sqs_client = Arc::new(SqsClient::new(&environment.aws_config().await));
+        let sqs_setup = SqsSetup::new(sqs_client.clone(), "notification-queue").await;
         let notification_queue = Arc::new(NotificationQueue::new(
-            sqs_client,
-            environment.notification_queue_config(),
+            sqs_client.clone(),
+            QueueConfig {
+                queue_url: sqs_setup.queue_url.clone(),
+                default_max_messages: 10,
+                default_visibility_timeout: 60,
+                default_wait_time_seconds: 0,
+            },
         ));
 
-        // Create the worker - panic if initialization fails
-        let worker = XmtpWorker::new(
-            environment.clone(),
+        // Create MessageProcessor directly (no background worker needed)
+        let message_processor = MessageProcessor::new(
+            0, // worker_id
             notification_queue.clone(),
             subscription_storage.clone(),
-        )
-        .await
-        .expect("Failed to create XMTP worker - test cannot proceed");
-
-        // Spawn the worker in the background
-        let _worker_background_handle = tokio::spawn(async move {
-            if let Err(e) = worker.start().await {
-                panic!("Worker encountered error during test: {}", e);
-            }
-        });
-
-        let xmtp_test_client = XmtpTestClient::new(environment.xmtp_endpoint())
-            .await
-            .expect("Failed to create XMTP test client");
+        );
 
         Self {
             environment,
             notification_queue,
             subscription_storage,
-            xmtp_test_client,
-            _worker_background_handle,
+            message_processor,
             _dynamodb_setup: dynamodb_test_setup,
+            _sqs_setup: sqs_setup,
         }
     }
 }

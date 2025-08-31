@@ -84,7 +84,8 @@ impl MessageContext {
     /// # Errors
     ///
     /// Returns an error if sender HMAC or HMAC inputs are missing, or if the HMAC key is invalid.
-    pub fn is_sender(&self, hmac_key: &[u8]) -> anyhow::Result<bool> {
+    pub fn is_sender(&self, hex_hmac_key: &str) -> anyhow::Result<bool> {
+        let hmac_key = hex::decode(hex_hmac_key).context("Invalid HMAC key")?;
         let sender = self
             .sender_hmac
             .as_deref()
@@ -94,7 +95,7 @@ impl MessageContext {
             .as_deref()
             .context("HMAC inputs are required")?;
 
-        let mut mac = HmacSha256::new_from_slice(hmac_key).context("invalid HMAC key")?;
+        let mut mac = HmacSha256::new_from_slice(&hmac_key).context("invalid HMAC key")?;
 
         mac.update(input);
 

@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{collections::HashSet, sync::Arc};
 
 use crate::{xmtp::message_api::v1::Envelope, xmtp_utils::MessageContext};
 use anyhow::Context;
@@ -9,7 +9,7 @@ use backend_storage::{
 use base64::{engine::general_purpose::STANDARD, Engine as _};
 use tokio_util::sync::CancellationToken;
 
-use tracing::{debug, error, info};
+use tracing::{debug, error, info, warn};
 
 use crate::xmtp_utils::is_v3_topic;
 
@@ -71,7 +71,11 @@ impl MessageProcessor {
     }
 
     /// Processes a single message
-    async fn process_message(&self, envelope: &Envelope) -> anyhow::Result<()> {
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the message cannot be processed.
+    pub async fn process_message(&self, envelope: &Envelope) -> anyhow::Result<()> {
         // Step 1: Filter out messages that are not V3, following example from XMTP
         if !is_v3_topic(&envelope.content_topic) {
             return Ok(());
@@ -88,21 +92,20 @@ impl MessageProcessor {
         let message_context = MessageContext::from_xmtp_envelope(envelope)?;
 
         // Step 2: Filter out messages that should not be pushed
-        if !message_context.should_push.unwrap_or(false) {
+        if Some(false) == message_context.should_push {
             return Ok(());
         }
 
+        // Step 3: Filter out self-notifications, a user should not receive a notification for their own message
         let subscriptions = self
             .subscription_storage
             .get_all_by_topic(&envelope.content_topic)
             .await?;
-
-        // Step 3: Filter out self-notifications, a user should not receive a notification for their own message
         let subscribed_encrypted_push_ids = subscriptions
             .into_iter()
-            .filter_map(|s| match message_context.is_sender(s.hmac.as_bytes()) {
-                Ok(true) => Some(s.encrypted_push_id),
-                Ok(false) => None,
+            .filter_map(|s| match message_context.is_sender(&s.hmac) {
+                Ok(true) => None, // Filter out self-notifications (sender matches subscription)
+                Ok(false) => Some(s.encrypted_push_id),
                 // Don't block notification for valid HMACs but log error
                 Err(e) => {
                     error!(
@@ -112,15 +115,22 @@ impl MessageProcessor {
                         e,
                         message_context
                     );
-                    None
+                    Some(s.encrypted_push_id) // Include on error to be safe
                 }
             })
-            .collect::<Vec<_>>();
+            .collect::<HashSet<_>>();
+        if subscribed_encrypted_push_ids.is_empty() {
+            warn!(
+                "Worker {} no subscriptions found for topic {}",
+                self.worker_id, envelope.content_topic
+            );
+            return Ok(());
+        }
 
         // Convert XMTP envelope to notification
         let notification = Notification {
             topic: envelope.content_topic.clone(),
-            subscribed_encrypted_push_ids,
+            subscribed_encrypted_push_ids: subscribed_encrypted_push_ids.into_iter().collect(),
             encrypted_message_base64: STANDARD.encode(envelope.message.as_slice()),
         };
 
@@ -128,7 +138,7 @@ impl MessageProcessor {
         self.notification_queue
             .send_message(&notification)
             .await
-            .context("Failed to send message to notificationx queue")?;
+            .context("Failed to send message to notification queue")?;
 
         Ok(())
     }
