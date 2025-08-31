@@ -161,6 +161,8 @@ jobs:
             --network world-chat-network \
             -p ${{ matrix.service.port }}:${{ matrix.service.port }} \
             --env-file ${{ matrix.service.name }}/.env.example \
+            --env XMTP_ENDPOINT_URL=http://xmtp-node:5556 \ # Override the XMTP endpoint URL for the test container
+            --env AWS_ENDPOINT_URL=http://localstack:4566 \ # Override the AWS endpoint URL for the test container
             ${{ matrix.service.name }}:latest
 
           # Wait for the application to start
