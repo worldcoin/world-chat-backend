@@ -7,6 +7,7 @@ use axum::{
 };
 use axum_jsonschema::Json;
 use backend_storage::auth_proof::AuthProofStorageError;
+use backend_storage::push_notification::PushNotificationStorageError;
 use schemars::JsonSchema;
 use serde::Serialize;
 
@@ -199,6 +200,57 @@ impl From<AuthProofStorageError> for AppError {
                     StatusCode::INTERNAL_SERVER_ERROR,
                     "internal_error",
                     "Internal server error",
+                    false,
+                )
+            }
+        }
+    }
+}
+
+impl From<PushNotificationStorageError> for AppError {
+    fn from(err: PushNotificationStorageError) -> Self {
+        use PushNotificationStorageError::{
+            DynamoDbDeleteError, DynamoDbGetError, DynamoDbPutError, DynamoDbQueryError,
+            InvalidTtlError, ParseSubscriptionError, PushSubscriptionExists, SerializationError,
+        };
+
+        match &err {
+            PushSubscriptionExists => {
+                tracing::debug!("Push subscription already exists");
+                Self::new(
+                    StatusCode::CONFLICT,
+                    "already_exists",
+                    "Push subscription already exists",
+                    false,
+                )
+            }
+            DynamoDbPutError(_)
+            | DynamoDbDeleteError(_)
+            | DynamoDbGetError(_)
+            | DynamoDbQueryError(_) => {
+                tracing::error!("DynamoDB error: {err}");
+                Self::new(
+                    StatusCode::SERVICE_UNAVAILABLE,
+                    "database_error",
+                    "Database service temporarily unavailable",
+                    true,
+                )
+            }
+            SerializationError(msg) | ParseSubscriptionError(msg) => {
+                tracing::error!("Serialization/Parse error: {msg}");
+                Self::new(
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "internal_error",
+                    "Internal server error",
+                    false,
+                )
+            }
+            InvalidTtlError => {
+                tracing::warn!("Invalid TTL provided");
+                Self::new(
+                    StatusCode::BAD_REQUEST,
+                    "invalid_input",
+                    "Invalid TTL timestamp",
                     false,
                 )
             }

@@ -1,5 +1,6 @@
 pub mod auth;
 pub mod media;
+pub mod notifications;
 
 use aide::axum::{routing::post, ApiRouter};
 use axum::{middleware, routing::post as axum_post};
@@ -17,7 +18,14 @@ pub fn handler() -> ApiRouter {
             "/media/presigned-urls",
             axum_post(media::create_presigned_upload_url),
         )
-        // Add more protected routes here
+        .route(
+            "/notifications/subscribe",
+            axum_post(notifications::subscribe),
+        )
+        .route(
+            "/notifications/unsubscribe",
+            axum_post(notifications::unsubscribe),
+        )
         .layer(middleware::from_fn(auth_middleware));
 
     // Combine public and protected routes
