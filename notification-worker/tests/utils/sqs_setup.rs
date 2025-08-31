@@ -7,17 +7,6 @@ use pretty_assertions::assert_eq;
 use std::sync::Arc;
 use uuid::Uuid;
 
-/// Generic helper function to assert queue messages match
-pub fn assert_queue_message<T>(received: &backend_storage::queue::QueueMessage<T>, expected: &T)
-where
-    T: PartialEq + std::fmt::Debug,
-{
-    assert_eq!(
-        received.body, *expected,
-        "Queue message content should match"
-    );
-}
-
 /// Test context that provides SQS client and queue setup
 pub struct SqsSetup {
     pub sqs_client: Arc<SqsClient>,
