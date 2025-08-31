@@ -16,6 +16,8 @@ pub enum Environment {
     Development {
         /// Optional override for presigned URL expiry in seconds
         presign_expiry_override: Option<u64>,
+        /// Optional enable auth
+        disable_auth: bool,
     },
 }
 
@@ -43,6 +45,7 @@ impl Environment {
 
                 Self::Development {
                     presign_expiry_override,
+                    disable_auth: false,
                 }
             }
             _ => panic!("Invalid environment: {env}"),
@@ -131,6 +134,7 @@ impl Environment {
             }
             Self::Development {
                 presign_expiry_override,
+                ..
             } => {
                 // Use override if provided, otherwise default to 3 minutes
                 presign_expiry_override.unwrap_or(3 * 60)
@@ -216,6 +220,15 @@ impl Environment {
             Self::Development { .. } => "world-chat-auth-proofs".to_string(),
         }
     }
+
+    /// Returns whether auth is enabled
+    #[must_use]
+    pub const fn disable_auth(&self) -> bool {
+        match self {
+            Self::Production | Self::Staging => false,
+            Self::Development { disable_auth, .. } => *disable_auth,
+        }
+    }
 }
 
 #[cfg(test)]
@@ -232,7 +245,8 @@ mod tests {
         assert_eq!(
             Environment::from_env(),
             Environment::Development {
-                presign_expiry_override: None
+                presign_expiry_override: None,
+                disable_auth: false,
             }
         );
 
@@ -241,7 +255,8 @@ mod tests {
         assert_eq!(
             Environment::from_env(),
             Environment::Development {
-                presign_expiry_override: None
+                presign_expiry_override: None,
+                disable_auth: false,
             }
         );
 
@@ -268,12 +283,14 @@ mod tests {
         // Test default value (3 minutes = 180 seconds)
         let env = Environment::Development {
             presign_expiry_override: None,
+            disable_auth: false,
         };
         assert_eq!(env.presigned_url_expiry_secs(), 180);
 
         // Test custom value
         let env = Environment::Development {
             presign_expiry_override: Some(30),
+            disable_auth: false,
         };
         assert_eq!(env.presigned_url_expiry_secs(), 30);
 
@@ -296,7 +313,8 @@ mod tests {
         assert_eq!(
             env,
             Environment::Development {
-                presign_expiry_override: Some(120)
+                presign_expiry_override: Some(120),
+                disable_auth: false,
             }
         );
         assert_eq!(env.presigned_url_expiry_secs(), 120);
@@ -307,12 +325,39 @@ mod tests {
         assert_eq!(
             env,
             Environment::Development {
-                presign_expiry_override: None
+                presign_expiry_override: None,
+                disable_auth: false,
             }
         );
         assert_eq!(env.presigned_url_expiry_secs(), 180);
 
         // Cleanup
         env::remove_var("PRESIGNED_URL_EXPIRY_SECS");
+    }
+
+    #[test]
+    #[serial]
+    fn test_disable_auth() {
+        let env = Environment::Development {
+            disable_auth: true,
+            presign_expiry_override: None,
+        };
+        assert!(env.disable_auth());
+
+        let env = Environment::Development {
+            disable_auth: false,
+            presign_expiry_override: None,
+        };
+        assert!(!env.disable_auth());
+    }
+
+    #[test]
+    #[serial]
+    fn test_disable_auth_prod_staging() {
+        let env = Environment::Production;
+        assert!(!env.disable_auth());
+
+        let env = Environment::Staging;
+        assert!(!env.disable_auth());
     }
 }

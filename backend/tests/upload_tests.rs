@@ -29,7 +29,7 @@ pub fn create_upload_request(
 
 #[tokio::test]
 async fn test_upload_media_happy_path() {
-    let setup = TestSetup::new(None).await;
+    let setup = TestSetup::default().await;
 
     let content_digest_sha256 = create_valid_sha256();
     let payload = create_upload_request(content_digest_sha256.clone(), 1024, None);
@@ -57,7 +57,7 @@ async fn test_upload_media_happy_path() {
 
 #[tokio::test]
 async fn test_upload_media_invalid_sha256_format() {
-    let setup = TestSetup::new(None).await;
+    let setup = TestSetup::default().await;
 
     let payload = create_upload_request("invalid_sha256_digest".to_string(), 1024, None);
 
@@ -71,7 +71,7 @@ async fn test_upload_media_invalid_sha256_format() {
 
 #[tokio::test]
 async fn test_upload_media_short_sha256() {
-    let setup = TestSetup::new(None).await;
+    let setup = TestSetup::default().await;
 
     let payload = create_upload_request("abc123".to_string(), 1024, None);
 
@@ -85,7 +85,7 @@ async fn test_upload_media_short_sha256() {
 
 #[tokio::test]
 async fn test_upload_media_content_length_too_large() {
-    let setup = TestSetup::new(None).await;
+    let setup = TestSetup::default().await;
 
     let content_digest_sha256 = create_valid_sha256();
     let payload = create_upload_request(content_digest_sha256, 15_728_641, None); // 15 MiB + 1 byte
@@ -100,7 +100,7 @@ async fn test_upload_media_content_length_too_large() {
 
 #[tokio::test]
 async fn test_upload_media_content_length_zero() {
-    let setup = TestSetup::new(None).await;
+    let setup = TestSetup::default().await;
 
     let content_digest_sha256 = create_valid_sha256();
     let payload = create_upload_request(content_digest_sha256, 0, None);
@@ -115,7 +115,7 @@ async fn test_upload_media_content_length_zero() {
 
 #[tokio::test]
 async fn test_upload_media_content_length_negative() {
-    let setup = TestSetup::new(None).await;
+    let setup = TestSetup::default().await;
 
     let content_digest_sha256 = create_valid_sha256();
     let payload = create_upload_request(content_digest_sha256, -1, None);
@@ -132,7 +132,7 @@ async fn test_upload_media_content_length_negative() {
 
 #[tokio::test]
 async fn test_upload_media_missing_sha256() {
-    let setup = TestSetup::new(None).await;
+    let setup = TestSetup::default().await;
 
     let payload = json!({
         "content_length": 1024,
@@ -150,7 +150,7 @@ async fn test_upload_media_missing_sha256() {
 
 #[tokio::test]
 async fn test_upload_media_missing_content_length() {
-    let setup = TestSetup::new(None).await;
+    let setup = TestSetup::default().await;
 
     let payload = json!({
         "content_digest_sha256": create_valid_sha256(),
@@ -168,7 +168,7 @@ async fn test_upload_media_missing_content_length() {
 
 #[tokio::test]
 async fn test_upload_media_empty_json() {
-    let setup = TestSetup::new(None).await;
+    let setup = TestSetup::default().await;
 
     let payload = json!({});
 
@@ -182,7 +182,7 @@ async fn test_upload_media_empty_json() {
 
 #[tokio::test]
 async fn test_upload_media_invalid_json_types() {
-    let setup = TestSetup::new(None).await;
+    let setup = TestSetup::default().await;
 
     let payload = json!({
         "content_digest_sha256": 12345, // Should be string
@@ -202,7 +202,7 @@ async fn test_upload_media_invalid_json_types() {
 
 #[tokio::test]
 async fn test_upload_media_invalid_content_type_text() {
-    let setup = TestSetup::new(None).await;
+    let setup = TestSetup::default().await;
 
     let content_digest_sha256 = create_valid_sha256();
     let payload = create_upload_request(
@@ -221,7 +221,7 @@ async fn test_upload_media_invalid_content_type_text() {
 
 #[tokio::test]
 async fn test_upload_media_popular_content_types() {
-    let setup = TestSetup::new(None).await;
+    let setup = TestSetup::default().await;
 
     // Test various allowed MIME types
     let valid_content_types = vec![
@@ -265,7 +265,7 @@ async fn test_upload_media_popular_content_types() {
 
 #[tokio::test]
 async fn test_upload_media_video_exact_max_content_length() {
-    let setup = TestSetup::new(None).await;
+    let setup = TestSetup::default().await;
 
     let content_digest_sha256 = create_valid_sha256();
     let payload = create_upload_request(
@@ -284,7 +284,7 @@ async fn test_upload_media_video_exact_max_content_length() {
 
 #[tokio::test]
 async fn test_upload_media_video_too_large() {
-    let setup = TestSetup::new(None).await;
+    let setup = TestSetup::default().await;
 
     let content_digest_sha256 = create_valid_sha256();
     let payload = create_upload_request(
@@ -303,7 +303,7 @@ async fn test_upload_media_video_too_large() {
 
 #[tokio::test]
 async fn test_upload_media_image_exact_max_content_length() {
-    let setup = TestSetup::new(None).await;
+    let setup = TestSetup::default().await;
 
     let content_digest_sha256 = create_valid_sha256();
     let payload = create_upload_request(
@@ -322,7 +322,7 @@ async fn test_upload_media_image_exact_max_content_length() {
 
 #[tokio::test]
 async fn test_upload_media_image_too_large() {
-    let setup = TestSetup::new(None).await;
+    let setup = TestSetup::default().await;
 
     let content_digest_sha256 = create_valid_sha256();
     let payload = create_upload_request(
@@ -341,7 +341,7 @@ async fn test_upload_media_image_too_large() {
 
 #[tokio::test]
 async fn test_upload_media_minimum_content_length() {
-    let setup = TestSetup::new(None).await;
+    let setup = TestSetup::default().await;
 
     let content_digest_sha256 = create_valid_sha256();
     let payload = create_upload_request(content_digest_sha256.clone(), 1, None); // Minimum allowed
@@ -357,7 +357,7 @@ async fn test_upload_media_minimum_content_length() {
 
 #[tokio::test]
 async fn test_upload_media_special_hex_characters() {
-    let setup = TestSetup::new(None).await;
+    let setup = TestSetup::default().await;
 
     // Test with all valid hex characters
     let content_digest_sha256 = "abcdef0123456789".repeat(4); // 64 chars of valid hex
@@ -373,7 +373,7 @@ async fn test_upload_media_special_hex_characters() {
 
 #[tokio::test]
 async fn test_upload_media_uppercase_hex() {
-    let setup = TestSetup::new(None).await;
+    let setup = TestSetup::default().await;
 
     // Test uppercase hex (should be rejected by schemars regex)
     let content_digest_sha256 = "ABCDEF0123456789".repeat(4); // 64 chars of uppercase hex
@@ -389,7 +389,7 @@ async fn test_upload_media_uppercase_hex() {
 
 #[tokio::test]
 async fn test_upload_media_extra_fields() {
-    let setup = TestSetup::new(None).await;
+    let setup = TestSetup::default().await;
 
     // Test schemars deny_unknown_fields
     let payload = json!({
@@ -411,7 +411,7 @@ async fn test_upload_media_extra_fields() {
 
 #[tokio::test]
 async fn test_e2e_upload_happy_path() {
-    let setup = TestSetup::new(None).await;
+    let setup = TestSetup::default().await;
 
     // Step 1: Generate test image data with known SHA-256
     let (image_data, sha256) = generate_test_encrypted_image(2048);
@@ -556,7 +556,7 @@ async fn test_e2e_upload_happy_path() {
 
 #[tokio::test]
 async fn test_e2e_upload_with_wrong_checksum() {
-    let setup = TestSetup::new(None).await;
+    let setup = TestSetup::default().await;
 
     // Step 1: Generate test image data with known SHA-256
     let (image_data, sha256) = generate_test_encrypted_image(2048);
@@ -651,7 +651,7 @@ async fn test_e2e_upload_with_wrong_checksum() {
 
 #[tokio::test]
 async fn test_e2e_upload_with_wrong_content_length() {
-    let setup = TestSetup::new(None).await;
+    let setup = TestSetup::default().await;
 
     // Step 1: Generate test image data with known SHA-256
     let (image_data, sha256) = generate_test_encrypted_image(2048);
@@ -744,7 +744,7 @@ async fn test_e2e_upload_with_wrong_content_length() {
 #[tokio::test]
 async fn test_e2e_upload_with_expired_presigned_url() {
     // 1 second presigned url expiry
-    let setup = TestSetup::new(Some(1)).await;
+    let setup = TestSetup::new(Some(1), true).await;
 
     // Step 1: Generate test image data with known SHA-256
     let (image_data, sha256) = generate_test_encrypted_image(2048);
