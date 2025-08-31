@@ -10,6 +10,10 @@ use pretty_assertions::assert_eq;
 use prost::Message as ProstMessage;
 use utils::TestContext;
 
+// ============================================================================
+// Test Helpers
+// ============================================================================
+
 /// Test subscription data for consistent test setup
 #[allow(dead_code)]
 struct TestSubscriptions {
@@ -145,6 +149,7 @@ pub async fn send_envelope(ctx: &TestContext, envelope: Envelope) -> anyhow::Res
     ctx.message_processor.process_message(&envelope).await
 }
 
+/// Helper to create a group message envelope
 pub async fn create_group_message_envelope(
     topic: &str,
     content: &[u8],
@@ -198,7 +203,7 @@ pub async fn send_group_message(
 }
 
 // ============================================================================
-// Core Test Cases
+// Test Cases
 // ============================================================================
 
 #[tokio::test]
