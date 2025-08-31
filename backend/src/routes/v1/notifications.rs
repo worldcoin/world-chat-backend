@@ -71,10 +71,17 @@ pub async fn subscribe(
     Ok(StatusCode::OK)
 }
 
-#[instrument(skip(_push_storage, _payload))]
+#[instrument(skip(push_storage, payload))]
 pub async fn unsubscribe(
-    Extension(_push_storage): Extension<Arc<PushNotificationStorage>>,
-    Json(_payload): Json<UnsubscribeRequest>,
+    Extension(push_storage): Extension<Arc<PushNotificationStorage>>,
+    Json(payload): Json<UnsubscribeRequest>,
 ) -> Result<StatusCode, AppError> {
-    Ok(StatusCode::ACCEPTED)
+    push_storage
+        .get_by_hmac(&payload.hmac)
+        .await
+        .map_err(AppError::from)?;
+
+    // TODO: tombstone logic here
+
+    Ok(StatusCode::OK)
 }

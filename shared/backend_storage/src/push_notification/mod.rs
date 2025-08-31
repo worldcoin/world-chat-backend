@@ -221,4 +221,43 @@ impl PushNotificationStorage {
 
         Ok(response.item().is_some())
     }
+
+    /// Gets a push subscription by HMAC
+    ///
+    /// # Arguments
+    ///
+    /// * `hmac` - The HMAC identifier to retrieve
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(Some(subscription))` if subscription exists
+    /// * `Ok(None)` if subscription does not exist
+    ///
+    /// # Errors
+    ///
+    /// Returns `PushNotificationStorageError` if the Dynamo DB operation fails
+    pub async fn get_by_hmac(
+        &self,
+        hmac: &str,
+    ) -> PushNotificationStorageResult<Option<PushSubscription>> {
+        let response = self
+            .dynamodb_client
+            .get_item()
+            .table_name(&self.table_name)
+            .key(
+                PushSubscriptionAttribute::Hmac.to_string(),
+                AttributeValue::S(hmac.to_string()),
+            )
+            .send()
+            .await?;
+
+        response
+            .item()
+            .map(|item| {
+                serde_dynamo::from_item(item.clone()).map_err(|e| {
+                    PushNotificationStorageError::ParseSubscriptionError(e.to_string())
+                })
+            })
+            .transpose()
+    }
 }
