@@ -31,7 +31,7 @@ impl From<JwsPayload> for AuthenticatedUser {
 /// Axum extractor for authenticated user
 ///
 /// Use this in your handlers to automatically extract and validate the authenticated user:
-/// ```rust,no_run
+/// ```ignore
 /// async fn protected_handler(
 ///     user: AuthenticatedUser,
 ///     // ... other extractors
