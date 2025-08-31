@@ -3,6 +3,7 @@ use std::sync::Arc;
 use axum::Extension;
 use axum_jsonschema::Json;
 use backend_storage::auth_proof::{AuthProofInsertRequest, AuthProofStorage};
+use chrono::Utc;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -11,12 +12,14 @@ use walletkit_core::CredentialType;
 use crate::{
     jwt::{JwsPayload, JwtManager},
     types::{AppError, Environment},
-    world_id::verifier::verify_world_id_proof,
+    world_id::{error::WorldIdError, verifier::verify_world_id_proof},
 };
 
 #[derive(Deserialize, JsonSchema)]
 pub struct AuthRequest {
     pub encrypted_push_id: String,
+    /// Timestamp used in the proof's signal to prevent replay attacks in a 5 minute window
+    pub timestamp: i64,
     /// Zero-knowledge proof
     pub proof: String,
     /// Nullifier hash - unique identifier for the user
@@ -50,6 +53,8 @@ pub async fn authorize_handler(
     Json(request): Json<AuthRequest>,
 ) -> Result<Json<AuthResponse>, AppError> {
     // 1. Verify World ID proof
+    let signal = validate_and_craft_signal(&request.encrypted_push_id, request.timestamp)?;
+
     verify_world_id_proof(
         &environment.world_id_app_id(),
         &environment.world_id_action(),
@@ -57,9 +62,7 @@ pub async fn authorize_handler(
         &request.nullifier_hash,
         &request.merkle_root,
         request.credential_type,
-        // We use the encrypted push id as the signal
-        // to ensure the proof belongs to the user with requested push id
-        &request.encrypted_push_id,
+        &signal,
         &environment.world_id_environment(),
     )
     .await?;
@@ -77,4 +80,30 @@ pub async fn authorize_handler(
     let access_token = jwt_manager.issue_token(jws_payload).await?;
 
     Ok(Json(AuthResponse { access_token }))
+}
+
+/// Enforce a 5 minute window for the timestamp used in the signal.
+/// This prevents old proofs from being used.
+const TIMESTAMP_EXPIRATION_SECS: i64 = 5 * 60;
+
+/// Creates a signal by combining the encrypted push id and the timestamp.
+/// This way we ensure:
+///  - The proof can be used only in a 5 minute window
+///  - The proof belongs to the user with the requested push id
+///
+/// # Errors
+/// - `WorldIdError::InvalidProof` - Because we don't want to leak information about the proof
+fn validate_and_craft_signal(
+    encrypted_push_id: &str,
+    timestamp: i64,
+) -> Result<String, WorldIdError> {
+    let now = Utc::now().timestamp();
+    if timestamp > now {
+        return Err(WorldIdError::InvalidProof);
+    }
+    if now - timestamp > TIMESTAMP_EXPIRATION_SECS {
+        return Err(WorldIdError::InvalidProof);
+    }
+
+    Ok(format!("{encrypted_push_id}:{timestamp}"))
 }

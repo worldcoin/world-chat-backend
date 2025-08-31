@@ -6,6 +6,10 @@ use walletkit_core::{proof::ProofContext, CredentialType, U256Wrapper};
 
 use super::{error::WorldIdError, request::Request};
 
+/// This is the lowest bound accepted by the sequencer
+/// Prevents from using proofs with a root that is more than 1 hour old
+const MAX_ROOT_AGE_SECS: i64 = 3600;
+
 /// A struct with all the World ID proof fields.
 ///
 /// This struct can be serialized and used directly to verify in the sequencer.
@@ -26,6 +30,8 @@ struct SequencerVerificationRequest {
     pub external_nullifier_hash: U256Wrapper,
     /// The hashed signal which is included in the ZKP
     pub signal_hash: U256Wrapper,
+    /// Maximum age of the merkle root in seconds
+    pub max_root_age_seconds: i64,
 }
 
 /// Response from the World ID sequencer's proof verification endpoint.
@@ -142,6 +148,7 @@ pub async fn verify_world_id_proof(
         nullifier_hash,
         external_nullifier_hash: proof_context.external_nullifier,
         signal_hash: proof_context.signal_hash,
+        max_root_age_seconds: MAX_ROOT_AGE_SECS,
     };
 
     // Get the appropriate sequencer endpoint based on credential type and environment
