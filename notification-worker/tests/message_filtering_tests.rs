@@ -27,6 +27,10 @@ struct TestSubscriptions {
 async fn setup_test_subscriptions(ctx: &TestContext) -> Result<TestSubscriptions> {
     let now = chrono::Utc::now().timestamp();
 
+    const TOPIC_A: &str = "/xmtp/mls/1/g-topic-a/proto";
+    const TOPIC_B: &str = "/xmtp/mls/1/g-topic-b/proto";
+    const TOPIC_C: &str = "/xmtp/mls/1/g-topic-c/proto";
+
     // Create consistent HMAC keys for testing
     let hmac_a_x = create_test_hmac_key(b"user_a_device_x");
     let hmac_b_x = create_test_hmac_key(b"user_b_device_x");
@@ -37,7 +41,7 @@ async fn setup_test_subscriptions(ctx: &TestContext) -> Result<TestSubscriptions
     // Topic A with single subscription
     let sub_a_x = PushSubscription {
         hmac: hex::encode(&hmac_a_x),
-        topic: "/xmtp/mls/1/g-topic-a/proto".to_string(),
+        topic: TOPIC_A.to_string(),
         ttl: now + 86400, // Valid for 1 day
         encrypted_push_id: "push_id_x".to_string(),
     };
@@ -45,14 +49,14 @@ async fn setup_test_subscriptions(ctx: &TestContext) -> Result<TestSubscriptions
     // Topic B with multiple subscribers
     let sub_b_x = PushSubscription {
         hmac: hex::encode(&hmac_b_x),
-        topic: "/xmtp/mls/1/g-topic-b/proto".to_string(),
+        topic: TOPIC_B.to_string(),
         ttl: now + 86400,
         encrypted_push_id: "push_id_x".to_string(),
     };
 
     let sub_b_y1 = PushSubscription {
         hmac: hex::encode(&hmac_b_y1),
-        topic: "/xmtp/mls/1/g-topic-b/proto".to_string(),
+        topic: TOPIC_B.to_string(),
         ttl: now + 86400,
         encrypted_push_id: "push_id_y".to_string(),
     };
@@ -60,7 +64,7 @@ async fn setup_test_subscriptions(ctx: &TestContext) -> Result<TestSubscriptions
     // Same push_id as y1 (same device, different installation)
     let sub_b_y2 = PushSubscription {
         hmac: hex::encode(&hmac_b_y2),
-        topic: "/xmtp/mls/1/g-topic-b/proto".to_string(),
+        topic: TOPIC_B.to_string(),
         ttl: now + 86400,
         encrypted_push_id: "push_id_y".to_string(),
     };
@@ -71,9 +75,9 @@ async fn setup_test_subscriptions(ctx: &TestContext) -> Result<TestSubscriptions
     }
 
     Ok(TestSubscriptions {
-        topic_a: "g-topic-a".to_string(),
-        topic_b: "g-topic-b".to_string(),
-        topic_c: "g-topic-c".to_string(), // No subscriptions for this
+        topic_a: TOPIC_A.to_string(),
+        topic_b: TOPIC_B.to_string(),
+        topic_c: TOPIC_C.to_string(), // No subscriptions for this
         hmac_a_x,
         hmac_b_x,
         hmac_b_y1,
@@ -106,14 +110,13 @@ async fn assert_notification_queued(
     assert_eq!(notification.topic, expected_topic);
 
     // Check push IDs (should be deduplicated)
-    let unique_ids: std::collections::HashSet<_> = expected_push_ids.into_iter().collect();
     assert_eq!(
         notification.subscribed_encrypted_push_ids.len(),
-        unique_ids.len(),
+        expected_push_ids.len(),
         "Push IDs not properly deduplicated"
     );
 
-    for id in unique_ids {
+    for id in expected_push_ids {
         assert!(
             notification
                 .subscribed_encrypted_push_ids
@@ -175,7 +178,7 @@ pub async fn create_group_message_envelope(
     group_message.encode(&mut message_bytes)?;
 
     Ok(Envelope {
-        content_topic: format!("/xmtp/mls/1/{}/proto", topic),
+        content_topic: topic.to_string(),
         timestamp_ns: chrono::Utc::now().timestamp_nanos_opt().unwrap_or(0) as u64,
         message: message_bytes,
     })
@@ -213,12 +216,7 @@ async fn test_filters_v3_topics() -> Result<()> {
     )
     .await?;
 
-    assert_notification_queued(
-        &ctx,
-        &format!("/xmtp/mls/1/{}/proto", subs.topic_a),
-        vec!["push_id_x"],
-    )
-    .await?;
+    assert_notification_queued(&ctx, &subs.topic_a, vec!["push_id_x"]).await?;
 
     Ok(())
 }
@@ -259,12 +257,7 @@ async fn test_filters_self_notifications() -> Result<()> {
     .await?;
 
     // Only push id y should be notified
-    assert_notification_queued(
-        &ctx,
-        &format!("/xmtp/mls/1/{}/proto", subs.topic_b),
-        vec!["push_id_y"],
-    )
-    .await?;
+    assert_notification_queued(&ctx, &subs.topic_b, vec!["push_id_y"]).await?;
 
     Ok(())
 }
@@ -307,7 +300,7 @@ async fn test_broadcasts_to_multiple_subscribers() -> Result<()> {
     // Should get notification with both push IDs (deduplicated)
     assert_notification_queued(
         &ctx,
-        &format!("/xmtp/mls/1/{}/proto", subs.topic_b),
+        &subs.topic_b,
         vec!["push_id_x", "push_id_y"], // y1 and y2 have same push_id
     )
     .await?;
@@ -419,7 +412,7 @@ async fn test_message_encoding() -> Result<()> {
 
     // Send the message using raw message data - create envelope directly
     let envelope = notification_worker::xmtp::message_api::v1::Envelope {
-        content_topic: format!("/xmtp/mls/1/{}/proto", subs.topic_a),
+        content_topic: subs.topic_a.clone(),
         timestamp_ns: chrono::Utc::now().timestamp_nanos_opt().unwrap_or(0) as u64,
         message: message_bytes.clone(),
     };
@@ -449,16 +442,19 @@ async fn test_message_encoding() -> Result<()> {
     Ok(())
 }
 
+// This test verifies that duplicate push IDs are deduplicated, eg. when a user is subscribed to the same topic on multiple devices.
 #[tokio::test]
 async fn test_duplicate_push_ids_deduplicated() -> Result<()> {
     let ctx = TestContext::new().await;
     let now = chrono::Utc::now().timestamp();
 
+    const TOPIC_DEDUP_TEST: &str = "/xmtp/mls/1/g-dedup-test/proto";
+
     // Create multiple subscriptions with same push_id
     for i in 0..3 {
         let sub = PushSubscription {
-            hmac: hex::encode(create_test_hmac_key(format!("user_{}", i).as_bytes())),
-            topic: "/xmtp/mls/1/g-dedup-test/proto".to_string(),
+            hmac: hex::encode(create_test_hmac_key(format!("device_{}", i).as_bytes())),
+            topic: TOPIC_DEDUP_TEST.to_string(),
             ttl: now + 86400,
             encrypted_push_id: "duplicate_push_id".to_string(),
         };
@@ -468,7 +464,7 @@ async fn test_duplicate_push_ids_deduplicated() -> Result<()> {
     // Send message
     send_group_message(
         &ctx,
-        "g-dedup-test",
+        TOPIC_DEDUP_TEST,
         b"Test deduplication",
         true,
         create_test_hmac_key(b"external"),
@@ -476,12 +472,7 @@ async fn test_duplicate_push_ids_deduplicated() -> Result<()> {
     .await?;
 
     // Should only have one push_id in notification
-    assert_notification_queued(
-        &ctx,
-        "/xmtp/mls/1/g-dedup-test/proto",
-        vec!["duplicate_push_id"],
-    )
-    .await?;
+    assert_notification_queued(&ctx, TOPIC_DEDUP_TEST, vec!["duplicate_push_id"]).await?;
 
     Ok(())
 }
