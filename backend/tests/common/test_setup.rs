@@ -7,6 +7,7 @@ use aws_sdk_s3::Client as S3Client;
 use axum::{body::Body, http::Request, response::Response, Extension, Router};
 use backend::{jwt::JwtManager, media_storage::MediaStorage, routes, types::Environment};
 use backend_storage::auth_proof::AuthProofStorage;
+use backend_storage::push_notification::PushNotificationStorage;
 use std::sync::Arc;
 use tower::ServiceExt;
 
@@ -76,12 +77,18 @@ impl TestSetup {
             dynamodb_client.clone(),
             dynamodb_test_setup.auth_proofs_table_name.clone(),
         ));
+        let push_subscription_storage = Arc::new(PushNotificationStorage::new(
+            dynamodb_client.clone(),
+            dynamodb_test_setup.push_subscriptions_table_name.clone(),
+            dynamodb_test_setup.push_subscriptions_gsi_name.clone(),
+        ));
 
         let router = routes::handler()
             .layer(Extension(environment.clone()))
             .layer(Extension(media_storage.clone()))
             .layer(Extension(auth_proof_storage.clone()))
             .layer(Extension(jwt_manager.clone()))
+            .layer(Extension(push_subscription_storage.clone()))
             .into();
 
         Self {

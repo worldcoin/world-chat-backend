@@ -3,6 +3,7 @@ use std::sync::Arc;
 use aide::openapi::OpenApi;
 use axum::Extension;
 use backend_storage::auth_proof::AuthProofStorage;
+use backend_storage::push_notification::PushNotificationStorage;
 use datadog_tracing::axum::{shutdown_signal, OtelAxumLayer, OtelInResponseLayer};
 use tokio::net::TcpListener;
 
@@ -19,6 +20,7 @@ pub async fn start(
     media_storage: Arc<MediaStorage>,
     jwt_manager: Arc<JwtManager>,
     auth_proof_storage: Arc<AuthProofStorage>,
+    push_subscription_storage: Arc<PushNotificationStorage>,
 ) -> anyhow::Result<()> {
     let mut openapi = OpenApi::default();
 
@@ -29,6 +31,7 @@ pub async fn start(
         .layer(Extension(media_storage))
         .layer(Extension(jwt_manager))
         .layer(Extension(auth_proof_storage))
+        .layer(Extension(push_subscription_storage))
         // Include trace context as header into the response
         .layer(OtelInResponseLayer)
         // Start OpenTelemetry trace on incoming request
