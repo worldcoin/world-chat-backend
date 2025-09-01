@@ -172,7 +172,7 @@ async fn test_basic_upsert_and_get_operations() {
     // Get by topic and hmac
     let retrieved = context
         .storage
-        .get_one_by_topic_hmac(&subscription.topic, &subscription.hmac_key)
+        .get_one(&subscription.topic, &subscription.hmac_key)
         .await
         .expect("Failed to get by topic and hmac");
 
@@ -227,7 +227,7 @@ async fn test_upsert_updates_existing() {
     // Retrieve and verify it was updated
     let retrieved = context
         .storage
-        .get_one_by_topic_hmac(&subscription.topic, &subscription.hmac_key)
+        .get_one(&subscription.topic, &subscription.hmac_key)
         .await
         .expect("Failed to get updated subscription")
         .expect("Subscription should exist");
@@ -328,13 +328,13 @@ async fn test_get_all_by_topic_multiple_subscriptions() {
 }
 
 #[tokio::test]
-async fn test_get_one_by_topic_hmac_not_found() {
+async fn test_get_one_not_found() {
     let context = setup_test().await;
 
     // Try to get non-existent subscription
     let result = context
         .storage
-        .get_one_by_topic_hmac("non-existent-topic", "non-existent-hmac")
+        .get_one("non-existent-topic", "non-existent-hmac")
         .await
         .expect("Failed to query non-existent subscription");
 
@@ -361,7 +361,7 @@ async fn test_deletion_request_serialization() {
     // Retrieve and verify deletion request is preserved
     let retrieved = context
         .storage
-        .get_one_by_topic_hmac(&subscription.topic, &subscription.hmac_key)
+        .get_one(&subscription.topic, &subscription.hmac_key)
         .await
         .expect("Failed to get subscription")
         .expect("Subscription should exist");
@@ -391,7 +391,7 @@ async fn test_subscription_without_deletion_request() {
     // Retrieve and verify deletion request is None
     let retrieved = context
         .storage
-        .get_one_by_topic_hmac(&subscription.topic, &subscription.hmac_key)
+        .get_one(&subscription.topic, &subscription.hmac_key)
         .await
         .expect("Failed to get subscription")
         .expect("Subscription should exist");

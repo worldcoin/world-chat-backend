@@ -131,7 +131,7 @@ impl PushSubscriptionStorage {
     /// # Errors
     ///
     /// Returns `PushSubscriptionStorageError` if the Dynamo DB operation fails
-    pub async fn get_one_by_topic_hmac(
+    pub async fn get_one(
         &self,
         topic: &str,
         hmac_key: &str,
