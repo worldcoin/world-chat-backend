@@ -147,15 +147,14 @@ impl PushSubscriptionStorage {
             .send()
             .await?;
 
-        match response.item() {
-            Some(item) => {
-                let subscription = serde_dynamo::from_item(item.clone()).map_err(|e| {
+        response
+            .item()
+            .map(|item| {
+                serde_dynamo::from_item(item.clone()).map_err(|e| {
                     PushSubscriptionStorageError::ParseSubscriptionError(e.to_string())
-                })?;
-                Ok(Some(subscription))
-            }
-            None => Ok(None),
-        }
+                })
+            })
+            .transpose()
     }
 
     /// Upserts a push subscription (insert or update if exists)
