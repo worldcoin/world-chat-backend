@@ -32,10 +32,6 @@ pub enum PushSubscriptionStorageError {
     #[error("Failed to parse subscription: {0}")]
     ParseSubscriptionError(String),
 
-    /// Invalid TTL timestamp
-    #[error("Invalid TTL timestamp")]
-    InvalidTtlError,
-
     /// Serialization error for `serde_dynamo`
     #[error("Serialization error: {0}")]
     SerializationError(String),

@@ -212,7 +212,7 @@ impl From<PushSubscriptionStorageError> for AppError {
     fn from(err: PushSubscriptionStorageError) -> Self {
         use PushSubscriptionStorageError::{
             DynamoDbDeleteError, DynamoDbGetError, DynamoDbPutError, DynamoDbQueryError,
-            InvalidTtlError, ParseSubscriptionError, SerializationError,
+            ParseSubscriptionError, SerializationError,
         };
 
         match &err {
@@ -234,15 +234,6 @@ impl From<PushSubscriptionStorageError> for AppError {
                     StatusCode::INTERNAL_SERVER_ERROR,
                     "internal_error",
                     "Internal server error",
-                    false,
-                )
-            }
-            InvalidTtlError => {
-                tracing::warn!("Invalid TTL provided");
-                Self::new(
-                    StatusCode::BAD_REQUEST,
-                    "invalid_input",
-                    "Invalid TTL timestamp",
                     false,
                 )
             }
