@@ -15,20 +15,17 @@ pub struct DynamoDbTestSetup {
     client: Arc<DynamoDbClient>,
     pub auth_proofs_table_name: String,
     pub push_subscriptions_table_name: String,
-    pub push_subscriptions_gsi_name: String,
 }
 
 impl DynamoDbTestSetup {
     pub async fn new(client: Arc<DynamoDbClient>) -> Self {
         let auth_proofs_table_name = Self::create_auth_proofs_table(&client).await;
-        let (push_subscriptions_table_name, push_subscriptions_gsi_name) =
-            Self::create_push_subscriptions_table(&client).await;
+        let push_subscriptions_table_name = Self::create_push_subscriptions_table(&client).await;
 
         Self {
             client,
             auth_proofs_table_name,
             push_subscriptions_table_name,
-            push_subscriptions_gsi_name,
         }
     }
 
@@ -80,22 +77,13 @@ impl DynamoDbTestSetup {
         table_name
     }
 
-    /// Creates a test push subscriptions table with a unique name
-    async fn create_push_subscriptions_table(client: &DynamoDbClient) -> (String, String) {
+    // Create push subscriptions table with Topic (Pk) and HmacKey (Sk)
+    async fn create_push_subscriptions_table(client: &DynamoDbClient) -> String {
         let table_name = format!("test-push-subscriptions-{}", Uuid::new_v4());
-        let gsi_name = format!("test-push-subscriptions-gsi-{}", Uuid::new_v4());
 
-        // Create table with nullifier as the primary key
         client
             .create_table()
             .table_name(&table_name)
-            .attribute_definitions(
-                AttributeDefinition::builder()
-                    .attribute_name(PushSubscriptionAttribute::Hmac.to_string())
-                    .attribute_type(ScalarAttributeType::S)
-                    .build()
-                    .unwrap(),
-            )
             .attribute_definitions(
                 AttributeDefinition::builder()
                     .attribute_name(PushSubscriptionAttribute::Topic.to_string())
@@ -103,28 +91,24 @@ impl DynamoDbTestSetup {
                     .build()
                     .unwrap(),
             )
+            .attribute_definitions(
+                AttributeDefinition::builder()
+                    .attribute_name(PushSubscriptionAttribute::HmacKey.to_string())
+                    .attribute_type(ScalarAttributeType::S)
+                    .build()
+                    .unwrap(),
+            )
             .key_schema(
                 KeySchemaElement::builder()
-                    .attribute_name(PushSubscriptionAttribute::Hmac.to_string())
+                    .attribute_name(PushSubscriptionAttribute::Topic.to_string())
                     .key_type(KeyType::Hash)
                     .build()
                     .unwrap(),
             )
-            .global_secondary_indexes(
-                GlobalSecondaryIndex::builder()
-                    .index_name(&gsi_name)
-                    .key_schema(
-                        KeySchemaElement::builder()
-                            .attribute_name(PushSubscriptionAttribute::Topic.to_string())
-                            .key_type(KeyType::Hash)
-                            .build()
-                            .unwrap(),
-                    )
-                    .projection(
-                        Projection::builder()
-                            .projection_type(ProjectionType::All)
-                            .build(),
-                    )
+            .key_schema(
+                KeySchemaElement::builder()
+                    .attribute_name(PushSubscriptionAttribute::HmacKey.to_string())
+                    .key_type(KeyType::Range)
                     .build()
                     .unwrap(),
             )
@@ -147,11 +131,10 @@ impl DynamoDbTestSetup {
             .send()
             .await
             .expect("Failed to enable TTL");
-
         // Wait for table to be ready
         tokio::time::sleep(Duration::from_millis(100)).await;
 
-        (table_name, gsi_name)
+        table_name
     }
 
     /// Deletes a test table (used for cleanup)

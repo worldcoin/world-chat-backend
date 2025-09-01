@@ -37,7 +37,6 @@ async fn main() -> anyhow::Result<()> {
     let push_subscription_storage = Arc::new(PushSubscriptionStorage::new(
         dynamodb_client,
         environment.dynamodb_push_subscription_table_name(),
-        environment.dynamodb_push_subscription_gsi_name(),
     ));
 
     let result = server::start(

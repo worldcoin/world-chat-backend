@@ -231,6 +231,10 @@ impl Environment {
     }
 
     /// Returns the Dynamo DB table name for push subscriptions
+    ///
+    /// # Panics
+    ///
+    /// Panics if the `DYNAMODB_PUSH_SUBSCRIPTION_TABLE_NAME` environment variable is not set in production/staging
     #[must_use]
     pub fn dynamodb_push_subscription_table_name(&self) -> String {
         match self {
@@ -241,6 +245,10 @@ impl Environment {
     }
 
     /// Returns the Dynamo DB GSI name for push subscriptions
+    ///
+    /// # Panics
+    ///
+    /// Panics if the `DYNAMODB_PUSH_SUBSCRIPTION_GSI_NAME` environment variable is not set in production/staging
     #[must_use]
     pub fn dynamodb_push_subscription_gsi_name(&self) -> String {
         match self {

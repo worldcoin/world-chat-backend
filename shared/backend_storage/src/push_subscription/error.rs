@@ -36,10 +36,6 @@ pub enum PushSubscriptionStorageError {
     #[error("Invalid TTL timestamp")]
     InvalidTtlError,
 
-    /// Push subscription already exists
-    #[error("Push subscription already exists")]
-    PushSubscriptionExists,
-
     /// Serialization error for `serde_dynamo`
     #[error("Serialization error: {0}")]
     SerializationError(String),

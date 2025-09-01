@@ -80,7 +80,6 @@ impl TestSetup {
         let push_subscription_storage = Arc::new(PushSubscriptionStorage::new(
             dynamodb_client.clone(),
             dynamodb_test_setup.push_subscriptions_table_name.clone(),
-            dynamodb_test_setup.push_subscriptions_gsi_name.clone(),
         ));
 
         let router = routes::handler()

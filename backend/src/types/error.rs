@@ -208,22 +208,14 @@ impl From<AuthProofStorageError> for AppError {
 }
 
 impl From<PushSubscriptionStorageError> for AppError {
+    #[allow(clippy::cognitive_complexity)]
     fn from(err: PushSubscriptionStorageError) -> Self {
         use PushSubscriptionStorageError::{
             DynamoDbDeleteError, DynamoDbGetError, DynamoDbPutError, DynamoDbQueryError,
-            InvalidTtlError, ParseSubscriptionError, PushSubscriptionExists, SerializationError,
+            InvalidTtlError, ParseSubscriptionError, SerializationError,
         };
 
         match &err {
-            PushSubscriptionExists => {
-                tracing::debug!("Push subscription already exists");
-                Self::new(
-                    StatusCode::CONFLICT,
-                    "already_exists",
-                    "Push subscription already exists",
-                    false,
-                )
-            }
             DynamoDbPutError(_)
             | DynamoDbDeleteError(_)
             | DynamoDbGetError(_)

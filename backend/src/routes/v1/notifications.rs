@@ -40,6 +40,14 @@ pub struct UnsubscribeRequest {
     pub topic: String,
 }
 
+/// Subscribe to push notifications for the given topics
+///
+/// # Errors
+///
+/// Returns an error if:
+/// - Database operations fail during subscription storage
+/// - Subscription validation fails
+/// - Internal server errors occur
 #[instrument(skip(push_storage, payload))]
 pub async fn subscribe(
     user: AuthenticatedUser,
@@ -72,6 +80,14 @@ pub async fn subscribe(
     Ok(StatusCode::OK)
 }
 
+/// Unsubscribe from push notifications for a specific topic
+///
+/// # Errors
+///
+/// Returns an error if:
+/// - Database operations fail during subscription retrieval
+/// - The subscription does not exist
+/// - Internal server errors occur
 #[instrument(skip(push_storage, payload))]
 pub async fn unsubscribe(
     Extension(push_storage): Extension<Arc<PushSubscriptionStorage>>,
