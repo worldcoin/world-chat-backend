@@ -11,7 +11,7 @@ pub fn handler() -> ApiRouter {
     let public_routes = ApiRouter::new().api_route("/authorize", post(auth::authorize_handler));
 
     let protected_routes = ApiRouter::new()
-        .route(
+        .api_route(
             "/media/presigned-urls",
             post(media::create_presigned_upload_url),
         )
