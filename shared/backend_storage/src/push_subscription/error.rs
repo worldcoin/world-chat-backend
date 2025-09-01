@@ -7,11 +7,11 @@ use aws_sdk_dynamodb::operation::{
 use thiserror::Error;
 
 /// Result type for push notification storage operations
-pub type PushNotificationStorageResult<T> = Result<T, PushNotificationStorageError>;
+pub type PushSubscriptionStorageResult<T> = Result<T, PushSubscriptionStorageError>;
 
 /// Errors that can occur during push notification storage operations
 #[derive(Error, Debug)]
-pub enum PushNotificationStorageError {
+pub enum PushSubscriptionStorageError {
     /// Failed to insert subscription into Dynamo DB
     #[error("Failed to insert subscription into DynamoDB: {0}")]
     DynamoDbPutError(#[from] SdkError<PutItemError>),
