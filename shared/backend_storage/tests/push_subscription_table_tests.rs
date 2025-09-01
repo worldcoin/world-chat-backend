@@ -61,7 +61,7 @@ async fn setup_test() -> TestContext {
 
     let dynamodb_client = Arc::new(DynamoDbClient::new(&config));
 
-    // Create a table with new structure: topic (PK) + hmac_key (SK)
+    // Create a table with topic (PK) + hmac_key (SK)
     dynamodb_client
         .create_table()
         .table_name(&table_name)
