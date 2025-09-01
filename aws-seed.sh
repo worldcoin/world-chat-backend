@@ -39,7 +39,8 @@ awslocal dynamodb update-time-to-live \
     --time-to-live-specification "Enabled=true,AttributeName=ttl"
 
 awslocal sqs create-queue --queue-name notification-queue.fifo --attributes '{
-  "FifoQueue": "true", 
+  "FifoQueue": "true",
+  "ContentBasedDeduplication": "true",
   "DeduplicationScope": "messageGroup",
   "FifoThroughputLimit": "perMessageGroupId"
 }'
