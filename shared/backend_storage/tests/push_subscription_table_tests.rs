@@ -1,16 +1,15 @@
+use std::collections::HashSet;
 use std::sync::Arc;
 use std::time::Duration;
 
 use aws_config::{BehaviorVersion, Region};
 use aws_credential_types::Credentials;
 use aws_sdk_dynamodb::types::{
-    AttributeDefinition, GlobalSecondaryIndex, KeySchemaElement, KeyType, Projection,
-    ProjectionType, ScalarAttributeType,
+    AttributeDefinition, KeySchemaElement, KeyType, ScalarAttributeType,
 };
 use aws_sdk_dynamodb::Client as DynamoDbClient;
 use backend_storage::push_subscription::{
     PushSubscription, PushSubscriptionAttribute, PushSubscriptionStorage,
-    PushSubscriptionStorageError,
 };
 use chrono::Utc;
 use uuid::Uuid;
@@ -46,7 +45,6 @@ impl Drop for TestContext {
 async fn setup_test() -> TestContext {
     // Create unique table name
     let table_name = format!("test-push-subscriptions-{}", Uuid::new_v4());
-    let gsi_name = "topic-index";
 
     // Configure AWS SDK for LocalStack
     let credentials = Credentials::from_keys(
@@ -63,17 +61,10 @@ async fn setup_test() -> TestContext {
 
     let dynamodb_client = Arc::new(DynamoDbClient::new(&config));
 
-    // Create a table to avoid race conditions among tests
+    // Create a table with new structure: topic (PK) + hmac_key (SK)
     dynamodb_client
         .create_table()
         .table_name(&table_name)
-        .attribute_definitions(
-            AttributeDefinition::builder()
-                .attribute_name(PushSubscriptionAttribute::Hmac.to_string())
-                .attribute_type(ScalarAttributeType::S)
-                .build()
-                .unwrap(),
-        )
         .attribute_definitions(
             AttributeDefinition::builder()
                 .attribute_name(PushSubscriptionAttribute::Topic.to_string())
@@ -81,28 +72,24 @@ async fn setup_test() -> TestContext {
                 .build()
                 .unwrap(),
         )
+        .attribute_definitions(
+            AttributeDefinition::builder()
+                .attribute_name(PushSubscriptionAttribute::HmacKey.to_string())
+                .attribute_type(ScalarAttributeType::S)
+                .build()
+                .unwrap(),
+        )
         .key_schema(
             KeySchemaElement::builder()
-                .attribute_name(PushSubscriptionAttribute::Hmac.to_string())
+                .attribute_name(PushSubscriptionAttribute::Topic.to_string())
                 .key_type(KeyType::Hash)
                 .build()
                 .unwrap(),
         )
-        .global_secondary_indexes(
-            GlobalSecondaryIndex::builder()
-                .index_name(gsi_name)
-                .key_schema(
-                    KeySchemaElement::builder()
-                        .attribute_name(PushSubscriptionAttribute::Topic.to_string())
-                        .key_type(KeyType::Hash)
-                        .build()
-                        .unwrap(),
-                )
-                .projection(
-                    Projection::builder()
-                        .projection_type(ProjectionType::All)
-                        .build(),
-                )
+        .key_schema(
+            KeySchemaElement::builder()
+                .attribute_name(PushSubscriptionAttribute::HmacKey.to_string())
+                .key_type(KeyType::Range)
                 .build()
                 .unwrap(),
         )
@@ -129,11 +116,7 @@ async fn setup_test() -> TestContext {
     // Wait a bit for table to be ready
     tokio::time::sleep(Duration::from_millis(100)).await;
 
-    let storage = PushSubscriptionStorage::new(
-        dynamodb_client.clone(),
-        table_name.clone(),
-        gsi_name.to_string(),
-    );
+    let storage = PushSubscriptionStorage::new(dynamodb_client.clone(), table_name.clone());
 
     TestContext {
         storage,
@@ -142,37 +125,63 @@ async fn setup_test() -> TestContext {
     }
 }
 
-/// Creates a test subscription with unique HMAC
+/// Creates a test subscription with unique HMAC key
 fn create_test_subscription(topic: &str) -> PushSubscription {
     PushSubscription {
-        hmac: format!("test-hmac-{}", Uuid::new_v4()),
         topic: topic.to_string(),
+        hmac_key: format!("test-hmac-{}", Uuid::new_v4()),
         ttl: (Utc::now() + chrono::Duration::hours(24)).timestamp(),
         encrypted_push_id: format!("encrypted-{}", Uuid::new_v4()),
+        deletion_request: None,
+    }
+}
+
+/// Creates a test subscription with deletion request
+fn create_test_subscription_with_deletion(
+    topic: &str,
+    deletion_requests: Vec<String>,
+) -> PushSubscription {
+    let mut deletion_set = HashSet::new();
+    for req in deletion_requests {
+        deletion_set.insert(req);
+    }
+
+    PushSubscription {
+        topic: topic.to_string(),
+        hmac_key: format!("test-hmac-{}", Uuid::new_v4()),
+        ttl: (Utc::now() + chrono::Duration::hours(24)).timestamp(),
+        encrypted_push_id: format!("encrypted-{}", Uuid::new_v4()),
+        deletion_request: Some(deletion_set),
     }
 }
 
 #[tokio::test]
-async fn test_basic_crud_operations() {
+async fn test_basic_upsert_and_get_operations() {
     let context = setup_test().await;
 
     // Create subscription
     let subscription = create_test_subscription("test-topic");
 
-    // Insert
+    // Upsert (insert)
     context
         .storage
-        .insert(&subscription)
+        .upsert(&subscription)
         .await
-        .expect("Failed to insert subscription");
+        .expect("Failed to upsert subscription");
 
-    // Check exists
-    let exists = context
+    // Get by topic and hmac
+    let retrieved = context
         .storage
-        .exists_by_hmac(&subscription.hmac)
+        .get_one_by_topic_hmac(&subscription.topic, &subscription.hmac_key)
         .await
-        .expect("Failed to check existence");
-    assert!(exists);
+        .expect("Failed to get by topic and hmac");
+
+    assert!(retrieved.is_some());
+    let retrieved = retrieved.unwrap();
+    assert_eq!(retrieved.topic, subscription.topic);
+    assert_eq!(retrieved.hmac_key, subscription.hmac_key);
+    assert_eq!(retrieved.encrypted_push_id, subscription.encrypted_push_id);
+    assert_eq!(retrieved.deletion_request, subscription.deletion_request);
 
     // Get by topic
     let subscriptions = context
@@ -181,62 +190,70 @@ async fn test_basic_crud_operations() {
         .await
         .expect("Failed to get by topic");
     assert_eq!(subscriptions.len(), 1);
-    assert_eq!(subscriptions[0].hmac, subscription.hmac);
     assert_eq!(subscriptions[0].topic, subscription.topic);
-    assert_eq!(
-        subscriptions[0].encrypted_push_id,
-        subscription.encrypted_push_id
-    );
-
-    // Delete
-    context
-        .storage
-        .delete_by_hmac(&subscription.hmac)
-        .await
-        .expect("Failed to delete subscription");
-
-    // Check doesn't exist
-    let exists = context
-        .storage
-        .exists_by_hmac(&subscription.hmac)
-        .await
-        .expect("Failed to check existence after delete");
-    assert!(!exists);
+    assert_eq!(subscriptions[0].hmac_key, subscription.hmac_key);
 }
 
 #[tokio::test]
-async fn test_duplicate_prevention() {
+async fn test_upsert_updates_existing() {
     let context = setup_test().await;
 
     let subscription = create_test_subscription("test-topic");
 
-    // First insert should succeed
+    // First upsert
     context
         .storage
-        .insert(&subscription)
+        .upsert(&subscription)
         .await
-        .expect("First insert should succeed");
+        .expect("First upsert should succeed");
 
-    // Second insert with same HMAC should fail
-    let result = context.storage.insert(&subscription).await;
-    assert!(matches!(
-        result,
-        Err(PushSubscriptionStorageError::PushSubscriptionExists)
-    ));
+    // Update with same topic and hmac_key but different encrypted_push_id
+    let mut updated_subscription = subscription.clone();
+    updated_subscription.encrypted_push_id = format!("updated-encrypted-{}", Uuid::new_v4());
+    updated_subscription.deletion_request = Some({
+        let mut set = HashSet::new();
+        set.insert("deletion1".to_string());
+        set.insert("deletion2".to_string());
+        set
+    });
 
-    // Insert with different HMAC but same topic should succeed
-    let mut subscription2 = subscription.clone();
-    subscription2.hmac = format!("different-hmac-{}", Uuid::new_v4());
-
+    // Second upsert should update
     context
         .storage
-        .insert(&subscription2)
+        .upsert(&updated_subscription)
         .await
-        .expect("Insert with different HMAC should succeed");
+        .expect("Second upsert should succeed");
+
+    // Retrieve and verify it was updated
+    let retrieved = context
+        .storage
+        .get_one_by_topic_hmac(&subscription.topic, &subscription.hmac_key)
+        .await
+        .expect("Failed to get updated subscription")
+        .expect("Subscription should exist");
+
+    assert_eq!(retrieved.topic, updated_subscription.topic);
+    assert_eq!(retrieved.hmac_key, updated_subscription.hmac_key);
+    assert_eq!(
+        retrieved.encrypted_push_id,
+        updated_subscription.encrypted_push_id
+    );
+    assert_eq!(
+        retrieved.deletion_request,
+        updated_subscription.deletion_request
+    );
+
+    // Should still be only one subscription for this topic
+    let all_subscriptions = context
+        .storage
+        .get_all_by_topic(&subscription.topic)
+        .await
+        .expect("Failed to get all by topic");
+    assert_eq!(all_subscriptions.len(), 1);
 }
 
 #[tokio::test]
-async fn test_query_by_topic() {
+async fn test_get_all_by_topic_multiple_subscriptions() {
     let context = setup_test().await;
 
     let topic = "shared-topic";
@@ -244,13 +261,20 @@ async fn test_query_by_topic() {
 
     // Insert multiple subscriptions with same topic
     let mut subscriptions = Vec::new();
-    for _ in 0..3 {
-        let sub = create_test_subscription(topic);
+    for i in 0..3 {
+        let mut sub = create_test_subscription(topic);
+        if i == 1 {
+            // Add deletion request to one of them
+            sub = create_test_subscription_with_deletion(
+                topic,
+                vec!["delete1".to_string(), "delete2".to_string()],
+            );
+        }
         context
             .storage
-            .insert(&sub)
+            .upsert(&sub)
             .await
-            .expect("Failed to insert");
+            .expect("Failed to upsert");
         subscriptions.push(sub);
     }
 
@@ -258,9 +282,9 @@ async fn test_query_by_topic() {
     let other_sub = create_test_subscription(other_topic);
     context
         .storage
-        .insert(&other_sub)
+        .upsert(&other_sub)
         .await
-        .expect("Failed to insert");
+        .expect("Failed to upsert");
 
     // Query by shared topic
     let retrieved = context
@@ -276,6 +300,13 @@ async fn test_query_by_topic() {
         assert_eq!(sub.topic, topic);
     }
 
+    // Verify one has deletion request
+    let with_deletion = retrieved.iter().find(|s| s.deletion_request.is_some());
+    assert!(with_deletion.is_some());
+    let deletion_requests = with_deletion.unwrap().deletion_request.as_ref().unwrap();
+    assert!(deletion_requests.contains("delete1"));
+    assert!(deletion_requests.contains("delete2"));
+
     // Query by other topic
     let other_retrieved = context
         .storage
@@ -284,7 +315,7 @@ async fn test_query_by_topic() {
         .expect("Failed to query by other topic");
 
     assert_eq!(other_retrieved.len(), 1);
-    assert_eq!(other_retrieved[0].hmac, other_sub.hmac);
+    assert_eq!(other_retrieved[0].hmac_key, other_sub.hmac_key);
 
     // Query non-existent topic
     let empty = context
@@ -297,43 +328,73 @@ async fn test_query_by_topic() {
 }
 
 #[tokio::test]
-async fn test_delete_non_existent() {
+async fn test_get_one_by_topic_hmac_not_found() {
     let context = setup_test().await;
 
-    // Deleting non-existent item should not error
-    context
+    // Try to get non-existent subscription
+    let result = context
         .storage
-        .delete_by_hmac("non-existent-hmac")
+        .get_one_by_topic_hmac("non-existent-topic", "non-existent-hmac")
         .await
-        .expect("Delete non-existent should not error");
+        .expect("Failed to query non-existent subscription");
+
+    assert!(result.is_none());
 }
 
 #[tokio::test]
-async fn test_exists_by_hmac() {
+async fn test_deletion_request_serialization() {
     let context = setup_test().await;
 
-    let subscription = create_test_subscription("test-topic");
+    // Create subscription with deletion request
+    let subscription = create_test_subscription_with_deletion(
+        "test-topic",
+        vec!["req1".to_string(), "req2".to_string(), "req3".to_string()],
+    );
 
-    // Should not exist before insert
-    let exists_before = context
-        .storage
-        .exists_by_hmac(&subscription.hmac)
-        .await
-        .expect("Failed to check existence");
-    assert!(!exists_before);
-
-    // Insert
+    // Upsert
     context
         .storage
-        .insert(&subscription)
+        .upsert(&subscription)
         .await
-        .expect("Failed to insert");
+        .expect("Failed to upsert subscription with deletion request");
 
-    // Should exist after insert
-    let exists_after = context
+    // Retrieve and verify deletion request is preserved
+    let retrieved = context
         .storage
-        .exists_by_hmac(&subscription.hmac)
+        .get_one_by_topic_hmac(&subscription.topic, &subscription.hmac_key)
         .await
-        .expect("Failed to check existence");
-    assert!(exists_after);
+        .expect("Failed to get subscription")
+        .expect("Subscription should exist");
+
+    assert!(retrieved.deletion_request.is_some());
+    let deletion_requests = retrieved.deletion_request.unwrap();
+    assert_eq!(deletion_requests.len(), 3);
+    assert!(deletion_requests.contains("req1"));
+    assert!(deletion_requests.contains("req2"));
+    assert!(deletion_requests.contains("req3"));
+}
+
+#[tokio::test]
+async fn test_subscription_without_deletion_request() {
+    let context = setup_test().await;
+
+    // Create subscription without deletion request
+    let subscription = create_test_subscription("test-topic");
+
+    // Upsert
+    context
+        .storage
+        .upsert(&subscription)
+        .await
+        .expect("Failed to upsert subscription without deletion request");
+
+    // Retrieve and verify deletion request is None
+    let retrieved = context
+        .storage
+        .get_one_by_topic_hmac(&subscription.topic, &subscription.hmac_key)
+        .await
+        .expect("Failed to get subscription")
+        .expect("Subscription should exist");
+
+    assert!(retrieved.deletion_request.is_none());
 }
