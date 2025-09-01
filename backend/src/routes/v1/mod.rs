@@ -2,7 +2,7 @@ pub mod auth;
 pub mod media;
 
 use aide::axum::{routing::post, ApiRouter};
-use axum::{middleware, routing::post as axum_post};
+use axum::middleware;
 
 use crate::middleware::auth::auth_middleware;
 
@@ -10,10 +10,10 @@ use crate::middleware::auth::auth_middleware;
 pub fn handler() -> ApiRouter {
     let public_routes = ApiRouter::new().api_route("/authorize", post(auth::authorize_handler));
 
-    let protected_routes = axum::Router::new()
+    let protected_routes = ApiRouter::new()
         .route(
             "/media/presigned-urls",
-            axum_post(media::create_presigned_upload_url),
+            post(media::create_presigned_upload_url),
         )
         .layer(middleware::from_fn(auth_middleware));
 
