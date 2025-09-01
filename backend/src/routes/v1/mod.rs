@@ -2,7 +2,7 @@ pub mod auth;
 pub mod media;
 
 use aide::axum::{
-    routing::{post, post_with},
+    routing::{get, post, post_with},
     ApiRouter,
 };
 use axum_jsonschema::Json;
@@ -17,5 +17,6 @@ pub fn handler() -> ApiRouter {
                     .response::<409, Json<media::ConflictResponse>>()
             }),
         )
+        .api_route("/media/config", get(media::get_media_config))
         .api_route("/authorize", post(auth::authorize_handler))
 }
