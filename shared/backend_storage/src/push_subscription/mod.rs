@@ -200,4 +200,32 @@ impl PushSubscriptionStorage {
 
         Ok(())
     }
+
+    /// Deletes a push subscription
+    ///
+    /// # Arguments
+    ///
+    /// * `topic` - The topic of the subscription
+    /// * `hmac_key` - The HMAC key identifier
+    ///
+    /// # Errors
+    ///
+    /// Returns `PushSubscriptionStorageError` if the Dynamo DB operation fails
+    pub async fn delete(&self, topic: &str, hmac_key: &str) -> PushSubscriptionStorageResult<()> {
+        self.dynamodb_client
+            .delete_item()
+            .table_name(&self.table_name)
+            .key(
+                PushSubscriptionAttribute::Topic.to_string(),
+                AttributeValue::S(topic.to_string()),
+            )
+            .key(
+                PushSubscriptionAttribute::HmacKey.to_string(),
+                AttributeValue::S(hmac_key.to_string()),
+            )
+            .send()
+            .await?;
+
+        Ok(())
+    }
 }
