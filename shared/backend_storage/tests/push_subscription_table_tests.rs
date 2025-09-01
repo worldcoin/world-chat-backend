@@ -8,9 +8,9 @@ use aws_sdk_dynamodb::types::{
     ProjectionType, ScalarAttributeType,
 };
 use aws_sdk_dynamodb::Client as DynamoDbClient;
-use backend_storage::push_notification::{
-    PushNotificationStorage, PushNotificationStorageError, PushSubscription,
-    PushSubscriptionAttribute,
+use backend_storage::push_subscription::{
+    PushSubscription, PushSubscriptionAttribute, PushSubscriptionStorage,
+    PushSubscriptionStorageError,
 };
 use chrono::Utc;
 use uuid::Uuid;
@@ -21,7 +21,7 @@ const TEST_REGION: &str = "us-east-1";
 
 /// Test context that automatically cleans up the table on drop
 struct TestContext {
-    storage: PushNotificationStorage,
+    storage: PushSubscriptionStorage,
     table_name: String,
     dynamodb_client: Arc<DynamoDbClient>,
 }
@@ -129,7 +129,7 @@ async fn setup_test() -> TestContext {
     // Wait a bit for table to be ready
     tokio::time::sleep(Duration::from_millis(100)).await;
 
-    let storage = PushNotificationStorage::new(
+    let storage = PushSubscriptionStorage::new(
         dynamodb_client.clone(),
         table_name.clone(),
         gsi_name.to_string(),
@@ -221,7 +221,7 @@ async fn test_duplicate_prevention() {
     let result = context.storage.insert(&subscription).await;
     assert!(matches!(
         result,
-        Err(PushNotificationStorageError::PushSubscriptionExists)
+        Err(PushSubscriptionStorageError::PushSubscriptionExists)
     ));
 
     // Insert with different HMAC but same topic should succeed

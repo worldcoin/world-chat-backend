@@ -14,7 +14,7 @@ use aws_sdk_dynamodb::{
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 
-pub use error::{PushNotificationStorageError, PushNotificationStorageResult};
+pub use error::{PushSubscriptionStorageError, PushSubscriptionStorageResult};
 use strum::Display;
 
 /// Attribute names for push subscription table
@@ -50,13 +50,13 @@ pub struct PushSubscription {
 }
 
 /// Push notification storage client for Dynamo DB operations
-pub struct PushNotificationStorage {
+pub struct PushSubscriptionStorage {
     dynamodb_client: Arc<DynamoDbClient>,
     table_name: String,
     gsi_name: String,
 }
 
-impl PushNotificationStorage {
+impl PushSubscriptionStorage {
     /// Creates a new push notification storage client
     ///
     /// # Arguments
@@ -85,11 +85,11 @@ impl PushNotificationStorage {
     ///
     /// # Errors
     ///
-    /// Returns `PushNotificationStorageError` if the Dynamo DB operation fails
+    /// Returns `PushSubscriptionStorageError` if the Dynamo DB operation fails
     pub async fn insert(
         &self,
         subscription: &PushSubscription,
-    ) -> PushNotificationStorageResult<()> {
+    ) -> PushSubscriptionStorageResult<()> {
         // Add random offset: 1 minute to 24 hours (uniform distribution)
         let random_offset = {
             let mut rng = rand::thread_rng();
@@ -105,7 +105,7 @@ impl PushNotificationStorage {
 
         // Convert to DynamoDB item
         let item = serde_dynamo::to_item(&subscription_to_store)
-            .map_err(|e| PushNotificationStorageError::SerializationError(e.to_string()))?;
+            .map_err(|e| PushSubscriptionStorageError::SerializationError(e.to_string()))?;
 
         self.dynamodb_client
             .put_item()
@@ -120,7 +120,7 @@ impl PushNotificationStorage {
                     err,
                     SdkError::ServiceError(ref svc) if svc.err().is_conditional_check_failed_exception()
                 ) {
-                    PushNotificationStorageError::PushSubscriptionExists
+                    PushSubscriptionStorageError::PushSubscriptionExists
                 } else {
                     err.into()
                 }
@@ -137,8 +137,8 @@ impl PushNotificationStorage {
     ///
     /// # Errors
     ///
-    /// Returns `PushNotificationStorageError` if the Dynamo DB operation fails
-    pub async fn delete_by_hmac(&self, hmac: &str) -> PushNotificationStorageResult<()> {
+    /// Returns `PushSubscriptionStorageError` if the Dynamo DB operation fails
+    pub async fn delete_by_hmac(&self, hmac: &str) -> PushSubscriptionStorageResult<()> {
         self.dynamodb_client
             .delete_item()
             .table_name(&self.table_name)
@@ -164,11 +164,11 @@ impl PushNotificationStorage {
     ///
     /// # Errors
     ///
-    /// Returns `PushNotificationStorageError` if the Dynamo DB operation fails
+    /// Returns `PushSubscriptionStorageError` if the Dynamo DB operation fails
     pub async fn get_all_by_topic(
         &self,
         topic: &str,
-    ) -> PushNotificationStorageResult<Vec<PushSubscription>> {
+    ) -> PushSubscriptionStorageResult<Vec<PushSubscription>> {
         let response = self
             .dynamodb_client
             .query()
@@ -186,7 +186,7 @@ impl PushNotificationStorage {
             .iter()
             .map(|item| {
                 serde_dynamo::from_item(item.clone()).map_err(|e| {
-                    PushNotificationStorageError::ParseSubscriptionError(e.to_string())
+                    PushSubscriptionStorageError::ParseSubscriptionError(e.to_string())
                 })
             })
             .collect()
@@ -205,8 +205,8 @@ impl PushNotificationStorage {
     ///
     /// # Errors
     ///
-    /// Returns `PushNotificationStorageError` if the Dynamo DB operation fails
-    pub async fn exists_by_hmac(&self, hmac: &str) -> PushNotificationStorageResult<bool> {
+    /// Returns `PushSubscriptionStorageError` if the Dynamo DB operation fails
+    pub async fn exists_by_hmac(&self, hmac: &str) -> PushSubscriptionStorageResult<bool> {
         let response = self
             .dynamodb_client
             .get_item()
