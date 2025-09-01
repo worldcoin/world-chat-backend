@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use tracing::instrument;
 
 use crate::{middleware::AuthenticatedUser, types::AppError};
-use backend_storage::push_notification::{PushNotificationStorage, PushSubscription};
+use backend_storage::push_subscription::{PushSubscription, PushSubscriptionStorage};
 
 #[derive(Debug, Deserialize, Serialize, JsonSchema)]
 #[schemars(deny_unknown_fields)]
@@ -43,14 +43,15 @@ pub struct UnsubscribeRequest {
 #[instrument(skip(push_storage, payload))]
 pub async fn subscribe(
     user: AuthenticatedUser,
-    Extension(push_storage): Extension<Arc<PushNotificationStorage>>,
+    Extension(push_storage): Extension<Arc<PushSubscriptionStorage>>,
     Json(payload): Json<SubscribeRequest>,
 ) -> Result<StatusCode, AppError> {
     let push_subscriptions = payload
         .subscriptions
         .into_iter()
         .map(|s| PushSubscription {
-            hmac: s.hmac,
+            hmac_key: s.hmac,
+            deletion_request: None,
             topic: s.topic,
             ttl: s.ttl,
             encrypted_push_id: user.encrypted_push_id.clone(),
@@ -59,7 +60,7 @@ pub async fn subscribe(
 
     let db_operations = push_subscriptions
         .iter()
-        .map(|subscription| push_storage.insert(subscription));
+        .map(|subscription| push_storage.upsert(subscription));
 
     // Wait for all insertions to complete - fails fast on first error
     join_all(db_operations)
@@ -73,11 +74,11 @@ pub async fn subscribe(
 
 #[instrument(skip(push_storage, payload))]
 pub async fn unsubscribe(
-    Extension(push_storage): Extension<Arc<PushNotificationStorage>>,
+    Extension(push_storage): Extension<Arc<PushSubscriptionStorage>>,
     Json(payload): Json<UnsubscribeRequest>,
 ) -> Result<StatusCode, AppError> {
     push_storage
-        .get_by_hmac(&payload.hmac)
+        .get_one(&payload.topic, &payload.hmac)
         .await
         .map_err(AppError::from)?;
 

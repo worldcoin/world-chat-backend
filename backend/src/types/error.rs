@@ -7,7 +7,7 @@ use axum::{
 };
 use axum_jsonschema::Json;
 use backend_storage::auth_proof::AuthProofStorageError;
-use backend_storage::push_notification::PushNotificationStorageError;
+use backend_storage::push_subscription::PushSubscriptionStorageError;
 use schemars::JsonSchema;
 use serde::Serialize;
 
@@ -207,9 +207,9 @@ impl From<AuthProofStorageError> for AppError {
     }
 }
 
-impl From<PushNotificationStorageError> for AppError {
-    fn from(err: PushNotificationStorageError) -> Self {
-        use PushNotificationStorageError::{
+impl From<PushSubscriptionStorageError> for AppError {
+    fn from(err: PushSubscriptionStorageError) -> Self {
+        use PushSubscriptionStorageError::{
             DynamoDbDeleteError, DynamoDbGetError, DynamoDbPutError, DynamoDbQueryError,
             InvalidTtlError, ParseSubscriptionError, PushSubscriptionExists, SerializationError,
         };

@@ -3,7 +3,7 @@ use aws_sdk_dynamodb::types::{
     ProjectionType, ScalarAttributeType, TimeToLiveSpecification,
 };
 use aws_sdk_dynamodb::Client as DynamoDbClient;
-use backend_storage::push_notification::PushSubscriptionAttribute;
+use backend_storage::push_subscription::PushSubscriptionAttribute;
 use std::sync::Arc;
 use std::time::Duration;
 use uuid::Uuid;

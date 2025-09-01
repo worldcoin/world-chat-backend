@@ -3,7 +3,7 @@ use std::sync::Arc;
 use aws_sdk_dynamodb::Client as DynamoDbClient;
 use aws_sdk_kms::Client as KmsClient;
 use aws_sdk_s3::Client as S3Client;
-use backend_storage::{auth_proof::AuthProofStorage, push_notification::PushNotificationStorage};
+use backend_storage::{auth_proof::AuthProofStorage, push_subscription::PushSubscriptionStorage};
 
 use backend::{jwt::JwtManager, media_storage::MediaStorage, server, types::Environment};
 
@@ -34,7 +34,7 @@ async fn main() -> anyhow::Result<()> {
         dynamodb_client.clone(),
         environment.dynamodb_auth_table_name(),
     ));
-    let push_subscription_storage = Arc::new(PushNotificationStorage::new(
+    let push_subscription_storage = Arc::new(PushSubscriptionStorage::new(
         dynamodb_client,
         environment.dynamodb_push_subscription_table_name(),
         environment.dynamodb_push_subscription_gsi_name(),

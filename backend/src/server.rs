@@ -3,7 +3,7 @@ use std::sync::Arc;
 use aide::openapi::OpenApi;
 use axum::Extension;
 use backend_storage::auth_proof::AuthProofStorage;
-use backend_storage::push_notification::PushNotificationStorage;
+use backend_storage::push_subscription::PushSubscriptionStorage;
 use datadog_tracing::axum::{shutdown_signal, OtelAxumLayer, OtelInResponseLayer};
 use tokio::net::TcpListener;
 
@@ -20,7 +20,7 @@ pub async fn start(
     media_storage: Arc<MediaStorage>,
     jwt_manager: Arc<JwtManager>,
     auth_proof_storage: Arc<AuthProofStorage>,
-    push_subscription_storage: Arc<PushNotificationStorage>,
+    push_subscription_storage: Arc<PushSubscriptionStorage>,
 ) -> anyhow::Result<()> {
     let mut openapi = OpenApi::default();
 
