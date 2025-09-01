@@ -25,9 +25,13 @@ pub enum PushSubscriptionAttribute {
     /// This field references the conversation a user has enabled push notifications for.
     /// Topic or Topic ID is interchangeably used in the XMTP docs.
     ///
-    /// Source: `https://docs.xmtp.org/inboxes/push-notifs/understand-push-notifs`
+    /// Source: `https://docs.xmtp.org/chat-apps/push-notifs/understand-push-notifs`
     Topic,
-    /// HMAC key identifier (Sort Key)
+    /// HMAC key (Sort Key)
+    ///
+    /// This field is derived from the user's installation, topic and rotates every 30-day epoch cycle.
+    ///
+    /// Source: `https://docs.xmtp.org/chat-apps/push-notifs/understand-push-notifs#understand-hmac-keys-and-push-notifications`
     HmacKey,
     /// TTL timestamp
     Ttl,
@@ -42,7 +46,7 @@ pub enum PushSubscriptionAttribute {
 pub struct PushSubscription {
     /// Topic name (Primary Key)
     pub topic: String,
-    /// HMAC key identifier (Sort Key)
+    /// HMAC key (Sort Key)
     pub hmac_key: String,
     /// TTL timestamp (Unix timestamp in seconds, rounded to minute)
     pub ttl: i64,
@@ -102,8 +106,8 @@ impl PushSubscriptionStorage {
             .send()
             .await?;
 
-        let items = response.items();
-        items
+        response
+            .items()
             .iter()
             .map(|item| {
                 serde_dynamo::from_item(item.clone()).map_err(|e| {
