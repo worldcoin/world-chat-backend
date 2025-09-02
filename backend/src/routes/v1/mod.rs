@@ -1,7 +1,10 @@
 pub mod auth;
 pub mod media;
 
-use aide::axum::{post, routing::get, ApiRouter};
+use aide::axum::{
+    routing::{get, post},
+    ApiRouter,
+};
 use axum::middleware;
 
 use crate::middleware::auth::auth_middleware;
