@@ -24,7 +24,7 @@ async fn test_send_consume_ack_happy_path() {
     // Create a Subscribe request
     let subscribe_request = SubscriptionRequest::Subscribe {
         hmac: "user123".to_string(),
-        encrypted_braze_id: "encrypted_abc123".to_string(),
+        encrypted_push_id: "encrypted_abc123".to_string(),
         topic: "news_updates".to_string(),
         ttl: 86400, // 24 hours in seconds
     };
@@ -88,21 +88,21 @@ async fn test_fifo_message_group_ordering() {
     // Send 3 messages: 2 with HMAC "user1", 1 with HMAC "user2"
     let msg1_user1 = SubscriptionRequest::Subscribe {
         hmac: "user1".to_string(),
-        encrypted_braze_id: "enc_1".to_string(),
+        encrypted_push_id: "enc_1".to_string(),
         topic: "topic1".to_string(),
         ttl: 3600,
     };
 
     let msg2_user2 = SubscriptionRequest::Subscribe {
         hmac: "user2".to_string(),
-        encrypted_braze_id: "enc_2".to_string(),
+        encrypted_push_id: "enc_2".to_string(),
         topic: "topic2".to_string(),
         ttl: 3600,
     };
 
     let msg3_user1 = SubscriptionRequest::Unsubscribe {
         hmac: "user1".to_string(),
-        encrypted_braze_id: "enc_1".to_string(),
+        encrypted_push_id: "enc_1".to_string(),
         topic: "topic1".to_string(),
         topic_members: vec![],
     };
@@ -165,14 +165,14 @@ async fn test_fifo_message_group_ordering() {
     // Send 2 more messages for user1 to verify continued ordering
     let msg4_user1 = SubscriptionRequest::Subscribe {
         hmac: "user1".to_string(),
-        encrypted_braze_id: "enc_1".to_string(),
+        encrypted_push_id: "enc_1".to_string(),
         topic: "topic3".to_string(),
         ttl: 3600,
     };
 
     let msg5_user1 = SubscriptionRequest::Subscribe {
         hmac: "user1".to_string(),
-        encrypted_braze_id: "enc_1".to_string(),
+        encrypted_push_id: "enc_1".to_string(),
         topic: "topic4".to_string(),
         ttl: 3600,
     };
@@ -220,15 +220,15 @@ async fn test_unsubscribe_request_type() {
     // Test Unsubscribe variant with topic_members
     let unsubscribe_request = SubscriptionRequest::Unsubscribe {
         hmac: "user456".to_string(),
-        encrypted_braze_id: "encrypted_xyz789".to_string(),
+        encrypted_push_id: "encrypted_xyz789".to_string(),
         topic: "daily_digest".to_string(),
         topic_members: vec![
             TopicMember {
-                encrypted_braze_id: "encrypted_user1".to_string(),
+                encrypted_push_id: "encrypted_user1".to_string(),
                 hmac: "hmac_user1".to_string(),
             },
             TopicMember {
-                encrypted_braze_id: "encrypted_user2".to_string(),
+                encrypted_push_id: "encrypted_user2".to_string(),
                 hmac: "hmac_user2".to_string(),
             },
         ],

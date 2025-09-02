@@ -35,8 +35,17 @@ prost = "0.13"
 prost-types = "0.13"
 rustls = { version = "0.23", features = ["ring"] }
 
+sha2 = { workspace = true }
+hmac = { workspace = true }
+base64 = {workspace = true}
+hex = { workspace = true }
+
+# Testing dependencies
 [dev-dependencies]
+uuid = { workspace = true }
 serial_test = { workspace = true }
+dotenvy = { workspace = true }
+pretty_assertions = "1.4.1"
 
 # Build dependencies
 [build-dependencies]

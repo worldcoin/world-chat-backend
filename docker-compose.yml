@@ -39,6 +39,7 @@ services:
   # XMTP Network Node - Core message handling service
   # Provides gRPC API that the notification worker connects to for receiving messages
   # Handles message storage, MLS operations, and serves as the primary XMTP network interface
+  # Source: <https://github.com/xmtp/xmtp-local-node>
   xmtp-node:
     image: xmtp/node-go:latest
     platform: linux/amd64
