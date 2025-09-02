@@ -27,7 +27,7 @@ pub fn create_upload_request(
 
 #[tokio::test]
 async fn test_config_enforced_max_image_size_plus_one_fails() {
-    let setup = TestSetup::new(None).await;
+    let setup = TestSetup::default().await;
 
     // Fetch media config
     let response = setup
