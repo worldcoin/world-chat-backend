@@ -32,6 +32,10 @@ pub enum PushSubscriptionStorageError {
     #[error("Failed to parse subscription: {0}")]
     ParseSubscriptionError(String),
 
+    /// Push subscription already exists
+    #[error("Push subscription already exists")]
+    PushSubscriptionExists,
+
     /// Serialization error for `serde_dynamo`
     #[error("Serialization error: {0}")]
     SerializationError(String),

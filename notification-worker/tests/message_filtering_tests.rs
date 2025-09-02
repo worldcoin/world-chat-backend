@@ -79,7 +79,7 @@ async fn setup_test_subscriptions(ctx: &TestContext) -> Result<TestSubscriptions
 
     // Insert all subscriptions
     for sub in [&sub_a_x, &sub_b_x, &sub_b_y1, &sub_b_y2] {
-        ctx.subscription_storage.upsert(sub).await?;
+        ctx.subscription_storage.insert(sub).await?;
     }
 
     Ok(TestSubscriptions {
@@ -357,7 +357,7 @@ async fn test_welcome_messages() -> Result<()> {
         encrypted_push_id: "welcome_push_id".to_string(),
         deletion_request: None,
     };
-    ctx.subscription_storage.upsert(&subscription).await?;
+    ctx.subscription_storage.insert(&subscription).await?;
 
     // Send welcome message - create envelope directly for welcome topic
     let envelope = notification_worker::xmtp::message_api::v1::Envelope {
@@ -385,7 +385,7 @@ async fn test_ignores_non_v3_topics() -> Result<()> {
         encrypted_push_id: "legacy_push_id".to_string(),
         deletion_request: None,
     };
-    ctx.subscription_storage.upsert(&subscription).await?;
+    ctx.subscription_storage.insert(&subscription).await?;
 
     // Send message to legacy topic - this test is no longer relevant with MLS API
     // as MLS API only handles V3 messages. We'll skip this test by sending nothing
@@ -470,7 +470,7 @@ async fn test_duplicate_push_ids_deduplicated() -> Result<()> {
             encrypted_push_id: "duplicate_push_id".to_string(),
             deletion_request: None,
         };
-        ctx.subscription_storage.upsert(&sub).await?;
+        ctx.subscription_storage.insert(&sub).await?;
     }
 
     // Send message
