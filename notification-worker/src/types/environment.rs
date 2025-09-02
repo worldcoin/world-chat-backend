@@ -166,12 +166,6 @@ impl Environment {
         config_builder.build()
     }
 
-    /// AWS SQS service configuration
-    pub async fn sqs_client_config(&self) -> aws_sdk_sqs::Config {
-        let aws_config = self.aws_config().await;
-        aws_sdk_sqs::Config::from(&aws_config)
-    }
-
     /// Returns the notification queue configuration
     ///
     /// # Panics
@@ -192,6 +186,34 @@ impl Environment {
             default_max_messages: 10,
             default_visibility_timeout: 60, // 60 seconds - Longer timeout for notifications
             default_wait_time_seconds: 20,  // Enable long polling by default
+        }
+    }
+
+    /// Returns the Push Notification Subscription storage table name
+    ///
+    /// # Panics
+    ///
+    /// Panics if the `DYNAMODB_PUSH_TOPIC_GSI` environment variable is not set in production/staging
+    #[must_use]
+    pub fn push_subscription_table_name(&self) -> String {
+        match self {
+            Self::Production | Self::Staging => env::var("DYNAMODB_PUSH_TABLE_NAME")
+                .expect("DYNAMODB_PUSH_TABLE_NAME environment variable is not set"),
+            Self::Development => "world-chat-push-subscriptions".to_string(),
+        }
+    }
+
+    /// Returns the GSI name for the Push Notification Subscription storage table
+    ///
+    /// # Panics
+    ///
+    /// Panics if the `DYNAMODB_PUSH_TOPIC_GSI_NAME` environment variable is not set in production/staging
+    #[must_use]
+    pub fn push_subscription_gsi_name(&self) -> String {
+        match self {
+            Self::Production | Self::Staging => env::var("DYNAMODB_PUSH_TOPIC_GSI_NAME")
+                .expect("DYNAMODB_PUSH_TOPIC_GSI_NAME environment variable is not set"),
+            Self::Development => "topic-index".to_string(),
         }
     }
 }
