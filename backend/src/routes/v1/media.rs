@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
-use axum::{http::StatusCode, Extension};
+use aide::OperationIo;
+use axum::{http::StatusCode, response::IntoResponse, Extension};
 use axum_jsonschema::Json;
 use mime::Mime;
 use schemars::JsonSchema;
@@ -8,7 +9,7 @@ use serde::{Deserialize, Deserializer, Serialize};
 use tracing::instrument;
 
 use crate::{
-    media_storage::{BucketError, MediaStorage},
+    media_storage::MediaStorage,
     types::{AppError, Environment},
 };
 
@@ -16,6 +17,8 @@ use crate::{
 const MAX_IMAGE_SIZE_BYTES: i64 = 5 * 1024 * 1024;
 /// 15 MB Video size limit
 const MAX_VIDEO_SIZE_BYTES: i64 = 15 * 1024 * 1024;
+/// Maximum count of assets per message
+const MAX_ASSETS_PER_MESSAGE: usize = 10;
 
 #[derive(Debug, Deserialize, JsonSchema)]
 #[schemars(deny_unknown_fields)]
@@ -44,8 +47,8 @@ where
         Err(serde::de::Error::custom("mime must be image/* or video/*"))
     }
 }
-#[derive(Debug, Serialize, Deserialize, JsonSchema)]
-pub struct UploadResponse {
+#[derive(Debug, Serialize, JsonSchema)]
+pub struct SuccessResponse {
     /// Presigned URL to upload the asset to S3
     pub presigned_url: String,
     /// Base64-encoded SHA-256 content digest
@@ -58,6 +61,31 @@ pub struct UploadResponse {
     ///
     /// Used in XMTP [Remote Attachment message](https://docs.xmtp.org/inboxes/content-types/attachments#send-a-remote-attachment)
     pub asset_url: String,
+}
+
+/// Conflict response type
+#[derive(Debug, Serialize, JsonSchema)]
+pub struct ConflictResponse {
+    /// CDN URL of the existing asset
+    pub asset_url: String,
+}
+
+#[derive(Debug, Serialize, JsonSchema, OperationIo)]
+#[serde(untagged)]
+pub enum MediaUploadResponse {
+    /// Successful response with presigned URL for upload
+    Success(SuccessResponse),
+    /// Asset already exists, returning existing asset URL
+    Conflict(ConflictResponse),
+}
+
+impl IntoResponse for MediaUploadResponse {
+    fn into_response(self) -> axum::response::Response {
+        match self {
+            Self::Success(resp) => (StatusCode::OK, Json(resp)).into_response(),
+            Self::Conflict(resp) => (StatusCode::CONFLICT, Json(resp)).into_response(),
+        }
+    }
 }
 
 /// Creates a presigned URL for uploading media content to S3
@@ -92,14 +120,17 @@ pub async fn create_presigned_upload_url(
     Extension(media_storage): Extension<Arc<MediaStorage>>,
     Extension(environment): Extension<Environment>,
     Json(payload): Json<UploadRequest>,
-) -> Result<Json<UploadResponse>, AppError> {
+) -> Result<MediaUploadResponse, AppError> {
     let s3_key = MediaStorage::map_sha256_to_s3_key(&payload.content_digest_sha256);
     validate_asset_size(&payload.content_type, payload.content_length)?;
 
     // Step 2: De-duplication Probe
     let exists = media_storage.check_object_exists(&s3_key).await?;
     if exists {
-        return Err(BucketError::ObjectExists(payload.content_digest_sha256).into());
+        let asset_url = format!("{}/{}", environment.cdn_url(), s3_key);
+        return Ok(MediaUploadResponse::Conflict(ConflictResponse {
+            asset_url,
+        }));
     }
 
     // Step 3: Generate Presigned URL
@@ -114,7 +145,7 @@ pub async fn create_presigned_upload_url(
     let asset_url = format!("{}/{}", environment.cdn_url(), s3_key);
     let content_digest_base64 = MediaStorage::map_sha256_to_b64(&payload.content_digest_sha256)?;
 
-    Ok(Json(UploadResponse {
+    Ok(MediaUploadResponse::Success(SuccessResponse {
         presigned_url: presigned_url.url,
         asset_url,
         content_digest_base64,
@@ -137,4 +168,28 @@ fn validate_asset_size(content_type: &Mime, content_length: i64) -> Result<(), A
         )),
         _ => Ok(()),
     }
+}
+
+#[derive(Serialize, JsonSchema)]
+pub struct MediaConfigResponse {
+    /// Maximum count of assets per message
+    max_assets_per_message: usize,
+    /// Maximum image size in bytes
+    max_image_size_bytes: i64,
+    /// Maximum video size in bytes
+    max_video_size_bytes: i64,
+    /// Trusted CDN URL
+    trusted_cdn_url: String,
+}
+
+#[instrument]
+pub async fn get_media_config(
+    Extension(environment): Extension<Environment>,
+) -> Json<MediaConfigResponse> {
+    Json(MediaConfigResponse {
+        max_assets_per_message: MAX_ASSETS_PER_MESSAGE,
+        max_image_size_bytes: MAX_IMAGE_SIZE_BYTES,
+        max_video_size_bytes: MAX_VIDEO_SIZE_BYTES,
+        trusted_cdn_url: environment.cdn_url(),
+    })
 }

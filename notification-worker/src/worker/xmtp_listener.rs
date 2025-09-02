@@ -4,9 +4,10 @@ use tonic::transport::Channel;
 use tracing::{error, info, warn};
 
 use crate::xmtp::message_api::v1::message_api_client::MessageApiClient;
+use crate::xmtp::message_api::v1::Envelope;
 use crate::xmtp::message_api::v1::SubscribeAllRequest;
 
-use super::{Message, WorkerResult};
+use super::WorkerResult;
 
 pub struct XmtpListenerConfig {
     pub reconnect_delay_ms: u64,
@@ -16,7 +17,7 @@ pub struct XmtpListenerConfig {
 /// `XmtpListener` handles the connection to XMTP and message streaming
 pub struct XmtpListener {
     client: MessageApiClient<Channel>,
-    message_tx: flume::Sender<Message>,
+    message_tx: flume::Sender<Envelope>,
     shutdown_token: CancellationToken,
     config: XmtpListenerConfig,
 }
@@ -25,7 +26,7 @@ impl XmtpListener {
     /// Creates a new `XmtpListener`
     pub const fn new(
         client: MessageApiClient<Channel>,
-        message_tx: flume::Sender<Message>,
+        message_tx: flume::Sender<Envelope>,
         shutdown_token: CancellationToken,
         config: XmtpListenerConfig,
     ) -> Self {
@@ -113,7 +114,7 @@ impl XmtpListener {
     /// Handles stream message result and returns whether to continue processing
     async fn handle_stream_message_result(
         &self,
-        result: Result<Option<Message>, tonic::Status>,
+        result: Result<Option<Envelope>, tonic::Status>,
     ) -> WorkerResult<bool> {
         match result {
             Ok(Some(envelope)) => {
@@ -129,7 +130,7 @@ impl XmtpListener {
     }
 
     /// Sends message to worker processes
-    async fn send_message_to_workers(&self, envelope: Message) -> WorkerResult<()> {
+    async fn send_message_to_workers(&self, envelope: Envelope) -> WorkerResult<()> {
         if let Err(e) = self.message_tx.send_async(envelope).await {
             error!("Failed to send message to workers: {}", e);
             return Err(anyhow::anyhow!("Message channel closed"));
