@@ -32,8 +32,8 @@ pub enum PushSubscriptionAttribute {
     Topic,
     /// TTL timestamp
     Ttl,
-    /// Encrypted Braze ID
-    EncryptedBrazeId,
+    /// Encrypted Push ID
+    EncryptedPushId,
 }
 
 /// Push subscription data structure
@@ -45,8 +45,8 @@ pub struct PushSubscription {
     pub topic: String,
     /// TTL timestamp (Unix timestamp in seconds, rounded to minute)
     pub ttl: i64,
-    /// Encrypted Braze ID
-    pub encrypted_braze_id: String,
+    /// Encrypted Push ID
+    pub encrypted_push_id: String,
 }
 
 /// Push notification storage client for Dynamo DB operations

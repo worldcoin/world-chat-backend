@@ -148,7 +148,7 @@ fn create_test_subscription(topic: &str) -> PushSubscription {
         hmac: format!("test-hmac-{}", Uuid::new_v4()),
         topic: topic.to_string(),
         ttl: (Utc::now() + chrono::Duration::hours(24)).timestamp(),
-        encrypted_braze_id: format!("encrypted-{}", Uuid::new_v4()),
+        encrypted_push_id: format!("encrypted-{}", Uuid::new_v4()),
     }
 }
 
@@ -184,8 +184,8 @@ async fn test_basic_crud_operations() {
     assert_eq!(subscriptions[0].hmac, subscription.hmac);
     assert_eq!(subscriptions[0].topic, subscription.topic);
     assert_eq!(
-        subscriptions[0].encrypted_braze_id,
-        subscription.encrypted_braze_id
+        subscriptions[0].encrypted_push_id,
+        subscription.encrypted_push_id
     );
 
     // Delete

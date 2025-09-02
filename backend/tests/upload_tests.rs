@@ -25,6 +25,38 @@ pub fn create_upload_request(
     request
 }
 
+#[tokio::test]
+async fn test_config_enforced_max_image_size_plus_one_fails() {
+    let setup = TestSetup::new(None).await;
+
+    // Fetch media config
+    let response = setup
+        .send_get_request("/v1/media/config")
+        .await
+        .expect("Failed to send GET /v1/media/config");
+    assert_eq!(response.status(), StatusCode::OK);
+    let body = parse_response_body(response).await;
+
+    let max_image_size_bytes = body["max_image_size_bytes"]
+        .as_i64()
+        .expect("max_image_size_bytes should be an integer");
+
+    // Prepare an upload one byte larger than allowed
+    let content_digest_sha256 = create_valid_sha256();
+    let payload = create_upload_request(
+        content_digest_sha256,
+        max_image_size_bytes + 1,
+        Some("image/png".to_string()),
+    );
+
+    let response = setup
+        .send_post_request("/v1/media/presigned-urls", payload)
+        .await
+        .expect("Failed to send POST /v1/media/presigned-urls");
+
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+}
+
 // Happy path tests
 
 #[tokio::test]
@@ -413,6 +445,21 @@ async fn test_upload_media_extra_fields() {
 async fn test_e2e_upload_happy_path() {
     let setup = TestSetup::default().await;
 
+    // Fetch config to validate CDN URL
+    let response = setup
+        .send_get_request("/v1/media/config")
+        .await
+        .expect("Failed to send GET /v1/media/config");
+    assert_eq!(response.status(), StatusCode::OK);
+    let response_body = setup
+        .parse_response_body(response)
+        .await
+        .expect("Failed to parse response body");
+    let trusted_cdn_url = response_body["trusted_cdn_url"]
+        .as_str()
+        .expect("Missing trusted_cdn_url in response");
+    println!("Trusted CDN URL: {}", trusted_cdn_url);
+
     // Step 1: Generate test image data with known SHA-256
     let (image_data, sha256) = generate_test_encrypted_image(2048);
     println!(
@@ -459,6 +506,11 @@ async fn test_e2e_upload_happy_path() {
     let asset_url = response_body["asset_url"]
         .as_str()
         .expect("Missing asset_url in response");
+
+    assert!(
+        asset_url.starts_with(trusted_cdn_url),
+        "Asset URL should start with trusted CDN URL"
+    );
 
     // Verify response format
     assert!(

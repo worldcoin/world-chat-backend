@@ -1,7 +1,7 @@
 pub mod auth;
 pub mod media;
 
-use aide::axum::{routing::post, ApiRouter};
+use aide::axum::{post, routing::get, ApiRouter};
 use axum::middleware;
 
 use crate::middleware::auth::auth_middleware;
@@ -15,6 +15,7 @@ pub fn handler() -> ApiRouter {
             "/media/presigned-urls",
             post(media::create_presigned_upload_url),
         )
+        .api_route("/media/config", get(media::get_media_config))
         .layer(middleware::from_fn(auth_middleware));
 
     public_routes.merge(protected_routes)
