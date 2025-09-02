@@ -32,6 +32,7 @@ pub struct TestSetup {
     pub environment: Environment,
     pub media_storage: Arc<MediaStorage>,
     pub kms_client: Arc<KmsClient>,
+    pub push_subscription_storage: Arc<PushSubscriptionStorage>,
     // Keep DynamoDbTestSetup alive for the duration of the test
     _dynamodb_setup: DynamoDbTestSetup,
 }
@@ -95,6 +96,7 @@ impl TestSetup {
             environment,
             media_storage,
             kms_client,
+            push_subscription_storage,
             _dynamodb_setup: dynamodb_test_setup,
         }
     }
