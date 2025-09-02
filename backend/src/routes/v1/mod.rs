@@ -2,7 +2,10 @@ pub mod auth;
 pub mod media;
 pub mod notifications;
 
-use aide::axum::{routing::post, ApiRouter};
+use aide::axum::{
+    routing::{get, post},
+    ApiRouter,
+};
 use axum::middleware;
 
 use crate::middleware::auth::auth_middleware;
@@ -18,6 +21,7 @@ pub fn handler() -> ApiRouter {
             "/media/presigned-urls",
             post(media::create_presigned_upload_url),
         )
+        .api_route("/media/config", get(media::get_media_config))
         .api_route(
             "/notifications",
             post(notifications::subscribe).delete(notifications::unsubscribe),

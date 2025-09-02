@@ -7,15 +7,11 @@ use std::time::Duration;
 use crate::types::environment::Environment;
 use crate::worker::xmtp_listener::XmtpListenerConfig;
 use crate::xmtp::message_api::v1::Envelope;
-use aws_sdk_sqs::Client as SqsClient;
-
-// Type aliases
-/// Message type that flows through the worker pipeline
-pub type Message = Envelope;
 
 /// Result type for worker operations
 pub type WorkerResult<T> = anyhow::Result<T>;
 
+use backend_storage::push_subscription::PushSubscriptionStorage;
 use backend_storage::queue::NotificationQueue;
 use tokio::task::JoinHandle;
 use tokio_util::sync::CancellationToken;
@@ -33,6 +29,7 @@ pub struct XmtpWorker {
     client: MessageApiClient<Channel>,
     shutdown_token: CancellationToken,
     notification_queue: Arc<NotificationQueue>,
+    subscription_storage: Arc<PushSubscriptionStorage>,
 }
 
 impl XmtpWorker {
@@ -41,7 +38,11 @@ impl XmtpWorker {
     /// # Errors
     ///
     /// Returns an error if connection to XMTP fails or TLS configuration is invalid.
-    pub async fn new(env: Environment) -> anyhow::Result<Self> {
+    pub async fn new(
+        env: Environment,
+        notification_queue: Arc<NotificationQueue>,
+        subscription_storage: Arc<PushSubscriptionStorage>,
+    ) -> anyhow::Result<Self> {
         info!(
             "Connecting to XMTP node at {}, TLS enabled: {}",
             env.xmtp_endpoint(),
@@ -63,18 +64,12 @@ impl XmtpWorker {
         let channel = endpoint.connect().await?;
         let client = MessageApiClient::new(channel);
 
-        // Initialize notification queue
-        let sqs_client = Arc::new(SqsClient::from_conf(env.sqs_client_config().await));
-        let notification_queue = Arc::new(NotificationQueue::new(
-            sqs_client,
-            env.notification_queue_config(),
-        ));
-
         Ok(Self {
             env,
             client,
             shutdown_token: CancellationToken::new(),
             notification_queue,
+            subscription_storage,
         })
     }
 
@@ -105,8 +100,8 @@ impl XmtpWorker {
     }
 
     /// Creates and logs the message channel
-    fn create_message_channel(&self) -> (flume::Sender<Message>, flume::Receiver<Message>) {
-        let (message_tx, message_rx) = flume::bounded::<Message>(self.env.channel_capacity());
+    fn create_message_channel(&self) -> (flume::Sender<Envelope>, flume::Receiver<Envelope>) {
+        let (message_tx, message_rx) = flume::bounded::<Envelope>(self.env.channel_capacity());
         info!(
             "Created flume channel with capacity: {}",
             self.env.channel_capacity()
@@ -115,7 +110,7 @@ impl XmtpWorker {
     }
 
     /// Runs the XMTP listener and handles results
-    async fn run_xmtp_listener(&self, message_tx: flume::Sender<Message>) {
+    async fn run_xmtp_listener(&self, message_tx: flume::Sender<Envelope>) {
         let listener_result = XmtpListener::new(
             self.client.clone(),
             message_tx,
@@ -147,11 +142,15 @@ impl XmtpWorker {
     }
 
     /// Spawns message processor tasks
-    fn spawn_processors(&self, receiver: &flume::Receiver<Message>) -> Vec<JoinHandle<()>> {
+    fn spawn_processors(&self, receiver: &flume::Receiver<Envelope>) -> Vec<JoinHandle<()>> {
         let mut handles = Vec::new();
 
         for i in 0..self.env.num_workers() {
-            let processor = MessageProcessor::new(i, Arc::clone(&self.notification_queue));
+            let processor = MessageProcessor::new(
+                i,
+                Arc::clone(&self.notification_queue),
+                Arc::clone(&self.subscription_storage),
+            );
             let rx = receiver.clone();
             let shutdown_token = self.shutdown_token.clone();
 

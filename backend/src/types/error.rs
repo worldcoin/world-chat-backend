@@ -212,7 +212,7 @@ impl From<PushSubscriptionStorageError> for AppError {
     fn from(err: PushSubscriptionStorageError) -> Self {
         use PushSubscriptionStorageError::{
             DynamoDbDeleteError, DynamoDbGetError, DynamoDbPutError, DynamoDbQueryError,
-            ParseSubscriptionError, SerializationError,
+            ParseSubscriptionError, PushSubscriptionExists, SerializationError,
         };
 
         match &err {
@@ -226,6 +226,15 @@ impl From<PushSubscriptionStorageError> for AppError {
                     "database_error",
                     "Database service temporarily unavailable",
                     true,
+                )
+            }
+            PushSubscriptionExists => {
+                tracing::error!("Push subscription already exists");
+                Self::new(
+                    StatusCode::CONFLICT,
+                    "already_exists",
+                    "Push subscription already exists",
+                    false,
                 )
             }
             SerializationError(msg) | ParseSubscriptionError(msg) => {

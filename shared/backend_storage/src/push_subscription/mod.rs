@@ -7,6 +7,7 @@ mod error;
 use std::sync::Arc;
 
 use aws_sdk_dynamodb::{
+    error::SdkError,
     types::{AttributeValue, Select},
     Client as DynamoDbClient,
 };
@@ -161,16 +162,18 @@ impl PushSubscriptionStorage {
             .transpose()
     }
 
-    /// Upserts a push subscription (insert or update if exists)
+    /// Inserts a push subscription, failing if it already exists with the same topic and `hmac_key`
     ///
     /// # Arguments
     ///
-    /// * `subscription` - The push subscription to upsert
+    /// * `subscription` - The push subscription to insert
     ///
     /// # Errors
     ///
-    /// Returns `PushSubscriptionStorageError` if the Dynamo DB operation fails
-    pub async fn upsert(
+    /// Returns `PushSubscriptionStorageError::PushSubscriptionExists` if a subscription with the same
+    /// `topic` and `hmac_key` already exists, or other `PushSubscriptionStorageError`
+    /// if the Dynamo DB operation fails
+    pub async fn insert(
         &self,
         subscription: &PushSubscription,
     ) -> PushSubscriptionStorageResult<()> {
@@ -191,12 +194,27 @@ impl PushSubscriptionStorage {
         let item = serde_dynamo::to_item(&subscription_to_store)
             .map_err(|e| PushSubscriptionStorageError::SerializationError(e.to_string()))?;
 
-        self.dynamodb_client
+        // Create only if *no item with this PK+SK* exists.
+        self
+            .dynamodb_client
             .put_item()
             .table_name(&self.table_name)
             .set_item(Some(item))
+            .condition_expression("attribute_not_exists(#pk) AND attribute_not_exists(#sk)")
+            .expression_attribute_names("#pk", PushSubscriptionAttribute::Topic.to_string())
+            .expression_attribute_names("#sk", PushSubscriptionAttribute::HmacKey.to_string())
             .send()
-            .await?;
+            .await
+            .map_err(|err| {
+                if matches!(
+                    err,
+                    SdkError::ServiceError(ref svc) if svc.err().is_conditional_check_failed_exception()
+                ) {
+                    PushSubscriptionStorageError::PushSubscriptionExists
+                } else {
+                    err.into()
+                }
+            })?;
 
         Ok(())
     }

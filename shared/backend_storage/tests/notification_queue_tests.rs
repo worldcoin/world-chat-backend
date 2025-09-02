@@ -22,8 +22,11 @@ async fn test_send_consume_ack_happy_path() {
     // Create notification
     let notification = Notification {
         topic: "breaking_news".to_string(),
-        sender_hmac: "sender_hmac_123".to_string(),
-        payload: r#"{"title":"Breaking News","content":"Important update","timestamp":"2024-01-01T12:00:00Z"}"#.to_string(),
+        subscribed_encrypted_push_ids: vec![
+            "encrypted_push_id_1".to_string(),
+            "encrypted_push_id_2".to_string(),
+        ],
+        encrypted_message_base64: "eyJ0aXRsZSI6IkJyZWFraW5nIE5ld3MiLCJjb250ZW50IjoiSW1wb3J0YW50IHVwZGF0ZSIsInRpbWVzdGFtcCI6IjIwMjQtMDEtMDFUMTI6MDA6MDBaIn0=".to_string(),
     };
 
     // Send message
@@ -77,20 +80,20 @@ async fn test_fifo_topic_based_grouping() {
     // Send 3 messages: 2 for topic "news", 1 for topic "alerts"
     let news1 = Notification {
         topic: "news".to_string(),
-        sender_hmac: "hmac_1".to_string(),
-        payload: r#"{"id":1,"type":"news"}"#.to_string(),
+        subscribed_encrypted_push_ids: vec!["enc_push_news_1".to_string()],
+        encrypted_message_base64: "encoded_news_1_base64".to_string(),
     };
 
     let alert1 = Notification {
         topic: "alerts".to_string(),
-        sender_hmac: "hmac_2".to_string(),
-        payload: r#"{"id":2,"type":"alert"}"#.to_string(),
+        subscribed_encrypted_push_ids: vec!["enc_push_alert_1".to_string()],
+        encrypted_message_base64: "encoded_alert_1_base64".to_string(),
     };
 
     let news2 = Notification {
         topic: "news".to_string(),
-        sender_hmac: "hmac_3".to_string(),
-        payload: r#"{"id":3,"type":"news"}"#.to_string(),
+        subscribed_encrypted_push_ids: vec!["enc_push_news_2".to_string()],
+        encrypted_message_base64: "encoded_news_2_base64".to_string(),
     };
 
     // Send messages
@@ -125,9 +128,12 @@ async fn test_fifo_topic_based_grouping() {
     assert_eq!(alert_messages.len(), 1, "Should have 1 alert message");
 
     // Verify order within news topic
-    let news_payloads: Vec<_> = news_messages.iter().map(|m| &m.body.payload).collect();
-    assert_eq!(news_payloads[0], r#"{"id":1,"type":"news"}"#);
-    assert_eq!(news_payloads[1], r#"{"id":3,"type":"news"}"#);
+    let news_payloads: Vec<_> = news_messages
+        .iter()
+        .map(|m| &m.body.encrypted_message_base64)
+        .collect();
+    assert_eq!(news_payloads[0], "encoded_news_1_base64");
+    assert_eq!(news_payloads[1], "encoded_news_2_base64");
 
     // Clean up - acknowledge all messages
     for msg in messages {
@@ -137,14 +143,14 @@ async fn test_fifo_topic_based_grouping() {
     // Send 2 more news notifications to verify continued ordering
     let news3 = Notification {
         topic: "news".to_string(),
-        sender_hmac: "hmac_4".to_string(),
-        payload: r#"{"id":4,"type":"news"}"#.to_string(),
+        subscribed_encrypted_push_ids: vec!["enc_push_news_3".to_string()],
+        encrypted_message_base64: "encoded_news_3_base64".to_string(),
     };
 
     let news4 = Notification {
         topic: "news".to_string(),
-        sender_hmac: "hmac_5".to_string(),
-        payload: r#"{"id":5,"type":"news"}"#.to_string(),
+        subscribed_encrypted_push_ids: vec!["enc_push_news_4".to_string()],
+        encrypted_message_base64: "encoded_news_4_base64".to_string(),
     };
 
     queue
@@ -163,6 +169,12 @@ async fn test_fifo_topic_based_grouping() {
     assert_eq!(messages.len(), 2, "Should receive 2 new messages");
 
     // Verify they maintain order
-    assert_eq!(messages[0].body.payload, r#"{"id":4,"type":"news"}"#);
-    assert_eq!(messages[1].body.payload, r#"{"id":5,"type":"news"}"#);
+    assert_eq!(
+        messages[0].body.encrypted_message_base64,
+        "encoded_news_3_base64"
+    );
+    assert_eq!(
+        messages[1].body.encrypted_message_base64,
+        "encoded_news_4_base64"
+    );
 }

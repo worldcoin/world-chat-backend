@@ -1,6 +1,12 @@
+use std::sync::Arc;
 use tracing::{error, info};
 use tracing_subscriber::EnvFilter;
 
+use aws_sdk_dynamodb::Client as DynamoDbClient;
+use aws_sdk_sqs::Client as SqsClient;
+
+use backend_storage::push_subscription::PushSubscriptionStorage;
+use backend_storage::queue::NotificationQueue;
 use notification_worker::types::environment::Environment;
 use notification_worker::worker::XmtpWorker;
 
@@ -20,8 +26,22 @@ async fn main() -> anyhow::Result<()> {
     let env = Environment::from_env();
     info!("Starting XMTP Notification Worker in {:?} environment", env);
 
+    // Initialize notification queue
+    let sqs_client = Arc::new(SqsClient::new(&env.aws_config().await));
+    let notification_queue = Arc::new(NotificationQueue::new(
+        sqs_client,
+        env.notification_queue_config(),
+    ));
+
+    // Initialise Push Notification Subscription storage
+    let dynamodb_client = Arc::new(DynamoDbClient::new(&env.aws_config().await));
+    let subscription_storage = Arc::new(PushSubscriptionStorage::new(
+        dynamodb_client,
+        env.push_subscription_table_name(),
+    ));
+
     // Create and start the worker
-    match XmtpWorker::new(env).await {
+    match XmtpWorker::new(env, notification_queue, subscription_storage).await {
         Ok(worker) => {
             info!("Successfully connected to XMTP node");
 

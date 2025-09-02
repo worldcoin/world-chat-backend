@@ -58,7 +58,7 @@ pub async fn subscribe(
 
     let db_operations = push_subscriptions
         .iter()
-        .map(|subscription| push_storage.upsert(subscription));
+        .map(|subscription| push_storage.insert(subscription));
 
     // Wait for all insertions to complete - fails fast on first error
     join_all(db_operations)
@@ -109,7 +109,7 @@ pub async fn unsubscribe(
             .get_or_insert_with(HashSet::new)
             .insert(user.encrypted_push_id);
         push_storage
-            .upsert(&push_subscription)
+            .insert(&push_subscription)
             .await
             .map_err(AppError::from)?;
     }

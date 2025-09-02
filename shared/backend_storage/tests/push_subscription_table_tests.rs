@@ -61,7 +61,7 @@ async fn setup_test() -> TestContext {
 
     let dynamodb_client = Arc::new(DynamoDbClient::new(&config));
 
-    // Create a table with new structure: topic (PK) + hmac_key (SK)
+    // Create a table with topic (PK) + hmac_key (SK)
     dynamodb_client
         .create_table()
         .table_name(&table_name)
@@ -156,18 +156,18 @@ fn create_test_subscription_with_deletion(
 }
 
 #[tokio::test]
-async fn test_basic_upsert_and_get_operations() {
+async fn test_basic_insert_and_get_operations() {
     let context = setup_test().await;
 
     // Create subscription
     let subscription = create_test_subscription("test-topic");
 
-    // Upsert (insert)
+    // Insert
     context
         .storage
-        .upsert(&subscription)
+        .insert(&subscription)
         .await
-        .expect("Failed to upsert subscription");
+        .expect("Failed to insert subscription");
 
     // Get by topic and hmac
     let retrieved = context
@@ -195,61 +195,66 @@ async fn test_basic_upsert_and_get_operations() {
 }
 
 #[tokio::test]
-async fn test_upsert_updates_existing() {
+async fn test_insert_duplicate_prevention() {
     let context = setup_test().await;
 
     let subscription = create_test_subscription("test-topic");
 
-    // First upsert
+    // First insert should succeed
     context
         .storage
-        .upsert(&subscription)
+        .insert(&subscription)
         .await
-        .expect("First upsert should succeed");
+        .expect("First insert should succeed");
 
-    // Update with same topic and hmac_key but different encrypted_push_id
-    let mut updated_subscription = subscription.clone();
-    updated_subscription.encrypted_push_id = format!("updated-encrypted-{}", Uuid::new_v4());
-    updated_subscription.deletion_request = Some({
-        let mut set = HashSet::new();
-        set.insert("deletion1".to_string());
-        set.insert("deletion2".to_string());
-        set
-    });
+    // Second insert with same topic and hmac_key should fail (regardless of encrypted_push_id)
+    let result = context.storage.insert(&subscription).await;
 
-    // Second upsert should update
+    assert!(result.is_err());
+    match result.unwrap_err() {
+        backend_storage::push_subscription::PushSubscriptionStorageError::PushSubscriptionExists => {
+            // Expected error
+        }
+        other => panic!("Expected PushSubscriptionExists error, got: {:?}", other),
+    }
+
+    // Insert with same topic and hmac_key but different encrypted_push_id should also fail
+    let mut different_subscription = subscription.clone();
+    different_subscription.encrypted_push_id = format!("different-encrypted-{}", Uuid::new_v4());
+
+    let result2 = context.storage.insert(&different_subscription).await;
+    assert!(result2.is_err());
+    match result2.unwrap_err() {
+        backend_storage::push_subscription::PushSubscriptionStorageError::PushSubscriptionExists => {
+            // Expected error - same topic+hmac_key combination is not allowed
+        }
+        other => panic!("Expected PushSubscriptionExists error, got: {:?}", other),
+    }
+
+    // Insert with different topic should succeed
+    let mut different_topic_subscription = subscription.clone();
+    different_topic_subscription.topic = "different-topic".to_string();
+
     context
         .storage
-        .upsert(&updated_subscription)
+        .insert(&different_topic_subscription)
         .await
-        .expect("Second upsert should succeed");
+        .expect("Insert with different topic should succeed");
 
-    // Retrieve and verify it was updated
-    let retrieved = context
-        .storage
-        .get_one(&subscription.topic, &subscription.hmac_key)
-        .await
-        .expect("Failed to get updated subscription")
-        .expect("Subscription should exist");
-
-    assert_eq!(retrieved.topic, updated_subscription.topic);
-    assert_eq!(retrieved.hmac_key, updated_subscription.hmac_key);
-    assert_eq!(
-        retrieved.encrypted_push_id,
-        updated_subscription.encrypted_push_id
-    );
-    assert_eq!(
-        retrieved.deletion_request,
-        updated_subscription.deletion_request
-    );
-
-    // Should still be only one subscription for this topic
-    let all_subscriptions = context
+    // Should have one subscription for original topic and one for different topic
+    let original_subscriptions = context
         .storage
         .get_all_by_topic(&subscription.topic)
         .await
-        .expect("Failed to get all by topic");
-    assert_eq!(all_subscriptions.len(), 1);
+        .expect("Failed to get all by original topic");
+    assert_eq!(original_subscriptions.len(), 1);
+
+    let different_subscriptions = context
+        .storage
+        .get_all_by_topic(&different_topic_subscription.topic)
+        .await
+        .expect("Failed to get all by different topic");
+    assert_eq!(different_subscriptions.len(), 1);
 }
 
 #[tokio::test]
@@ -272,9 +277,9 @@ async fn test_get_all_by_topic_multiple_subscriptions() {
         }
         context
             .storage
-            .upsert(&sub)
+            .insert(&sub)
             .await
-            .expect("Failed to upsert");
+            .expect("Failed to insert");
         subscriptions.push(sub);
     }
 
@@ -282,9 +287,9 @@ async fn test_get_all_by_topic_multiple_subscriptions() {
     let other_sub = create_test_subscription(other_topic);
     context
         .storage
-        .upsert(&other_sub)
+        .insert(&other_sub)
         .await
-        .expect("Failed to upsert");
+        .expect("Failed to insert");
 
     // Query by shared topic
     let retrieved = context
@@ -351,12 +356,12 @@ async fn test_deletion_request_serialization() {
         vec!["req1".to_string(), "req2".to_string(), "req3".to_string()],
     );
 
-    // Upsert
+    // Insert
     context
         .storage
-        .upsert(&subscription)
+        .insert(&subscription)
         .await
-        .expect("Failed to upsert subscription with deletion request");
+        .expect("Failed to insert subscription with deletion request");
 
     // Retrieve and verify deletion request is preserved
     let retrieved = context
@@ -381,12 +386,12 @@ async fn test_subscription_without_deletion_request() {
     // Create subscription without deletion request
     let subscription = create_test_subscription("test-topic");
 
-    // Upsert
+    // Insert
     context
         .storage
-        .upsert(&subscription)
+        .insert(&subscription)
         .await
-        .expect("Failed to upsert subscription without deletion request");
+        .expect("Failed to insert subscription without deletion request");
 
     // Retrieve and verify deletion request is None
     let retrieved = context
@@ -397,4 +402,61 @@ async fn test_subscription_without_deletion_request() {
         .expect("Subscription should exist");
 
     assert!(retrieved.deletion_request.is_none());
+}
+
+#[tokio::test]
+async fn test_delete_subscription() {
+    let context = setup_test().await;
+
+    // Create and insert subscription
+    let subscription = create_test_subscription("test-topic");
+
+    context
+        .storage
+        .insert(&subscription)
+        .await
+        .expect("Failed to insert subscription");
+
+    // Verify it exists
+    let retrieved = context
+        .storage
+        .get_one(&subscription.topic, &subscription.hmac_key)
+        .await
+        .expect("Failed to get subscription");
+    assert!(retrieved.is_some());
+
+    // Delete the subscription
+    context
+        .storage
+        .delete(&subscription.topic, &subscription.hmac_key)
+        .await
+        .expect("Failed to delete subscription");
+
+    // Verify it no longer exists
+    let retrieved_after_delete = context
+        .storage
+        .get_one(&subscription.topic, &subscription.hmac_key)
+        .await
+        .expect("Failed to get subscription after delete");
+    assert!(retrieved_after_delete.is_none());
+
+    // Verify topic query returns empty
+    let subscriptions = context
+        .storage
+        .get_all_by_topic(&subscription.topic)
+        .await
+        .expect("Failed to get all by topic after delete");
+    assert_eq!(subscriptions.len(), 0);
+}
+
+#[tokio::test]
+async fn test_delete_nonexistent_subscription() {
+    let context = setup_test().await;
+
+    // Delete non-existent subscription should not fail
+    context
+        .storage
+        .delete("non-existent-topic", "non-existent-hmac")
+        .await
+        .expect("Delete of non-existent subscription should not fail");
 }

@@ -16,7 +16,7 @@ use super::dynamodb_setup::DynamoDbTestSetup;
 /// Setup test environment variables with all the required configuration
 pub fn setup_test_env() {
     // Load test environment variables
-    dotenvy::from_path(".env.example").ok();
+    dotenvy::from_path(".env.test").ok();
 
     // Initialize tracing for tests
     tracing_subscriber::fmt()
