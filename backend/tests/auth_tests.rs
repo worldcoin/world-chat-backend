@@ -30,7 +30,7 @@ async fn create_valid_world_id_proof(encrypted_push_id: String, timestamp: i64) 
 
 #[tokio::test]
 async fn test_authorize_with_valid_world_id_proof() {
-    let context = TestSetup::new(None).await;
+    let context = TestSetup::default().await;
 
     let encrypted_push_id = format!("encrypted-push-{}", Uuid::new_v4());
     let timestamp = Utc::now().timestamp();
@@ -62,7 +62,7 @@ async fn test_authorize_with_valid_world_id_proof() {
 
 #[tokio::test]
 async fn test_authorize_with_stolen_proof() {
-    let context = TestSetup::new(None).await;
+    let context = TestSetup::default().await;
 
     let encrypted_push_id_user1 = format!("encrypted-push-{}", Uuid::new_v4());
     let timestamp = Utc::now().timestamp();
@@ -89,7 +89,7 @@ async fn test_authorize_with_stolen_proof() {
 
 #[tokio::test]
 async fn test_authorize_invalid_proof_format() {
-    let context = TestSetup::new(None).await;
+    let context = TestSetup::default().await;
 
     // Create auth request with invalid proof format
     let auth_request = json!({
@@ -116,7 +116,7 @@ async fn test_authorize_invalid_proof_format() {
 
 #[tokio::test]
 async fn test_authorize_missing_fields() {
-    let context = TestSetup::new(None).await;
+    let context = TestSetup::default().await;
 
     // Test with missing required fields
     let test_cases = vec![
@@ -172,7 +172,7 @@ async fn test_authorize_missing_fields() {
 
 #[tokio::test]
 async fn test_authorize_malformed_world_id_proof() {
-    let context = TestSetup::new(None).await;
+    let context = TestSetup::default().await;
 
     // Test with malformed proof (not 512 hex chars)
     let auth_request = json!({
@@ -199,7 +199,7 @@ async fn test_authorize_malformed_world_id_proof() {
 
 #[tokio::test]
 async fn test_authorize_invalid_nullifier_format() {
-    let context = TestSetup::new(None).await;
+    let context = TestSetup::default().await;
 
     // Test with invalid nullifier hash format
     let auth_request = json!({
@@ -226,7 +226,7 @@ async fn test_authorize_invalid_nullifier_format() {
 
 #[tokio::test]
 async fn test_authorize_invalid_merkle_root_format() {
-    let context = TestSetup::new(None).await;
+    let context = TestSetup::default().await;
 
     // Test with invalid merkle root format
     let auth_request = json!({
@@ -253,7 +253,7 @@ async fn test_authorize_invalid_merkle_root_format() {
 
 #[tokio::test]
 async fn test_authorize_jwt_is_validatable_by_manager() {
-    let context = TestSetup::new(None).await;
+    let context = TestSetup::default().await;
 
     // Get a valid access token
     let encrypted_push_id = format!("encrypted-push-{}", Uuid::new_v4());
@@ -296,7 +296,7 @@ async fn test_authorize_jwt_is_validatable_by_manager() {
 
 #[tokio::test]
 async fn test_validate_rejects_wrong_alg() {
-    let context = TestSetup::new(None).await;
+    let context = TestSetup::default().await;
 
     let encrypted_push_id = format!("encrypted-push-{}", Uuid::new_v4());
     let timestamp = Utc::now().timestamp();
@@ -346,7 +346,7 @@ async fn test_validate_rejects_wrong_alg() {
 
 #[tokio::test]
 async fn test_validate_rejects_wrong_kid() {
-    let context = TestSetup::new(None).await;
+    let context = TestSetup::default().await;
 
     let encrypted_push_id = format!("encrypted-push-{}", Uuid::new_v4());
     let timestamp = Utc::now().timestamp();
@@ -395,7 +395,7 @@ async fn test_validate_rejects_wrong_kid() {
 
 #[tokio::test]
 async fn test_validate_rejects_payload_tamper() {
-    let context = TestSetup::new(None).await;
+    let context = TestSetup::default().await;
 
     let encrypted_push_id = format!("encrypted-push-{}", Uuid::new_v4());
     let timestamp = Utc::now().timestamp();
@@ -448,7 +448,7 @@ async fn test_validate_rejects_payload_tamper() {
 
 #[tokio::test]
 async fn test_authorize_with_future_timestamp() {
-    let context = TestSetup::new(None).await;
+    let context = TestSetup::default().await;
 
     let encrypted_push_id = format!("encrypted-push-{}", Uuid::new_v4());
     let timestamp = Utc::now().timestamp() + 60; // 1 minute in the future
@@ -473,7 +473,7 @@ async fn test_authorize_with_future_timestamp() {
 
 #[tokio::test]
 async fn test_authorize_with_expired_timestamp() {
-    let context = TestSetup::new(None).await;
+    let context = TestSetup::default().await;
 
     let encrypted_push_id = format!("encrypted-push-{}", Uuid::new_v4());
     // Expired by 1 second beyond 5 minutes
@@ -495,4 +495,134 @@ async fn test_authorize_with_expired_timestamp() {
         .expect("Failed to send request");
 
     assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+}
+
+/// Helper to get a valid JWT token from the authorize endpoint
+async fn get_valid_jwt_token(context: &TestSetup) -> String {
+    let encrypted_push_id = format!("encrypted-push-{}", Uuid::new_v4());
+    let timestamp = Utc::now().timestamp();
+    let proof = create_valid_world_id_proof(encrypted_push_id.clone(), timestamp).await;
+
+    let auth_request = json!({
+        "proof": proof.get_proof_as_string(),
+        "nullifier_hash": proof.get_nullifier_hash().to_hex_string(),
+        "merkle_root": proof.get_merkle_root().to_hex_string(),
+        "encrypted_push_id": encrypted_push_id,
+        "timestamp": timestamp,
+        "credential_type": proof.get_credential_type(),
+    });
+
+    let response = context
+        .send_post_request("/v1/authorize", auth_request)
+        .await
+        .expect("Failed to send request");
+
+    assert_eq!(response.status(), StatusCode::OK);
+
+    let body = context
+        .parse_response_body(response)
+        .await
+        .expect("Failed to parse response");
+
+    body["access_token"]
+        .as_str()
+        .expect("access_token must be a string")
+        .to_string()
+}
+
+#[tokio::test]
+async fn test_protected_endpoint_without_auth_header() {
+    // Test with auth enabled (disable_auth = false)
+    let context = TestSetup::new(None, false).await;
+
+    // Try to access protected endpoint without Authorization header
+    let media_request = json!({
+        "content_digest_sha256": "a".repeat(64),
+        "content_length": 1024,
+        "content_type": "image/jpeg"
+    });
+
+    let response = context
+        .send_post_request("/v1/media/presigned-urls", media_request)
+        .await
+        .expect("Failed to send request");
+
+    // Should fail with 401 Unauthorized
+    assert_eq!(
+        response.status(),
+        StatusCode::UNAUTHORIZED,
+        "Protected endpoint should require auth when auth is enabled"
+    );
+}
+
+#[tokio::test]
+async fn test_protected_endpoint_with_invalid_auth_header() {
+    // Test with auth enabled (disable_auth = false)
+    let context = TestSetup::new(None, false).await;
+
+    // Try to access protected endpoint with invalid token
+    let media_request = json!({
+        "content_digest_sha256": "a".repeat(64),
+        "content_length": 1024,
+        "content_type": "image/jpeg"
+    });
+
+    let response = context
+        .send_post_request_with_headers(
+            "/v1/media/presigned-urls",
+            media_request,
+            vec![("Authorization", "Bearer invalid.jwt.token")],
+        )
+        .await
+        .expect("Failed to send request");
+
+    // Should fail with 401 Unauthorized
+    assert_eq!(
+        response.status(),
+        StatusCode::UNAUTHORIZED,
+        "Protected endpoint should reject invalid tokens"
+    );
+}
+
+#[tokio::test]
+async fn test_protected_endpoint_with_valid_token() {
+    // Test with auth enabled (disable_auth = false)
+    let context = TestSetup::new(None, false).await;
+
+    // Get a valid JWT token first
+    let token = get_valid_jwt_token(&context).await;
+
+    // Try to access protected endpoint with valid token
+    let media_request = json!({
+        "content_digest_sha256": "a".repeat(64),
+        "content_length": 1024,
+        "content_type": "image/jpeg"
+    });
+
+    let response = context
+        .send_post_request_with_headers(
+            "/v1/media/presigned-urls",
+            media_request,
+            vec![("Authorization", &format!("Bearer {}", token))],
+        )
+        .await
+        .expect("Failed to send request");
+
+    // Should succeed with 200 OK
+    assert_eq!(
+        response.status(),
+        StatusCode::OK,
+        "Protected endpoint should accept valid tokens"
+    );
+
+    // Verify response structure
+    let body = context
+        .parse_response_body(response)
+        .await
+        .expect("Failed to parse response");
+
+    assert!(
+        body["presigned_url"].is_string() || body["asset_url"].is_string(),
+        "Response should contain either presigned_url or asset_url"
+    );
 }

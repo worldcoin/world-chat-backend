@@ -2,6 +2,7 @@
 
 pub mod jwt;
 pub mod media_storage;
+pub mod middleware;
 pub mod routes;
 pub mod server;
 pub mod types;
