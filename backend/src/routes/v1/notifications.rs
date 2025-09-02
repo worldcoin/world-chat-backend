@@ -84,21 +84,18 @@ pub async fn unsubscribe(
     Extension(push_storage): Extension<Arc<PushSubscriptionStorage>>,
     Json(payload): Json<UnsubscribeRequest>,
 ) -> Result<StatusCode, AppError> {
-    let mut push_subscription = match push_storage
+    let mut push_subscription = push_storage
         .get_one(&payload.topic, &payload.hmac)
         .await
         .map_err(AppError::from)?
-    {
-        Some(subscription) => subscription,
-        None => {
-            return Err(AppError::new(
+        .ok_or_else(|| {
+            AppError::new(
                 StatusCode::NOT_FOUND,
                 "push_subscription_not_found",
                 "Push subscription not found",
                 false,
-            ));
-        }
-    };
+            )
+        })?;
 
     if push_subscription.encrypted_push_id == user.encrypted_push_id {
         push_storage

@@ -2,10 +2,7 @@ pub mod auth;
 pub mod media;
 pub mod notifications;
 
-use aide::axum::{
-    routing::{delete, post},
-    ApiRouter,
-};
+use aide::axum::{routing::post, ApiRouter};
 use axum::middleware;
 
 use crate::middleware::auth::auth_middleware;
