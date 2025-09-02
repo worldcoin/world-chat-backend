@@ -3,7 +3,7 @@ mod utils;
 
 use anyhow::Context;
 use anyhow::Result;
-use backend_storage::push_notification::PushSubscription;
+use backend_storage::push_subscription::PushSubscription;
 use notification_worker::xmtp::message_api::v1::Envelope;
 use notification_worker::xmtp::mls::api::v1::{group_message, GroupMessage};
 use pretty_assertions::assert_eq;
@@ -44,38 +44,42 @@ async fn setup_test_subscriptions(ctx: &TestContext) -> Result<TestSubscriptions
 
     // Topic A with single subscription
     let sub_a_x = PushSubscription {
-        hmac: hex::encode(&hmac_a_x),
+        hmac_key: hex::encode(&hmac_a_x),
         topic: TOPIC_A.to_string(),
         ttl: now + 86400, // Valid for 1 day
         encrypted_push_id: "push_id_x".to_string(),
+        deletion_request: None,
     };
 
     // Topic B with multiple subscribers
     let sub_b_x = PushSubscription {
-        hmac: hex::encode(&hmac_b_x),
+        hmac_key: hex::encode(&hmac_b_x),
         topic: TOPIC_B.to_string(),
         ttl: now + 86400,
         encrypted_push_id: "push_id_x".to_string(),
+        deletion_request: None,
     };
 
     let sub_b_y1 = PushSubscription {
-        hmac: hex::encode(&hmac_b_y1),
+        hmac_key: hex::encode(&hmac_b_y1),
         topic: TOPIC_B.to_string(),
         ttl: now + 86400,
         encrypted_push_id: "push_id_y".to_string(),
+        deletion_request: None,
     };
 
     // Same push_id as y1 (same device, different installation)
     let sub_b_y2 = PushSubscription {
-        hmac: hex::encode(&hmac_b_y2),
+        hmac_key: hex::encode(&hmac_b_y2),
         topic: TOPIC_B.to_string(),
         ttl: now + 86400,
         encrypted_push_id: "push_id_y".to_string(),
+        deletion_request: None,
     };
 
     // Insert all subscriptions
     for sub in [&sub_a_x, &sub_b_x, &sub_b_y1, &sub_b_y2] {
-        ctx.subscription_storage.insert(sub).await?;
+        ctx.subscription_storage.upsert(sub).await?;
     }
 
     Ok(TestSubscriptions {
@@ -347,12 +351,13 @@ async fn test_welcome_messages() -> Result<()> {
 
     // Add subscription for welcome topic
     let subscription = PushSubscription {
-        hmac: hex::encode(create_test_hmac_key(b"welcome_user")),
+        hmac_key: hex::encode(create_test_hmac_key(b"welcome_user")),
         topic: welcome_topic.clone(),
         ttl: chrono::Utc::now().timestamp() + 86400,
         encrypted_push_id: "welcome_push_id".to_string(),
+        deletion_request: None,
     };
-    ctx.subscription_storage.insert(&subscription).await?;
+    ctx.subscription_storage.upsert(&subscription).await?;
 
     // Send welcome message - create envelope directly for welcome topic
     let envelope = notification_worker::xmtp::message_api::v1::Envelope {
@@ -374,12 +379,13 @@ async fn test_ignores_non_v3_topics() -> Result<()> {
     // Add subscription for non-V3 topic (shouldn't work)
     let legacy_topic = "/xmtp/0/address/proto";
     let subscription = PushSubscription {
-        hmac: hex::encode(create_test_hmac_key(b"legacy_user")),
+        hmac_key: hex::encode(create_test_hmac_key(b"legacy_user")),
         topic: legacy_topic.to_string(),
         ttl: chrono::Utc::now().timestamp() + 86400,
         encrypted_push_id: "legacy_push_id".to_string(),
+        deletion_request: None,
     };
-    ctx.subscription_storage.insert(&subscription).await?;
+    ctx.subscription_storage.upsert(&subscription).await?;
 
     // Send message to legacy topic - this test is no longer relevant with MLS API
     // as MLS API only handles V3 messages. We'll skip this test by sending nothing
@@ -458,12 +464,13 @@ async fn test_duplicate_push_ids_deduplicated() -> Result<()> {
     // Create multiple subscriptions with same push_id
     for i in 0..3 {
         let sub = PushSubscription {
-            hmac: hex::encode(create_test_hmac_key(format!("device_{}", i).as_bytes())),
+            hmac_key: hex::encode(create_test_hmac_key(format!("device_{}", i).as_bytes())),
             topic: TOPIC_DEDUP_TEST.to_string(),
             ttl: now + 86400,
             encrypted_push_id: "duplicate_push_id".to_string(),
+            deletion_request: None,
         };
-        ctx.subscription_storage.insert(&sub).await?;
+        ctx.subscription_storage.upsert(&sub).await?;
     }
 
     // Send message

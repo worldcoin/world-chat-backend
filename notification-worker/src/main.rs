@@ -5,7 +5,7 @@ use tracing_subscriber::EnvFilter;
 use aws_sdk_dynamodb::Client as DynamoDbClient;
 use aws_sdk_sqs::Client as SqsClient;
 
-use backend_storage::push_notification::PushNotificationStorage;
+use backend_storage::push_subscription::PushSubscriptionStorage;
 use backend_storage::queue::NotificationQueue;
 use notification_worker::types::environment::Environment;
 use notification_worker::worker::XmtpWorker;
@@ -35,10 +35,9 @@ async fn main() -> anyhow::Result<()> {
 
     // Initialise Push Notification Subscription storage
     let dynamodb_client = Arc::new(DynamoDbClient::new(&env.aws_config().await));
-    let subscription_storage = Arc::new(PushNotificationStorage::new(
+    let subscription_storage = Arc::new(PushSubscriptionStorage::new(
         dynamodb_client,
         env.push_subscription_table_name(),
-        env.push_subscription_gsi_name(),
     ));
 
     // Create and start the worker
