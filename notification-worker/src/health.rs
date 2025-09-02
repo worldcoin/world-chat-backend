@@ -1,4 +1,5 @@
 use axum::{http::StatusCode, response::IntoResponse, routing::get, Json, Router};
+use datadog_tracing::axum::{OtelAxumLayer, OtelInResponseLayer};
 use serde_json::json;
 use std::net::SocketAddr;
 use tokio::net::TcpListener;
@@ -31,7 +32,12 @@ async fn health() -> impl IntoResponse {
 /// Returns an error if the server fails to bind to the specified address
 // TODO: Consider moving this to a separate file
 pub async fn start_health_server(shutdown_token: CancellationToken) -> anyhow::Result<()> {
-    let app = Router::new().route("/health", get(health));
+    let app = Router::new()
+        .route("/health", get(health))
+        // Include trace context as header into the response
+        .layer(OtelInResponseLayer)
+        // Start OpenTelemetry trace on incoming request
+        .layer(OtelAxumLayer::default());
 
     let addr = SocketAddr::from((
         [0, 0, 0, 0],

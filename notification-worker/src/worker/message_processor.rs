@@ -9,7 +9,7 @@ use backend_storage::{
 use base64::{engine::general_purpose::STANDARD, Engine as _};
 use tokio_util::sync::CancellationToken;
 
-use tracing::{debug, error, info, warn};
+use tracing::{debug, error, info, instrument, warn};
 
 use crate::xmtp_utils::is_v3_topic;
 
@@ -38,6 +38,7 @@ impl MessageProcessor {
 
     /// Runs the message processor loop
     #[allow(clippy::cognitive_complexity)]
+    #[instrument(skip(self, receiver, shutdown_token), fields(worker_id = self.worker_id))]
     pub async fn run(
         &self,
         receiver: flume::Receiver<Envelope>,
@@ -75,6 +76,7 @@ impl MessageProcessor {
     /// # Errors
     ///
     /// Returns an error if the message cannot be processed.
+    #[instrument(skip(self, envelope), fields(worker_id = self.worker_id, content_topic = %envelope.content_topic))]
     pub async fn process_message(&self, envelope: &Envelope) -> anyhow::Result<()> {
         // Step 1: Filter out messages that are not V3, following example from XMTP
         if !is_v3_topic(&envelope.content_topic) {

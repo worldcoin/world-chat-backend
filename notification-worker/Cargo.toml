@@ -44,6 +44,9 @@ hmac = { workspace = true }
 base64 = {workspace = true}
 hex = { workspace = true }
 
+# Datadog tracing
+datadog-tracing = { workspace = true }
+
 # Testing dependencies
 [dev-dependencies]
 uuid = { workspace = true }

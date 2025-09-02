@@ -1,6 +1,5 @@
 use std::sync::Arc;
 use tracing::{error, info};
-use tracing_subscriber::EnvFilter;
 
 use aws_sdk_dynamodb::Client as DynamoDbClient;
 use aws_sdk_sqs::Client as SqsClient;
@@ -13,10 +12,10 @@ use notification_worker::worker::XmtpWorker;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    // Initialize tracing
-    tracing_subscriber::fmt()
-        .with_env_filter(EnvFilter::from_default_env())
-        .init();
+    // Initialize Datadog tracing
+    // This will set up OpenTelemetry with Datadog exporter
+    // The _guard must be kept alive for the duration of the program
+    let (_guard, tracer_shutdown) = datadog_tracing::init()?;
 
     // Initialize rustls crypto provider
     rustls::crypto::ring::default_provider()
@@ -85,5 +84,9 @@ async fn main() -> anyhow::Result<()> {
     }
 
     info!("XMTP Notification Worker stopped");
+
+    // Ensure the tracer is properly shut down
+    tracer_shutdown.shutdown();
+
     Ok(())
 }
