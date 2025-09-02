@@ -44,23 +44,23 @@ impl MessageProcessor {
         receiver: flume::Receiver<Envelope>,
         shutdown_token: CancellationToken,
     ) {
-        info!("Message processor {} started", self.worker_id);
+        info!("Message processor started");
 
         loop {
             tokio::select! {
                 () = shutdown_token.cancelled() => {
-                    info!("Message processor {} received shutdown signal", self.worker_id);
+                    info!("Message processor received shutdown signal");
                     break;
                 }
                 result = receiver.recv_async() => {
                     match result {
                         Ok(message) => {
                             if let Err(e) = self.process_message(&message).await {
-                                error!("Worker {} failed to process message: {}", self.worker_id, e);
+                                error!("Failed to process message: {}", e);
                             }
                         }
                         Err(flume::RecvError::Disconnected) => {
-                            info!("Message channel closed for processor {}", self.worker_id);
+                            info!("Message channel closed");
                             break;
                         }
                     }
@@ -68,7 +68,7 @@ impl MessageProcessor {
             }
         }
 
-        info!("Message processor {} stopped", self.worker_id);
+        info!("Message processor stopped");
     }
 
     /// Processes a single message
@@ -84,9 +84,7 @@ impl MessageProcessor {
         }
 
         debug!(
-            "Worker {} processing message - Topic: {}, Timestamp: {}, Message size: {} bytes",
-            self.worker_id,
-            envelope.content_topic,
+            "Processing message - Timestamp: {}, Size: {} bytes",
             envelope.timestamp_ns,
             envelope.message.len()
         );
@@ -111,21 +109,15 @@ impl MessageProcessor {
                 // Don't block notification for valid HMACs but log error
                 Err(e) => {
                     error!(
-                        "Worker {} failed to check sender for subscription {}: {}. Message context: {:?}",
-                        self.worker_id,
-                        s.hmac,
-                        e,
-                        message_context
+                        "Failed to check sender for subscription {}: {}. Message context: {:?}",
+                        s.hmac, e, message_context
                     );
                     Some(s.encrypted_push_id) // Include on error to be safe
                 }
             })
             .collect::<HashSet<_>>();
         if subscribed_encrypted_push_ids.is_empty() {
-            warn!(
-                "Worker {} no subscriptions found for topic {}",
-                self.worker_id, envelope.content_topic
-            );
+            warn!("No subscriptions found for topic");
             return Ok(());
         }
 
