@@ -12,5 +12,5 @@
 )]
 
 pub mod auth_proof;
-pub mod push_notification;
+pub mod push_subscription;
 pub mod queue;

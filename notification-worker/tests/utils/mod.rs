@@ -3,7 +3,7 @@
 mod dynamodb_setup;
 mod sqs_setup;
 
-use backend_storage::push_notification::PushNotificationStorage;
+use backend_storage::push_subscription::PushSubscriptionStorage;
 use dynamodb_setup::DynamoDbTestSetup;
 
 use std::sync::Arc;
@@ -33,7 +33,7 @@ fn setup_test_env() {
 pub struct TestContext {
     pub environment: Environment,
     pub notification_queue: Arc<NotificationQueue>,
-    pub subscription_storage: Arc<PushNotificationStorage>,
+    pub subscription_storage: Arc<PushSubscriptionStorage>,
     pub message_processor: MessageProcessor,
     // Background handles for test duration
     _dynamodb_setup: DynamoDbTestSetup,
@@ -50,10 +50,9 @@ impl TestContext {
         // Initialize DynamoDB and tables
         let dynamodb_client = Arc::new(DynamoDbClient::new(&environment.aws_config().await));
         let dynamodb_test_setup = DynamoDbTestSetup::new(dynamodb_client.clone()).await;
-        let subscription_storage = Arc::new(PushNotificationStorage::new(
+        let subscription_storage = Arc::new(PushSubscriptionStorage::new(
             dynamodb_client,
             dynamodb_test_setup.push_subscriptions_table_name.clone(),
-            dynamodb_test_setup.push_subscription_gsi_name.clone(),
         ));
 
         // Initialize notification queue

@@ -11,7 +11,7 @@ use crate::xmtp::message_api::v1::Envelope;
 /// Result type for worker operations
 pub type WorkerResult<T> = anyhow::Result<T>;
 
-use backend_storage::push_notification::PushNotificationStorage;
+use backend_storage::push_subscription::PushSubscriptionStorage;
 use backend_storage::queue::NotificationQueue;
 use tokio::task::JoinHandle;
 use tokio_util::sync::CancellationToken;
@@ -29,7 +29,7 @@ pub struct XmtpWorker {
     client: MessageApiClient<Channel>,
     shutdown_token: CancellationToken,
     notification_queue: Arc<NotificationQueue>,
-    subscription_storage: Arc<PushNotificationStorage>,
+    subscription_storage: Arc<PushSubscriptionStorage>,
 }
 
 impl XmtpWorker {
@@ -42,7 +42,7 @@ impl XmtpWorker {
     pub async fn new(
         env: Environment,
         notification_queue: Arc<NotificationQueue>,
-        subscription_storage: Arc<PushNotificationStorage>,
+        subscription_storage: Arc<PushSubscriptionStorage>,
     ) -> anyhow::Result<Self> {
         info!(
             "Connecting to XMTP node at {}, TLS enabled: {}",
