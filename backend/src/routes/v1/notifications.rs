@@ -1,4 +1,4 @@
-use std::{collections::HashSet, sync::Arc};
+use std::sync::Arc;
 
 use axum::{http::StatusCode, Extension};
 use axum_jsonschema::Json;
@@ -29,9 +29,11 @@ pub struct CreateSubscriptionRequest {
 #[derive(Debug, Deserialize, Serialize, JsonSchema)]
 #[schemars(deny_unknown_fields)]
 pub struct UnsubscribeRequest {
-    /// HMAC key to unsubscribe from
+    /// HMAC key for subscription validation (64 hex characters)
+    #[schemars(length(equal = 64))]
     pub hmac_key: String,
     /// Topic to unsubscribe from
+    #[schemars(length(min = 1))]
     pub topic: String,
 }
 
@@ -107,10 +109,9 @@ pub async fn unsubscribe(
     Extension(push_storage): Extension<Arc<PushSubscriptionStorage>>,
     Json(payload): Json<UnsubscribeRequest>,
 ) -> Result<StatusCode, AppError> {
-    let mut push_subscription = push_storage
+    let push_subscription = push_storage
         .get_one(&payload.topic, &payload.hmac_key)
-        .await
-        .map_err(AppError::from)?
+        .await?
         .ok_or_else(|| {
             AppError::new(
                 StatusCode::NOT_FOUND,
@@ -123,18 +124,12 @@ pub async fn unsubscribe(
     if push_subscription.encrypted_push_id == user.encrypted_push_id {
         push_storage
             .delete(&payload.topic, &payload.hmac_key)
-            .await
-            .map_err(AppError::from)?;
+            .await?;
     } else {
-        // Add the user's encrypted push id to the deletion request
-        push_subscription
-            .deletion_request
-            .get_or_insert_with(HashSet::new)
-            .insert(user.encrypted_push_id);
+        // Add the user's encrypted push id to the deletion request using native DynamoDB string set ADD
         push_storage
-            .insert(&push_subscription)
-            .await
-            .map_err(AppError::from)?;
+            .append_delete_request(&payload.topic, &payload.hmac_key, &user.encrypted_push_id)
+            .await?;
     }
 
     Ok(StatusCode::NO_CONTENT)

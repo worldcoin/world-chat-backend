@@ -160,4 +160,42 @@ impl TestSetup {
         let response = self.router.clone().oneshot(request).await?;
         Ok(response)
     }
+
+    /// Send a DELETE request
+    pub async fn send_delete_request(
+        &self,
+        route: &str,
+        payload: serde_json::Value,
+    ) -> Result<Response, Box<dyn std::error::Error>> {
+        let request = Request::builder()
+            .uri(route)
+            .method("DELETE")
+            .header("Content-Type", "application/json")
+            .body(Body::from(payload.to_string()))?;
+
+        let response = self.router.clone().oneshot(request).await?;
+        Ok(response)
+    }
+
+    /// Send a DELETE request with custom headers (e.g., Authorization)
+    pub async fn send_delete_request_with_headers(
+        &self,
+        route: &str,
+        payload: serde_json::Value,
+        headers: Vec<(&str, &str)>,
+    ) -> Result<Response, Box<dyn std::error::Error>> {
+        let mut request_builder = Request::builder()
+            .uri(route)
+            .method("DELETE")
+            .header("Content-Type", "application/json");
+
+        // Add custom headers
+        for (key, value) in headers {
+            request_builder = request_builder.header(key, value);
+        }
+
+        let request = request_builder.body(Body::from(payload.to_string()))?;
+        let response = self.router.clone().oneshot(request).await?;
+        Ok(response)
+    }
 }
