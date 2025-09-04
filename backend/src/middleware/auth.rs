@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use aide::OperationIo;
 use axum::{
     extract::{FromRequestParts, Request},
     http::{header::AUTHORIZATION, request::Parts, StatusCode},
@@ -14,7 +15,7 @@ use crate::{
 };
 
 /// Authenticated user information extracted from JWT
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, OperationIo)]
 pub struct AuthenticatedUser {
     /// The encrypted push ID from the JWT subject
     pub encrypted_push_id: String,
@@ -31,7 +32,7 @@ impl From<JwsPayload> for AuthenticatedUser {
 /// Axum extractor for authenticated user
 ///
 /// Use this in your handlers to automatically extract and validate the authenticated user:
-/// ```ignore
+/// ```rust
 /// async fn protected_handler(
 ///     user: AuthenticatedUser,
 ///     // ... other extractors
@@ -79,7 +80,7 @@ pub async fn auth_middleware(
     next: Next,
 ) -> Result<Response, AppError> {
     // Extract Authorization header
-    let stripped_auth_header = request
+    let auth_header = request
         .headers()
         .get(AUTHORIZATION)
         .and_then(|header| header.to_str().ok())
@@ -88,7 +89,7 @@ pub async fn auth_middleware(
     // If auth is disabled, we skip token validation
     // and use the token as the encrypted push id
     if environment.disable_auth() {
-        if let Some(token) = stripped_auth_header {
+        if let Some(token) = auth_header {
             let authenticated_user = AuthenticatedUser {
                 encrypted_push_id: token.to_string(),
             };
@@ -98,7 +99,7 @@ pub async fn auth_middleware(
         return Ok(next.run(request).await);
     }
 
-    let token = stripped_auth_header.ok_or_else(|| {
+    let token = auth_header.ok_or_else(|| {
         AppError::new(
             StatusCode::UNAUTHORIZED,
             "missing_token",
