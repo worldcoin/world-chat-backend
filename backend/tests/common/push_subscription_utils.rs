@@ -22,7 +22,7 @@ pub async fn subscription_exists(
         .await
         .expect("Failed to get subscription")
         // ensure subscription exists and encrypted_push_id matches
-        .map_or(false, |sub| sub.encrypted_push_id == encrypted_push_id)
+        .is_some_and(|sub| sub.encrypted_push_id == encrypted_push_id)
 }
 
 pub async fn create_subscription(
@@ -54,16 +54,13 @@ pub async fn subscription_has_deletion_request(
     hmac_key: &str,
     encrypted_push_id: &str,
 ) -> bool {
-    let subscription = context
+    context
         .push_subscription_storage
         .get_one(topic, hmac_key)
         .await
-        .expect("Failed to get subscription");
-
-    if let Some(sub) = subscription {
-        if let Some(deletion_requests) = &sub.deletion_request {
-            return deletion_requests.contains(encrypted_push_id);
-        }
-    }
-    false
+        .expect("Failed to get subscription")
+        .is_some_and(|sub| {
+            sub.deletion_request
+                .is_some_and(|requests| requests.contains(encrypted_push_id))
+        })
 }
