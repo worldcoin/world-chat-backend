@@ -1,21 +1,21 @@
 use std::sync::Arc;
 use tracing::{error, info};
-use tracing_subscriber::EnvFilter;
 
 use aws_sdk_dynamodb::Client as DynamoDbClient;
 use aws_sdk_sqs::Client as SqsClient;
 
 use backend_storage::push_subscription::PushSubscriptionStorage;
 use backend_storage::queue::NotificationQueue;
+use notification_worker::health;
 use notification_worker::types::environment::Environment;
 use notification_worker::worker::XmtpWorker;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    // Initialize tracing
-    tracing_subscriber::fmt()
-        .with_env_filter(EnvFilter::from_default_env())
-        .init();
+    // Initialize Datadog tracing
+    // This will set up OpenTelemetry with Datadog exporter
+    // The _guard must be kept alive for the duration of the program
+    let (_guard, tracer_shutdown) = datadog_tracing::init()?;
 
     // Initialize rustls crypto provider
     rustls::crypto::ring::default_provider()
@@ -41,19 +41,28 @@ async fn main() -> anyhow::Result<()> {
     ));
 
     // Create and start the worker
-    match XmtpWorker::new(env, notification_queue, subscription_storage).await {
+    match XmtpWorker::new(env.clone(), notification_queue, subscription_storage).await {
         Ok(worker) => {
             info!("Successfully connected to XMTP node");
 
             // Get shutdown token for signal handling
             let shutdown_token = worker.shutdown_token();
 
+            // Start health check server
+            let health_shutdown = shutdown_token.clone();
+            tokio::spawn(async move {
+                if let Err(e) = health::start_health_server(health_shutdown).await {
+                    error!("Health server error: {}", e);
+                }
+            });
+
             // Spawn signal handler
+            let signal_shutdown = shutdown_token.clone();
             tokio::spawn(async move {
                 match tokio::signal::ctrl_c().await {
                     Ok(()) => {
                         info!("Received Ctrl+C, initiating graceful shutdown...");
-                        shutdown_token.cancel();
+                        signal_shutdown.cancel();
                     }
                     Err(e) => {
                         error!("Failed to listen for Ctrl+C: {}", e);
@@ -74,5 +83,9 @@ async fn main() -> anyhow::Result<()> {
     }
 
     info!("XMTP Notification Worker stopped");
+
+    // Ensure the tracer is properly shut down
+    tracer_shutdown.shutdown();
+
     Ok(())
 }
