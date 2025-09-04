@@ -132,11 +132,8 @@ pub async fn subscribe(
 /// whether the requesting user is the original subscriber:
 ///
 /// - **If the user is the original subscriber**: The subscription is immediately deleted
-/// - **If the user is not the original subscriber**: The user's encrypted push ID is added
-///   to the subscription's deletion request set using DynamoDB's native string set ADD operation
-///
-/// This allows multiple users to request deletion of the same subscription, with the actual
-/// deletion happening when the original subscriber requests it or through background cleanup.
+/// - **If the user is not the original subscriber**: The user's encrypted push ID is added to the deletion_request set,
+///   this acts as a tombstone for the subscription, and if the plaintext push ids are the same it's lazily deleted.
 ///
 /// # Arguments
 ///
