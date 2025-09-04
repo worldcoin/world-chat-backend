@@ -16,9 +16,7 @@ pub enum Environment {
     Development {
         /// Optional override for presigned URL expiry in seconds
         presign_expiry_override: Option<u64>,
-        /// Optional enable auth
-        disable_auth: bool,
-        /// Optional enable auth
+        /// Optional disable auth
         disable_auth: bool,
     },
 }
