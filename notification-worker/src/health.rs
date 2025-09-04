@@ -30,7 +30,6 @@ async fn health() -> impl IntoResponse {
 /// # Errors
 ///
 /// Returns an error if the server fails to bind to the specified address
-// TODO: Consider moving this to a separate file
 pub async fn start_health_server(shutdown_token: CancellationToken) -> anyhow::Result<()> {
     let app = Router::new()
         .route("/health", get(health))
