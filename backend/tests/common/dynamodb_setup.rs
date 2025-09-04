@@ -71,9 +71,6 @@ impl DynamoDbTestSetup {
             .await
             .expect("Failed to enable TTL");
 
-        // Wait for table to be ready
-        tokio::time::sleep(Duration::from_millis(100)).await;
-
         table_name
     }
 
@@ -131,8 +128,6 @@ impl DynamoDbTestSetup {
             .send()
             .await
             .expect("Failed to enable TTL");
-        // Wait for table to be ready
-        tokio::time::sleep(Duration::from_millis(100)).await;
 
         table_name
     }

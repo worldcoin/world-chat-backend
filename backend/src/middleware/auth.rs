@@ -80,7 +80,7 @@ pub async fn auth_middleware(
     next: Next,
 ) -> Result<Response, AppError> {
     // Extract Authorization header
-    let auth_header = request
+    let stripped_auth_header = request
         .headers()
         .get(AUTHORIZATION)
         .and_then(|header| header.to_str().ok())
@@ -89,7 +89,7 @@ pub async fn auth_middleware(
     // If auth is disabled, we skip token validation
     // and use the token as the encrypted push id
     if environment.disable_auth() {
-        if let Some(token) = auth_header {
+        if let Some(token) = stripped_auth_header {
             let authenticated_user = AuthenticatedUser {
                 encrypted_push_id: token.to_string(),
             };
@@ -99,7 +99,7 @@ pub async fn auth_middleware(
         return Ok(next.run(request).await);
     }
 
-    let token = auth_header.ok_or_else(|| {
+    let token = stripped_auth_header.ok_or_else(|| {
         AppError::new(
             StatusCode::UNAUTHORIZED,
             "missing_token",

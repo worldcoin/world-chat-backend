@@ -113,9 +113,6 @@ async fn setup_test() -> TestContext {
         .await
         .expect("Failed to enable TTL");
 
-    // Wait a bit for table to be ready
-    tokio::time::sleep(Duration::from_millis(100)).await;
-
     let storage = PushSubscriptionStorage::new(dynamodb_client.clone(), table_name.clone());
 
     TestContext {

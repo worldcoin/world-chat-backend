@@ -28,7 +28,7 @@ async fn main() -> anyhow::Result<()> {
         environment.presigned_url_expiry_secs(),
     ));
 
-    // Initialize DynamoDB client and auth proof storage
+    // Initialize DynamoDB client, auth proof and push subscriptions storage
     let dynamodb_client = Arc::new(DynamoDbClient::new(&environment.aws_config().await));
     let auth_proof_storage = Arc::new(AuthProofStorage::new(
         dynamodb_client.clone(),

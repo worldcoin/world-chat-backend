@@ -243,20 +243,6 @@ impl Environment {
             Self::Development { .. } => "world-chat-push-subscriptions".to_string(),
         }
     }
-
-    /// Returns the Dynamo DB GSI name for push subscriptions
-    ///
-    /// # Panics
-    ///
-    /// Panics if the `DYNAMODB_PUSH_SUBSCRIPTION_GSI_NAME` environment variable is not set in production/staging
-    #[must_use]
-    pub fn dynamodb_push_subscription_gsi_name(&self) -> String {
-        match self {
-            Self::Production | Self::Staging => env::var("DYNAMODB_PUSH_SUBSCRIPTION_GSI_NAME")
-                .expect("DYNAMODB_PUSH_SUBSCRIPTION_GSI_NAME environment variable is not set"),
-            Self::Development { .. } => "topic-index".to_string(),
-        }
-    }
 }
 
 #[cfg(test)]

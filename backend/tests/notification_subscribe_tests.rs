@@ -1,34 +1,11 @@
 mod common;
 
 use chrono::Utc;
-use common::TestSetup;
 use http::StatusCode;
-use rand::{distributions::Alphanumeric, Rng};
 use serde_json::json;
 use uuid::Uuid;
 
-fn generate_hmac_key() -> String {
-    rand::thread_rng()
-        .sample_iter(&Alphanumeric)
-        .take(64)
-        .map(char::from)
-        .collect()
-}
-
-async fn subscription_exists(
-    context: &TestSetup,
-    topic: &str,
-    hmac_key: &str,
-    encrypted_push_id: &str,
-) -> bool {
-    let subscription = context
-        .push_subscription_storage
-        .get_one(topic, hmac_key)
-        .await
-        .expect("Failed to get subscription");
-
-    subscription.is_some() && subscription.unwrap().encrypted_push_id == encrypted_push_id
-}
+use crate::common::{generate_hmac_key, subscription_exists, TestSetup};
 
 #[tokio::test]
 async fn test_subscribe_happy_path_single_subscription() {

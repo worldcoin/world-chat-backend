@@ -1,72 +1,13 @@
 mod common;
 
-use chrono::Utc;
-use common::TestSetup;
 use http::StatusCode;
-use rand::{distributions::Alphanumeric, Rng};
 use serde_json::json;
 use uuid::Uuid;
 
-fn generate_hmac_key() -> String {
-    rand::thread_rng()
-        .sample_iter(&Alphanumeric)
-        .take(64)
-        .map(char::from)
-        .collect()
-}
-
-async fn create_subscription(
-    context: &TestSetup,
-    topic: &str,
-    hmac_key: &str,
-    encrypted_push_id: &str,
-) {
-    use backend_storage::push_subscription::PushSubscription;
-
-    let subscription = PushSubscription {
-        topic: topic.to_string(),
-        hmac_key: hmac_key.to_string(),
-        ttl: Utc::now().timestamp() + 3600,
-        encrypted_push_id: encrypted_push_id.to_string(),
-        deletion_request: None,
-    };
-
-    context
-        .push_subscription_storage
-        .insert(&subscription)
-        .await
-        .expect("Failed to insert subscription");
-}
-
-async fn subscription_exists(context: &TestSetup, topic: &str, hmac_key: &str) -> bool {
-    let subscription = context
-        .push_subscription_storage
-        .get_one(topic, hmac_key)
-        .await
-        .expect("Failed to get subscription");
-
-    subscription.is_some()
-}
-
-async fn subscription_has_deletion_request(
-    context: &TestSetup,
-    topic: &str,
-    hmac_key: &str,
-    encrypted_push_id: &str,
-) -> bool {
-    let subscription = context
-        .push_subscription_storage
-        .get_one(topic, hmac_key)
-        .await
-        .expect("Failed to get subscription");
-
-    if let Some(sub) = subscription {
-        if let Some(deletion_requests) = &sub.deletion_request {
-            return deletion_requests.contains(encrypted_push_id);
-        }
-    }
-    false
-}
+use crate::common::{
+    create_subscription, generate_hmac_key, subscription_exists, subscription_has_deletion_request,
+    TestSetup,
+};
 
 #[tokio::test]
 async fn test_unsubscribe_without_auth_header() {
@@ -282,7 +223,7 @@ async fn test_unsubscribe_matching_push_id_deletes_document() {
 
     // Create a subscription first
     create_subscription(&context, &topic, &hmac_key, &encrypted_push_id).await;
-    assert!(subscription_exists(&context, &topic, &hmac_key).await);
+    assert!(subscription_exists(&context, &topic, &hmac_key, &encrypted_push_id).await);
 
     // Now unsubscribe with the same encrypted_push_id
     let unsubscribe_request = json!({
@@ -303,7 +244,7 @@ async fn test_unsubscribe_matching_push_id_deletes_document() {
     assert_eq!(response.status(), StatusCode::NO_CONTENT);
 
     // Subscription should be completely deleted
-    assert!(!subscription_exists(&context, &topic, &hmac_key).await);
+    assert!(!subscription_exists(&context, &topic, &hmac_key, &encrypted_push_id).await);
 }
 
 #[tokio::test]
@@ -317,7 +258,7 @@ async fn test_unsubscribe_nonmatching_push_id_appends_deletion_request() {
 
     // Create a subscription with the original encrypted_push_id
     create_subscription(&context, &topic, &hmac_key, &original_encrypted_push_id).await;
-    assert!(subscription_exists(&context, &topic, &hmac_key).await);
+    assert!(subscription_exists(&context, &topic, &hmac_key, &original_encrypted_push_id).await);
 
     // Now try to unsubscribe with a different encrypted_push_id
     let unsubscribe_request = json!({
@@ -341,7 +282,7 @@ async fn test_unsubscribe_nonmatching_push_id_appends_deletion_request() {
 
     // Subscription should still exist
     // But should have a deletion request for the different encrypted_push_id
-    assert!(subscription_exists(&context, &topic, &hmac_key).await);
+    assert!(subscription_exists(&context, &topic, &hmac_key, &different_encrypted_push_id).await);
     assert!(
         subscription_has_deletion_request(
             &context,

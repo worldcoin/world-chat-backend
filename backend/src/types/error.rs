@@ -230,6 +230,7 @@ impl From<PushSubscriptionStorageError> for AppError {
                     true,
                 )
             }
+            // This should never happen, mapping this for completeness
             PushSubscriptionExists => {
                 tracing::error!("Push subscription already exists");
                 Self::new(
