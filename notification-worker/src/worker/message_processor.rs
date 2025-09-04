@@ -4,7 +4,6 @@ use crate::{xmtp::message_api::v1::Envelope, xmtp_utils::MessageContext};
 use anyhow::Context;
 use backend_storage::{
     push_subscription::PushSubscriptionStorage,
-    push_subscription::PushSubscriptionStorage,
     queue::{Notification, NotificationQueue},
 };
 use base64::{engine::general_purpose::STANDARD, Engine as _};
@@ -19,7 +18,6 @@ pub struct MessageProcessor {
     worker_id: usize,
     notification_queue: Arc<NotificationQueue>,
     subscription_storage: Arc<PushSubscriptionStorage>,
-    subscription_storage: Arc<PushSubscriptionStorage>,
 }
 
 impl MessageProcessor {
@@ -29,7 +27,6 @@ impl MessageProcessor {
     pub fn new(
         worker_id: usize,
         notification_queue: Arc<NotificationQueue>,
-        subscription_storage: Arc<PushSubscriptionStorage>,
         subscription_storage: Arc<PushSubscriptionStorage>,
     ) -> Self {
         Self {
