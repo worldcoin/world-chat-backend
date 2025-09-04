@@ -3,7 +3,7 @@ use std::{collections::HashSet, sync::Arc};
 use crate::{xmtp::message_api::v1::Envelope, xmtp_utils::MessageContext};
 use anyhow::Context;
 use backend_storage::{
-    push_notification::PushNotificationStorage,
+    push_subscription::PushSubscriptionStorage,
     queue::{Notification, NotificationQueue},
 };
 use base64::{engine::general_purpose::STANDARD, Engine as _};
@@ -17,7 +17,7 @@ use crate::xmtp_utils::is_v3_topic;
 pub struct MessageProcessor {
     worker_id: usize,
     notification_queue: Arc<NotificationQueue>,
-    subscription_storage: Arc<PushNotificationStorage>,
+    subscription_storage: Arc<PushSubscriptionStorage>,
 }
 
 impl MessageProcessor {
@@ -27,7 +27,7 @@ impl MessageProcessor {
     pub fn new(
         worker_id: usize,
         notification_queue: Arc<NotificationQueue>,
-        subscription_storage: Arc<PushNotificationStorage>,
+        subscription_storage: Arc<PushSubscriptionStorage>,
     ) -> Self {
         Self {
             worker_id,
@@ -103,7 +103,7 @@ impl MessageProcessor {
             .await?;
         let subscribed_encrypted_push_ids = subscriptions
             .into_iter()
-            .filter_map(|s| match message_context.is_sender(&s.hmac) {
+            .filter_map(|s| match message_context.is_sender(&s.hmac_key) {
                 Ok(true) => None, // Filter out self-notifications (sender matches subscription)
                 Ok(false) => Some(s.encrypted_push_id),
                 // Don't block notification for valid HMACs but log error
@@ -111,7 +111,7 @@ impl MessageProcessor {
                     error!(
                         "Worker {} failed to check sender for subscription {}: {}. Message context: {:?}",
                         self.worker_id,
-                        s.hmac,
+                        s.hmac_key,
                         e,
                         message_context
                     );
