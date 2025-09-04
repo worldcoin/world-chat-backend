@@ -38,7 +38,6 @@ impl XmtpWorker {
     /// # Errors
     ///
     /// Returns an error if connection to XMTP fails or TLS configuration is invalid.
-    #[instrument(skip(notification_queue, subscription_storage))]
     pub async fn new(
         env: Environment,
         notification_queue: Arc<NotificationQueue>,
@@ -85,7 +84,6 @@ impl XmtpWorker {
     /// # Errors
     ///
     /// Returns an error if stream listening fails or processor tasks panic.
-    #[instrument(skip(self))]
     pub async fn start(self) -> anyhow::Result<()> {
         info!(
             "Starting XMTP worker with {} processors",

@@ -43,7 +43,6 @@ impl XmtpListener {
     /// # Errors
     ///
     /// Returns an error if the stream connection fails or message processing encounters errors.
-    #[instrument(skip(self))]
     pub async fn run(mut self) -> WorkerResult<()> {
         let mut reconnect_delay = self.config.reconnect_delay_ms;
 
