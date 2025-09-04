@@ -282,7 +282,7 @@ async fn test_unsubscribe_nonmatching_push_id_appends_deletion_request() {
 
     // Subscription should still exist
     // But should have a deletion request for the different encrypted_push_id
-    assert!(subscription_exists(&context, &topic, &hmac_key, &different_encrypted_push_id).await);
+    assert!(subscription_exists(&context, &topic, &hmac_key, &original_encrypted_push_id).await);
     assert!(
         subscription_has_deletion_request(
             &context,
