@@ -1,7 +1,7 @@
 use tokio::time::{sleep, Duration};
 use tokio_util::sync::CancellationToken;
 use tonic::transport::Channel;
-use tracing::{error, info, warn};
+use tracing::{error, info, instrument, warn};
 
 use crate::xmtp::message_api::v1::message_api_client::MessageApiClient;
 use crate::xmtp::message_api::v1::Envelope;

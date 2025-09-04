@@ -13,23 +13,23 @@ pub type PushSubscriptionStorageResult<T> = Result<T, PushSubscriptionStorageErr
 #[derive(Error, Debug)]
 pub enum PushSubscriptionStorageError {
     /// Failed to insert subscription into Dynamo DB
-    #[error("Failed to insert subscription into DynamoDB: {0}")]
+    #[error("Failed to insert subscription into DynamoDB: {0:?}")]
     DynamoDbPutError(#[from] SdkError<PutItemError>),
 
     /// Failed to delete subscription from Dynamo DB
-    #[error("Failed to delete subscription from DynamoDB: {0}")]
+    #[error("Failed to delete subscription from DynamoDB: {0:?}")]
     DynamoDbDeleteError(#[from] SdkError<DeleteItemError>),
 
     /// Failed to get subscription from Dynamo DB
-    #[error("Failed to get subscription from DynamoDB: {0}")]
+    #[error("Failed to get subscription from DynamoDB: {0:?}")]
     DynamoDbGetError(#[from] SdkError<GetItemError>),
 
     /// Failed to query subscriptions from Dynamo DB
-    #[error("Failed to query subscriptions from DynamoDB: {0}")]
+    #[error("Failed to query subscriptions from DynamoDB: {0:?}")]
     DynamoDbQueryError(#[from] SdkError<QueryError>),
 
     /// Failed to parse subscription from Dynamo DB item
-    #[error("Failed to parse subscription: {0}")]
+    #[error("Failed to parse subscription: {0:?}")]
     ParseSubscriptionError(String),
 
     /// Push subscription already exists

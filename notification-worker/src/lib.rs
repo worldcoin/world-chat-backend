@@ -77,6 +77,7 @@ pub mod xmtp {
     }
 }
 
+pub mod health;
 pub mod types;
 pub mod worker;
 pub mod xmtp_utils;
