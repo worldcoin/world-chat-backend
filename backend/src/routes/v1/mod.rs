@@ -1,8 +1,9 @@
 pub mod auth;
 pub mod media;
+pub mod subsriptions;
 
 use aide::axum::{
-    routing::{get, post},
+    routing::{delete, get, post},
     ApiRouter,
 };
 use axum::middleware;
@@ -19,6 +20,7 @@ pub fn handler() -> ApiRouter {
             post(media::create_presigned_upload_url),
         )
         .api_route("/media/config", get(media::get_media_config))
+        .api_route("/subscriptions", delete(subsriptions::unsubscribe))
         .layer(middleware::from_fn(auth_middleware));
 
     public_routes.merge(protected_routes)

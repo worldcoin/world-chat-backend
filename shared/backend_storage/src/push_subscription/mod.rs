@@ -246,4 +246,47 @@ impl PushSubscriptionStorage {
 
         Ok(())
     }
+
+    /// Appends an encrypted push ID to the deletion request set for a subscription
+    ///
+    /// # Arguments
+    ///
+    /// * `topic` - The topic of the subscription
+    /// * `hmac_key` - The HMAC key identifier
+    /// * `encrypted_push_id` - The encrypted push ID to add to deletion requests
+    ///
+    /// # Errors
+    ///
+    /// Returns `PushSubscriptionStorageError` if the Dynamo DB operation fails
+    pub async fn append_delete_request(
+        &self,
+        topic: &str,
+        hmac_key: &str,
+        encrypted_push_id: &str,
+    ) -> PushSubscriptionStorageResult<()> {
+        self.dynamodb_client
+            .update_item()
+            .table_name(&self.table_name)
+            .key(
+                PushSubscriptionAttribute::Topic.to_string(),
+                AttributeValue::S(topic.to_string()),
+            )
+            .key(
+                PushSubscriptionAttribute::HmacKey.to_string(),
+                AttributeValue::S(hmac_key.to_string()),
+            )
+            .update_expression("ADD #deletion_request :new_request")
+            .expression_attribute_names(
+                "#deletion_request",
+                PushSubscriptionAttribute::DeletionRequest.to_string(),
+            )
+            .expression_attribute_values(
+                ":new_request",
+                AttributeValue::Ss(vec![encrypted_push_id.to_string()]),
+            )
+            .send()
+            .await?;
+
+        Ok(())
+    }
 }
