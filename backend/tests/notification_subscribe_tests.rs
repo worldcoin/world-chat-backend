@@ -23,7 +23,7 @@ async fn test_subscribe_happy_path_single_subscription() {
 
     let response = context
         .send_post_request_with_headers(
-            "/v1/notifications",
+            "/v1/subscriptions",
             subscription_request,
             vec![("Authorization", &format!("Bearer {}", encrypted_push_id))],
         )
@@ -53,7 +53,7 @@ async fn test_subscribe_with_duplicate_subscriptions() {
 
     let response = context
         .send_post_request_with_headers(
-            "/v1/notifications",
+            "/v1/subscriptions",
             subscription.clone(),
             vec![("Authorization", &format!("Bearer {}", encrypted_push_id))],
         )
@@ -66,7 +66,7 @@ async fn test_subscribe_with_duplicate_subscriptions() {
     let other_encrypted_push_id = format!("some_other_encrypted_push_id-{}", Uuid::new_v4());
     let response = context
         .send_post_request_with_headers(
-            "/v1/notifications",
+            "/v1/subscriptions",
             subscription,
             vec![(
                 "Authorization",
@@ -92,7 +92,7 @@ async fn test_subscribe_without_auth_header() {
     }]);
 
     let response = context
-        .send_post_request("/v1/notifications", subscription_request)
+        .send_post_request("/v1/subscriptions", subscription_request)
         .await
         .expect("Failed to send request");
 
@@ -111,7 +111,7 @@ async fn test_subscribe_with_invalid_auth_header() {
 
     let response = context
         .send_post_request_with_headers(
-            "/v1/notifications",
+            "/v1/subscriptions",
             subscription_request,
             vec![("Authorization", "Bearer invalid.jwt.encrypted_push_id")],
         )
@@ -130,7 +130,7 @@ async fn test_subscribe_empty_request_body() {
 
     let response = context
         .send_post_request_with_headers(
-            "/v1/notifications",
+            "/v1/subscriptions",
             empty_request,
             vec![("Authorization", &format!("Bearer {}", encrypted_push_id))],
         )
@@ -176,7 +176,7 @@ async fn test_subscribe_missing_required_fields() {
     for (request, case_name) in test_cases {
         let response = context
             .send_post_request_with_headers(
-                "/v1/notifications",
+                "/v1/subscriptions",
                 request,
                 vec![("Authorization", &format!("Bearer {}", encrypted_push_id))],
             )
@@ -227,7 +227,7 @@ async fn test_subscribe_invalid_field_types() {
     for (request, case_name) in test_cases {
         let response = context
             .send_post_request_with_headers(
-                "/v1/notifications",
+                "/v1/subscriptions",
                 request,
                 vec![("Authorization", &format!("Bearer {}", encrypted_push_id))],
             )
@@ -270,7 +270,7 @@ async fn test_subscribe_invalid_ttl_values() {
     for (request, case_name) in test_cases {
         let response = context
             .send_post_request_with_headers(
-                "/v1/notifications",
+                "/v1/subscriptions",
                 request,
                 vec![("Authorization", &format!("Bearer {}", encrypted_push_id))],
             )
@@ -300,7 +300,7 @@ async fn test_subscribe_extra_fields_rejected() {
 
     let response = context
         .send_post_request_with_headers(
-            "/v1/notifications",
+            "/v1/subscriptions",
             request_with_extra_field,
             vec![("Authorization", &format!("Bearer {}", encrypted_push_id))],
         )
@@ -337,7 +337,7 @@ async fn test_subscribe_empty_string_fields() {
     for request in test_cases {
         let response = context
             .send_post_request_with_headers(
-                "/v1/notifications",
+                "/v1/subscriptions",
                 request,
                 vec![("Authorization", &format!("Bearer {}", encrypted_push_id))],
             )
