@@ -19,7 +19,7 @@ async fn test_unsubscribe_without_auth_header() {
     });
 
     let response = context
-        .send_delete_request("/v1/notifications", unsubscribe_request)
+        .send_delete_request("/v1/subscriptions", unsubscribe_request)
         .await
         .expect("Failed to send request");
 
@@ -37,7 +37,7 @@ async fn test_unsubscribe_with_invalid_auth_header() {
 
     let response = context
         .send_delete_request_with_headers(
-            "/v1/notifications",
+            "/v1/subscriptions",
             unsubscribe_request,
             vec![("Authorization", "Bearer invalid.jwt.encrypted_push_id")],
         )
@@ -72,7 +72,7 @@ async fn test_unsubscribe_missing_required_fields() {
     for (request, case_name) in test_cases {
         let response = context
             .send_delete_request_with_headers(
-                "/v1/notifications",
+                "/v1/subscriptions",
                 request,
                 vec![("Authorization", &format!("Bearer {}", encrypted_push_id))],
             )
@@ -113,7 +113,7 @@ async fn test_unsubscribe_invalid_field_types() {
     for (request, case_name) in test_cases {
         let response = context
             .send_delete_request_with_headers(
-                "/v1/notifications",
+                "/v1/subscriptions",
                 request,
                 vec![("Authorization", &format!("Bearer {}", encrypted_push_id))],
             )
@@ -152,7 +152,7 @@ async fn test_unsubscribe_empty_string_fields() {
     for request in test_cases {
         let response = context
             .send_delete_request_with_headers(
-                "/v1/notifications",
+                "/v1/subscriptions",
                 request,
                 vec![("Authorization", &format!("Bearer {}", encrypted_push_id))],
             )
@@ -176,7 +176,7 @@ async fn test_unsubscribe_extra_fields_rejected() {
 
     let response = context
         .send_delete_request_with_headers(
-            "/v1/notifications",
+            "/v1/subscriptions",
             request_with_extra_field,
             vec![("Authorization", &format!("Bearer {}", encrypted_push_id))],
         )
@@ -202,7 +202,7 @@ async fn test_unsubscribe_nonexistent_subscription() {
 
     let response = context
         .send_delete_request_with_headers(
-            "/v1/notifications",
+            "/v1/subscriptions",
             unsubscribe_request,
             vec![("Authorization", &format!("Bearer {}", encrypted_push_id))],
         )
@@ -233,7 +233,7 @@ async fn test_unsubscribe_matching_push_id_deletes_document() {
 
     let response = context
         .send_delete_request_with_headers(
-            "/v1/notifications",
+            "/v1/subscriptions",
             unsubscribe_request,
             vec![("Authorization", &format!("Bearer {}", encrypted_push_id))],
         )
@@ -268,7 +268,7 @@ async fn test_unsubscribe_nonmatching_push_id_appends_deletion_request() {
 
     let response = context
         .send_delete_request_with_headers(
-            "/v1/notifications",
+            "/v1/subscriptions",
             unsubscribe_request,
             vec![(
                 "Authorization",
