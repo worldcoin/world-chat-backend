@@ -18,3 +18,20 @@ tracing-subscriber = { workspace = true }
 
 # Error handling
 anyhow = { workspace = true }
+
+# Enclave communication
+pontifex = { workspace = true, features = ["server"] }
+enclave-types = { workspace = true }
+
+# HTTP client for Braze API
+hyper = { version = "0.14", features = ["client", "http1", "http2"] }
+hyper-rustls = { version = "0.24", features = ["http2"] }
+rustls = { version = "0.21" }
+webpki-roots = { version = "0.22" }
+
+# Serialization
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+# Vsock support for enclave networking
+tokio-vsock = "0.7"

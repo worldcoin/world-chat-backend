@@ -18,3 +18,12 @@ tracing-subscriber = { workspace = true }
 
 # Error handling
 anyhow = { workspace = true }
+
+# Enclave communication
+pontifex = { workspace = true, features = ["client"] }
+enclave-types = { workspace = true }
+
+# Utilities
+uuid = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }

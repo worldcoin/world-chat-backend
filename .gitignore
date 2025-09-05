@@ -18,3 +18,4 @@ Thumbs.db
 
 # generated Rust from .proto
 notification-worker/src/generated
+secure-enclave/secure-enclave-binary

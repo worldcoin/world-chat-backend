@@ -5,6 +5,8 @@ members = [
     "secure-enclave",
     "shared/backend_storage",
     "notification-worker",
+    "shared/enclave-types",
+    "pontifex"
 ]
 resolver = "2"
 
@@ -69,6 +71,8 @@ strum = { version = "0.24.1", features = ["derive"] }
 
 # Internal workspace dependencies
 backend_storage = { path = "shared/backend_storage" }
+enclave-types = { path = "shared/enclave-types" }
+pontifex = { path = "pontifex" }
 
 # HTTP client
 reqwest = { version = "0.12", features = ["json", "stream", "rustls-tls"], default-features = false }
