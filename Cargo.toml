@@ -5,6 +5,8 @@ members = [
     "secure-enclave",
     "shared/backend_storage",
     "notification-worker",
+    "shared/enclave-types",
+    "pontifex"
 ]
 resolver = "2"
 
@@ -78,8 +80,11 @@ mime = "0.3.0"
 
 # Crypto
 p256 = { version = "0.13", features = ["ecdsa", "pkcs8"] }
-
 hmac = "0.12.1"
+
+pontifex = { path="pontifex" }
+
+enclave-types = { path="shared/enclave-types" }
 
 # Test dependencies
 http-body-util = "0.1.3"
