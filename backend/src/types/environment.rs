@@ -16,7 +16,7 @@ pub enum Environment {
     Development {
         /// Optional override for presigned URL expiry in seconds
         presign_expiry_override: Option<u64>,
-        /// Optional enable auth
+        /// Optional disable auth
         disable_auth: bool,
     },
 }
@@ -227,6 +227,20 @@ impl Environment {
         match self {
             Self::Production | Self::Staging => false,
             Self::Development { disable_auth, .. } => *disable_auth,
+        }
+    }
+
+    /// Returns the Dynamo DB table name for push subscriptions
+    ///
+    /// # Panics
+    ///
+    /// Panics if the `DYNAMODB_PUSH_SUBSCRIPTION_TABLE_NAME` environment variable is not set in production/staging
+    #[must_use]
+    pub fn dynamodb_push_subscription_table_name(&self) -> String {
+        match self {
+            Self::Production | Self::Staging => env::var("DYNAMODB_PUSH_SUBSCRIPTION_TABLE_NAME")
+                .expect("DYNAMODB_PUSH_SUBSCRIPTION_TABLE_NAME environment variable is not set"),
+            Self::Development { .. } => "world-chat-push-subscriptions".to_string(),
         }
     }
 }

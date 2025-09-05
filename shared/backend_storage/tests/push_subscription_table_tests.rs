@@ -1,6 +1,5 @@
 use std::collections::HashSet;
 use std::sync::Arc;
-use std::time::Duration;
 
 use aws_config::{BehaviorVersion, Region};
 use aws_credential_types::Credentials;
@@ -112,9 +111,6 @@ async fn setup_test() -> TestContext {
         .send()
         .await
         .expect("Failed to enable TTL");
-
-    // Wait a bit for table to be ready
-    tokio::time::sleep(Duration::from_millis(100)).await;
 
     let storage = PushSubscriptionStorage::new(dynamodb_client.clone(), table_name.clone());
 

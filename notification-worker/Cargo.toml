@@ -24,7 +24,7 @@ clap = { version = "4.5", features = ["derive", "env"] }
 toml = "0.8"
 
 # Async utilities
-futures = "0.3"
+futures = { workspace = true }
 tokio-stream = "0.1"
 tokio-util = "0.7"
 flume = "0.11"
