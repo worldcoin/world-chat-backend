@@ -7,6 +7,7 @@ use aws_sdk_s3::Client as S3Client;
 use axum::{body::Body, http::Request, response::Response, Extension, Router};
 use backend::{jwt::JwtManager, media_storage::MediaStorage, routes, types::Environment};
 use backend_storage::auth_proof::AuthProofStorage;
+use backend_storage::push_subscription::PushSubscriptionStorage;
 use std::sync::Arc;
 use tower::ServiceExt;
 
@@ -31,6 +32,7 @@ pub struct TestSetup {
     pub environment: Environment,
     pub media_storage: Arc<MediaStorage>,
     pub kms_client: Arc<KmsClient>,
+    pub push_subscription_storage: Arc<PushSubscriptionStorage>,
     // Keep DynamoDbTestSetup alive for the duration of the test
     _dynamodb_setup: DynamoDbTestSetup,
 }
@@ -76,12 +78,17 @@ impl TestSetup {
             dynamodb_client.clone(),
             dynamodb_test_setup.auth_proofs_table_name.clone(),
         ));
+        let push_subscription_storage = Arc::new(PushSubscriptionStorage::new(
+            dynamodb_client.clone(),
+            dynamodb_test_setup.push_subscriptions_table_name.clone(),
+        ));
 
         let router = routes::handler()
             .layer(Extension(environment.clone()))
             .layer(Extension(media_storage.clone()))
             .layer(Extension(auth_proof_storage.clone()))
             .layer(Extension(jwt_manager.clone()))
+            .layer(Extension(push_subscription_storage.clone()))
             .into();
 
         Self {
@@ -89,6 +96,7 @@ impl TestSetup {
             environment,
             media_storage,
             kms_client,
+            push_subscription_storage,
             _dynamodb_setup: dynamodb_test_setup,
         }
     }
@@ -141,6 +149,44 @@ impl TestSetup {
         let mut request_builder = Request::builder()
             .uri(route)
             .method("POST")
+            .header("Content-Type", "application/json");
+
+        // Add custom headers
+        for (key, value) in headers {
+            request_builder = request_builder.header(key, value);
+        }
+
+        let request = request_builder.body(Body::from(payload.to_string()))?;
+        let response = self.router.clone().oneshot(request).await?;
+        Ok(response)
+    }
+
+    /// Send a DELETE request
+    pub async fn send_delete_request(
+        &self,
+        route: &str,
+        payload: serde_json::Value,
+    ) -> Result<Response, Box<dyn std::error::Error>> {
+        let request = Request::builder()
+            .uri(route)
+            .method("DELETE")
+            .header("Content-Type", "application/json")
+            .body(Body::from(payload.to_string()))?;
+
+        let response = self.router.clone().oneshot(request).await?;
+        Ok(response)
+    }
+
+    /// Send a DELETE request with custom headers (e.g., Authorization)
+    pub async fn send_delete_request_with_headers(
+        &self,
+        route: &str,
+        payload: serde_json::Value,
+        headers: Vec<(&str, &str)>,
+    ) -> Result<Response, Box<dyn std::error::Error>> {
+        let mut request_builder = Request::builder()
+            .uri(route)
+            .method("DELETE")
             .header("Content-Type", "application/json");
 
         // Add custom headers
