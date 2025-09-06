@@ -1,29 +1,27 @@
+use std::sync::Arc;
+
 use anyhow::Result;
-use tracing::info;
+use secure_enclave::{pontifex_server::start_pontifex_server, state::EnclaveState};
+use tokio::sync::RwLock;
+use tracing::{error, info};
 
 #[tokio::main]
 async fn main() -> Result<()> {
     // Initialize tracing
     tracing_subscriber::fmt()
         .with_max_level(tracing::Level::DEBUG)
+        .with_level(true)
+        .pretty()
         .init();
 
     info!("Starting Secure Enclave");
 
-    // Print the HELLO environment variable with a counter every 5 seconds
-    let hello = std::env::var("HELLO").unwrap_or_else(|_| "Hello from enclave!".to_string());
-    let mut count = 1;
+    let state = Arc::new(RwLock::new(EnclaveState::default()));
+    if let Err(e) = start_pontifex_server(state, 1000).await {
+        error!("Failed to start pontifex server: {e}");
+        return Err(e);
+    }
 
-    tokio::spawn(async move {
-        loop {
-            println!("[{count:4}] {msg}", count = count, msg = hello);
-            count += 1;
-            tokio::time::sleep(std::time::Duration::from_secs(5)).await;
-        }
-    });
-
-    // Keep enclave running
-    tokio::signal::ctrl_c().await?;
     info!("Shutting down Secure Enclave");
 
     Ok(())

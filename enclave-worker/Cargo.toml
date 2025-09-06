@@ -9,6 +9,13 @@ name = "enclave-worker"
 path = "src/main.rs"
 
 [dependencies]
+# Web framework
+aide = { workspace = true }
+axum = { workspace = true }
+axum-jsonschema = { workspace = true }
+tower = { workspace = true }
+tower-http = { workspace = true }
+
 # Async runtime
 tokio = { workspace = true }
 
@@ -18,3 +25,15 @@ tracing-subscriber = { workspace = true }
 
 # Error handling
 anyhow = { workspace = true }
+
+enclave-types = { workspace = true }
+
+# Datadog tracing
+datadog-tracing = { version = "0.3.0", features = ["axum"] }
+
+# AWS SDK
+aws-config = { workspace = true }
+aws-sdk-dynamodb = { workspace = true }
+aws-sdk-sqs = { workspace = true }
+
+backend_storage = { workspace = true }
