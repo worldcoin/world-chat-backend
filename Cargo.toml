@@ -5,6 +5,7 @@ members = [
     "secure-enclave",
     "shared/backend_storage",
     "notification-worker",
+    "shared/enclave-types",
 ]
 resolver = "2"
 
@@ -80,6 +81,9 @@ mime = "0.3.0"
 p256 = { version = "0.13", features = ["ecdsa", "pkcs8"] }
 
 hmac = "0.12.1"
+
+# Enclave types
+enclave-types = { path = "shared/enclave-types" }
 
 # Test dependencies
 http-body-util = "0.1.3"
