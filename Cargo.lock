@@ -2180,7 +2180,6 @@ dependencies = [
  "axum-jsonschema",
  "backend_storage",
  "datadog-tracing",
- "enclave-types",
  "schemars",
  "serde",
  "tokio",

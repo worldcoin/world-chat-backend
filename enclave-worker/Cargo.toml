@@ -26,8 +26,6 @@ tracing-subscriber = { workspace = true }
 # Error handling
 anyhow = { workspace = true }
 
-enclave-types = { workspace = true }
-
 # Datadog tracing
 datadog-tracing = { version = "0.3.0", features = ["axum"] }
 
