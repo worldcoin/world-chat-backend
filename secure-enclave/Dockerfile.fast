@@ -1,0 +1,21 @@
+
+FROM public.ecr.aws/amazonlinux/amazonlinux:2023-minimal
+
+# Install runtime dependencies
+RUN microdnf update -y && \
+    microdnf install -y \
+    ca-certificates \
+    && microdnf clean all
+
+WORKDIR /app
+
+# Copy the pre-built binary from host
+# The binary should be copied to secure-enclave/secure-enclave-binary first
+# to avoid .dockerignore issues with target/ directory
+COPY secure-enclave/secure-enclave-binary /app/secure-enclave
+
+# Make it executable
+RUN chmod +x /app/secure-enclave
+
+# Set the entrypoint
+ENTRYPOINT ["/app/secure-enclave"]
