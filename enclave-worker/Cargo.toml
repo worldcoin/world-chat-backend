@@ -40,5 +40,3 @@ backend_storage = { workspace = true }
 
 schemars = { workspace = true }
 serde = { workspace = true }
-
-pontifex = { workspace = true, features = ["client"] }
