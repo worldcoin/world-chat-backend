@@ -3,7 +3,7 @@ use std::sync::Arc;
 use aws_sdk_dynamodb::Client as DynamoDbClient;
 use aws_sdk_kms::Client as KmsClient;
 use aws_sdk_s3::Client as S3Client;
-use backend_storage::auth_proof::AuthProofStorage;
+use backend_storage::{auth_proof::AuthProofStorage, push_subscription::PushSubscriptionStorage};
 
 use backend::{jwt::JwtManager, media_storage::MediaStorage, server, types::Environment};
 
@@ -28,14 +28,25 @@ async fn main() -> anyhow::Result<()> {
         environment.presigned_url_expiry_secs(),
     ));
 
-    // Initialize DynamoDB client and auth proof storage
+    // Initialize DynamoDB client, auth proof and push subscriptions storage
     let dynamodb_client = Arc::new(DynamoDbClient::new(&environment.aws_config().await));
     let auth_proof_storage = Arc::new(AuthProofStorage::new(
-        dynamodb_client,
+        dynamodb_client.clone(),
         environment.dynamodb_auth_table_name(),
     ));
+    let push_subscription_storage = Arc::new(PushSubscriptionStorage::new(
+        dynamodb_client,
+        environment.dynamodb_push_subscription_table_name(),
+    ));
 
-    let result = server::start(environment, media_storage, jwt_manager, auth_proof_storage).await;
+    let result = server::start(
+        environment,
+        media_storage,
+        jwt_manager,
+        auth_proof_storage,
+        push_subscription_storage,
+    )
+    .await;
 
     // Ensure the tracer is properly shut down
     tracer_shutdown.shutdown();
