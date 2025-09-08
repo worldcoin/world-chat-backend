@@ -7,6 +7,7 @@ use backend_storage::queue::NotificationQueue;
 use datadog_tracing::axum::{shutdown_signal, OtelAxumLayer, OtelInResponseLayer};
 use tokio::net::TcpListener;
 
+use crate::pontifex_client::PontifexClient;
 use crate::routes;
 use crate::types::Environment;
 
@@ -19,6 +20,7 @@ pub async fn start(
     environment: Environment,
     notification_queue: Arc<NotificationQueue>,
     push_subscription_storage: Arc<PushSubscriptionStorage>,
+    pontifex_client: Arc<PontifexClient>,
 ) -> anyhow::Result<()> {
     let mut openapi = OpenApi::default();
 
@@ -28,6 +30,7 @@ pub async fn start(
         .layer(Extension(environment))
         .layer(Extension(push_subscription_storage))
         .layer(Extension(notification_queue))
+        .layer(Extension(pontifex_client))
         // Include trace context as header into the response
         .layer(OtelInResponseLayer)
         // Start OpenTelemetry trace on incoming request

@@ -37,3 +37,8 @@ aws-sdk-dynamodb = { workspace = true }
 aws-sdk-sqs = { workspace = true }
 
 backend_storage = { workspace = true }
+
+schemars = { workspace = true }
+serde = { workspace = true }
+
+pontifex = { workspace = true, features = ["client"] }

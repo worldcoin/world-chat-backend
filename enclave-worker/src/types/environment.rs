@@ -105,4 +105,36 @@ impl Environment {
             Self::Development => "world-chat-push-subscriptions".to_string(),
         }
     }
+
+    /// Whether to show API docs
+    #[must_use]
+    pub const fn show_api_docs(&self) -> bool {
+        matches!(self, Self::Development { .. } | Self::Staging)
+    }
+
+    /// Returns the Enclave CID
+    ///
+    /// # Panics
+    ///
+    /// Panics if the `ENCLAVE_CID` environment variable is not set in production/staging
+    #[must_use]
+    pub fn enclave_cid(&self) -> u32 {
+        env::var("ENCLAVE_CID")
+            .expect("ENCLAVE_CID environment variable is not set")
+            .parse()
+            .expect("ENCLAVE_CID environment variable is not a valid u32")
+    }
+
+    /// Returns the Enclave PORT
+    ///
+    /// # Panics
+    ///
+    /// Panics if the `ENCLAVE_PORT` environment variable is not set in production/staging
+    #[must_use]
+    pub fn enclave_port(&self) -> u32 {
+        env::var("ENCLAVE_PORT")
+            .expect("ENCLAVE_PORT environment variable is not set")
+            .parse()
+            .expect("ENCLAVE_PORT environment variable is not a valid u32")
+    }
 }

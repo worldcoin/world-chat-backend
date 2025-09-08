@@ -1,4 +1,8 @@
+use std::sync::Arc;
+
 use anyhow::Result;
+use backend_storage::{push_subscription::PushSubscriptionStorage, queue::NotificationQueue};
+use enclave_worker::{pontifex_client::PontifexClient, server, types::Environment};
 use tracing::info;
 
 use aws_sdk_dynamodb::Client as DynamoDbClient;
@@ -7,6 +11,8 @@ use aws_sdk_sqs::Client as SqsClient;
 #[tokio::main]
 async fn main() -> Result<()> {
     let env = Environment::from_env();
+
+    info!("Starting Enclave Worker in {:?} environment", env);
 
     // Initialize Datadog tracing
     // This will set up OpenTelemetry with Datadog exporter
@@ -20,6 +26,8 @@ async fn main() -> Result<()> {
         env.notification_queue_config(),
     ));
 
+    info!("✅ Initialized notification queue");
+
     // Initialise Push Notification Subscription storage
     let dynamodb_client = Arc::new(DynamoDbClient::new(&env.aws_config().await));
     let subscription_storage = Arc::new(PushSubscriptionStorage::new(
@@ -27,7 +35,17 @@ async fn main() -> Result<()> {
         env.push_subscription_table_name(),
     ));
 
-    let result = server::start(env, notification_queue, subscription_storage).await;
+    info!("✅ Initialized push subscription storage");
+
+    let pontifex_client = Arc::new(PontifexClient::new(env.enclave_cid(), env.enclave_port()));
+
+    let _ = server::start(
+        env,
+        notification_queue,
+        subscription_storage,
+        pontifex_client,
+    )
+    .await;
 
     // Ensure the tracer is properly shut down
     tracer_shutdown.shutdown();
