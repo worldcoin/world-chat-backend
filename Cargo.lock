@@ -2160,6 +2160,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "edd0f118536f44f5ccd48bcb8b111bdc3de888b58c74639dfb034a357d0f206d"
 
 [[package]]
+name = "enclave-types"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "thiserror 2.0.12",
+]
+
+[[package]]
 name = "enclave-worker"
 version = "0.1.0"
 dependencies = [
