@@ -44,7 +44,6 @@ pub struct UnsubscribeRequest {
 /// Returns an error if:
 /// - `404 NOT_FOUND` - Subscription with the given topic and HMAC key does not exist
 /// - `401 UNAUTHORIZED` - Invalid or missing authentication
-/// - `503 SERVICE_UNAVAILABLE` - Database connectivity issues
 /// - `500 INTERNAL_SERVER_ERROR` - Other unexpected errors during storage operations
 #[instrument(skip(push_storage, payload))]
 pub async fn unsubscribe(
