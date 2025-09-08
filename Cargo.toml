@@ -82,7 +82,8 @@ p256 = { version = "0.13", features = ["ecdsa", "pkcs8"] }
 
 hmac = "0.12.1"
 
-# Enclave types
+# Enclave related
+pontifex = "0.1.5"
 enclave-types = { path = "shared/enclave-types" }
 
 # Test dependencies
