@@ -17,6 +17,8 @@ use crate::{
 const MAX_IMAGE_SIZE_BYTES: i64 = 5 * 1024 * 1024;
 /// 15 MB Video size limit
 const MAX_VIDEO_SIZE_BYTES: i64 = 15 * 1024 * 1024;
+/// Maximum count of assets per message
+const MAX_ASSETS_PER_MESSAGE: usize = 10;
 
 #[derive(Debug, Deserialize, JsonSchema)]
 #[schemars(deny_unknown_fields)]
@@ -166,4 +168,28 @@ fn validate_asset_size(content_type: &Mime, content_length: i64) -> Result<(), A
         )),
         _ => Ok(()),
     }
+}
+
+#[derive(Serialize, JsonSchema)]
+pub struct MediaConfigResponse {
+    /// Maximum count of assets per message
+    max_assets_per_message: usize,
+    /// Maximum image size in bytes
+    max_image_size_bytes: i64,
+    /// Maximum video size in bytes
+    max_video_size_bytes: i64,
+    /// Trusted CDN URL
+    trusted_cdn_url: String,
+}
+
+#[instrument]
+pub async fn get_media_config(
+    Extension(environment): Extension<Environment>,
+) -> Json<MediaConfigResponse> {
+    Json(MediaConfigResponse {
+        max_assets_per_message: MAX_ASSETS_PER_MESSAGE,
+        max_image_size_bytes: MAX_IMAGE_SIZE_BYTES,
+        max_video_size_bytes: MAX_VIDEO_SIZE_BYTES,
+        trusted_cdn_url: environment.cdn_url(),
+    })
 }

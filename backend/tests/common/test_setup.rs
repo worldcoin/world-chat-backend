@@ -15,7 +15,7 @@ use super::dynamodb_setup::DynamoDbTestSetup;
 /// Setup test environment variables with all the required configuration
 pub fn setup_test_env() {
     // Load test environment variables
-    dotenvy::from_path(".env.example").ok();
+    dotenvy::from_path(".env.test").ok();
 
     // Initialize tracing for tests
     tracing_subscriber::fmt()
@@ -36,11 +36,18 @@ pub struct TestSetup {
 }
 
 impl TestSetup {
-    pub async fn new(presign_expiry_override: Option<u64>) -> Self {
+    /// Create a default test setup with auth disabled
+    #[must_use]
+    pub async fn default() -> Self {
+        Self::new(None, true).await
+    }
+
+    pub async fn new(presign_expiry_override: Option<u64>, disable_auth: bool) -> Self {
         setup_test_env();
 
         let environment = Environment::Development {
             presign_expiry_override,
+            disable_auth,
         };
 
         let s3_config = environment.s3_client_config().await;
@@ -120,6 +127,28 @@ impl TestSetup {
             .uri(route)
             .method("GET")
             .body(Body::empty())?;
+        let response = self.router.clone().oneshot(request).await?;
+        Ok(response)
+    }
+
+    /// Send a POST request with custom headers (e.g., Authorization)
+    pub async fn send_post_request_with_headers(
+        &self,
+        route: &str,
+        payload: serde_json::Value,
+        headers: Vec<(&str, &str)>,
+    ) -> Result<Response, Box<dyn std::error::Error>> {
+        let mut request_builder = Request::builder()
+            .uri(route)
+            .method("POST")
+            .header("Content-Type", "application/json");
+
+        // Add custom headers
+        for (key, value) in headers {
+            request_builder = request_builder.header(key, value);
+        }
+
+        let request = request_builder.body(Body::from(payload.to_string()))?;
         let response = self.router.clone().oneshot(request).await?;
         Ok(response)
     }

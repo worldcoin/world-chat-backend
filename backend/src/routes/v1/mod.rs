@@ -2,20 +2,24 @@ pub mod auth;
 pub mod media;
 
 use aide::axum::{
-    routing::{post, post_with},
+    routing::{get, post},
     ApiRouter,
 };
-use axum_jsonschema::Json;
+use axum::middleware;
+
+use crate::middleware::auth::auth_middleware;
 
 /// Creates the v1 API router with all v1 handler routes
 pub fn handler() -> ApiRouter {
-    ApiRouter::new()
+    let public_routes = ApiRouter::new().api_route("/authorize", post(auth::authorize_handler));
+
+    let protected_routes = ApiRouter::new()
         .api_route(
             "/media/presigned-urls",
-            post_with(media::create_presigned_upload_url, |op| {
-                op.response::<200, Json<media::SuccessResponse>>()
-                    .response::<409, Json<media::ConflictResponse>>()
-            }),
+            post(media::create_presigned_upload_url),
         )
-        .api_route("/authorize", post(auth::authorize_handler))
+        .api_route("/media/config", get(media::get_media_config))
+        .layer(middleware::from_fn(auth_middleware));
+
+    public_routes.merge(protected_routes)
 }

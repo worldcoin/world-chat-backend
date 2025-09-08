@@ -1,31 +1,48 @@
-use std::sync::Arc;
+use std::{collections::HashSet, sync::Arc};
 
-use backend_storage::queue::{Notification, NotificationQueue};
+use crate::{xmtp::message_api::v1::Envelope, xmtp_utils::MessageContext};
+use anyhow::Context;
+use backend_storage::{
+    push_subscription::PushSubscriptionStorage,
+    queue::{Notification, NotificationQueue},
+};
+use base64::{engine::general_purpose::STANDARD, Engine as _};
 use tokio_util::sync::CancellationToken;
-use tracing::{error, info};
 
-use super::Message;
+use tracing::{debug, error, info, warn};
+
+use crate::xmtp_utils::is_v3_topic;
 
 /// `MessageProcessor` handles individual message processing
 pub struct MessageProcessor {
     worker_id: usize,
     notification_queue: Arc<NotificationQueue>,
+    subscription_storage: Arc<PushSubscriptionStorage>,
 }
 
 impl MessageProcessor {
     /// Creates a new `MessageProcessor`
     #[must_use]
     #[allow(clippy::missing_const_for_fn)]
-    pub fn new(worker_id: usize, notification_queue: Arc<NotificationQueue>) -> Self {
+    pub fn new(
+        worker_id: usize,
+        notification_queue: Arc<NotificationQueue>,
+        subscription_storage: Arc<PushSubscriptionStorage>,
+    ) -> Self {
         Self {
             worker_id,
             notification_queue,
+            subscription_storage,
         }
     }
 
     /// Runs the message processor loop
     #[allow(clippy::cognitive_complexity)]
-    pub async fn run(&self, receiver: flume::Receiver<Message>, shutdown_token: CancellationToken) {
+    pub async fn run(
+        &self,
+        receiver: flume::Receiver<Envelope>,
+        shutdown_token: CancellationToken,
+    ) {
         info!("Message processor {} started", self.worker_id);
 
         loop {
@@ -36,7 +53,11 @@ impl MessageProcessor {
                 }
                 result = receiver.recv_async() => {
                     match result {
-                        Ok(message) => self.process_message(&message).await,
+                        Ok(message) => {
+                            if let Err(e) = self.process_message(&message).await {
+                                error!("Worker {} failed to process message: {}", self.worker_id, e);
+                            }
+                        }
                         Err(flume::RecvError::Disconnected) => {
                             info!("Message channel closed for processor {}", self.worker_id);
                             break;
@@ -50,47 +71,75 @@ impl MessageProcessor {
     }
 
     /// Processes a single message
-    async fn process_message(&self, message: &Message) {
-        // Log the message
-        info!(
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the message cannot be processed.
+    pub async fn process_message(&self, envelope: &Envelope) -> anyhow::Result<()> {
+        // Step 1: Filter out messages that are not V3, following example from XMTP
+        if !is_v3_topic(&envelope.content_topic) {
+            return Ok(());
+        }
+
+        debug!(
             "Worker {} processing message - Topic: {}, Timestamp: {}, Message size: {} bytes",
             self.worker_id,
-            message.content_topic,
-            message.timestamp_ns,
-            message.message.len()
+            envelope.content_topic,
+            envelope.timestamp_ns,
+            envelope.message.len()
         );
 
-        // Convert XMTP message to notification
-        let notification = Self::convert_to_notification(message);
+        let message_context = MessageContext::from_xmtp_envelope(envelope)?;
 
-        // Publish to notification queue
-        match self.notification_queue.send_message(&notification).await {
-            Ok(_) => {
-                info!(
-                    "Worker {} successfully published notification for topic: {}",
-                    self.worker_id, notification.topic
-                );
-            }
-            Err(e) => {
-                error!(
-                    "Worker {} failed to publish notification for topic {}: {}",
-                    self.worker_id, notification.topic, e
-                );
-            }
+        // Step 2: Filter out messages that should not be pushed
+        if Some(false) == message_context.should_push {
+            return Ok(());
         }
-    }
 
-    /// Converts an XMTP message to a notification
-    fn convert_to_notification(message: &Message) -> Notification {
-        // TODO: Finalise type conversion: Include sender hmac and payload
-        Notification {
-            topic: message.content_topic.clone(),
-            sender_hmac: "placeholder_sender_hmac".to_string(),
-            payload: format!(
-                "{{\"timestamp_ns\":{},\"message_size\":{}}}",
-                message.timestamp_ns,
-                message.message.len(),
-            ),
+        // Step 3: Filter out self-notifications, a user should not receive a notification for their own message
+        let subscriptions = self
+            .subscription_storage
+            .get_all_by_topic(&envelope.content_topic)
+            .await?;
+        let subscribed_encrypted_push_ids = subscriptions
+            .into_iter()
+            .filter_map(|s| match message_context.is_sender(&s.hmac_key) {
+                Ok(true) => None, // Filter out self-notifications (sender matches subscription)
+                Ok(false) => Some(s.encrypted_push_id),
+                // Don't block notification for valid HMACs but log error
+                Err(e) => {
+                    error!(
+                        "Worker {} failed to check sender for subscription {}: {}. Message context: {:?}",
+                        self.worker_id,
+                        s.hmac_key,
+                        e,
+                        message_context
+                    );
+                    Some(s.encrypted_push_id) // Include on error to be safe
+                }
+            })
+            .collect::<HashSet<_>>();
+        if subscribed_encrypted_push_ids.is_empty() {
+            warn!(
+                "Worker {} no subscriptions found for topic {}",
+                self.worker_id, envelope.content_topic
+            );
+            return Ok(());
         }
+
+        // Convert XMTP envelope to notification
+        let notification = Notification {
+            topic: envelope.content_topic.clone(),
+            subscribed_encrypted_push_ids: subscribed_encrypted_push_ids.into_iter().collect(),
+            encrypted_message_base64: STANDARD.encode(envelope.message.as_slice()),
+        };
+
+        // Step 4: Publish to notification queue
+        self.notification_queue
+            .send_message(&notification)
+            .await
+            .context("Failed to send message to notification queue")?;
+
+        Ok(())
     }
 }

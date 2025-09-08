@@ -10,12 +10,11 @@ awslocal kms create-alias --alias-name alias/world-chat-jwt --target-key-id "$KM
 awslocal dynamodb create-table \
     --table-name world-chat-push-subscriptions \
     --attribute-definitions \
-        AttributeName=hmac,AttributeType=S \
         AttributeName=topic,AttributeType=S \
+        AttributeName=hmac_key,AttributeType=S \
     --key-schema \
-        AttributeName=hmac,KeyType=HASH \
-    --global-secondary-indexes \
-        'IndexName=topic-index,KeySchema=[{AttributeName=topic,KeyType=HASH}],Projection={ProjectionType=ALL}' \
+        AttributeName=topic,KeyType=HASH \
+        AttributeName=hmac_key,KeyType=RANGE \
     --billing-mode PAY_PER_REQUEST
 
 # Enable TTL on the push subscriptions table
@@ -38,7 +37,12 @@ awslocal dynamodb update-time-to-live \
     --table-name world-chat-auth-proofs \
     --time-to-live-specification "Enabled=true,AttributeName=ttl"
 
-awslocal sqs create-queue --queue-name notification-queue.fifo --attributes '{"FifoQueue": "true", "ContentBasedDeduplication": "true"}'
+awslocal sqs create-queue --queue-name notification-queue.fifo --attributes '{
+  "FifoQueue": "true",
+  "ContentBasedDeduplication": "true",
+  "DeduplicationScope": "messageGroup",
+  "FifoThroughputLimit": "perMessageGroupId"
+}'
 awslocal sqs create-queue --queue-name subscription-request-queue.fifo --attributes '{"FifoQueue": "true", "ContentBasedDeduplication": "true"}'
 
 echo "AWS LocalStack resources initialized successfully!"

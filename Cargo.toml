@@ -65,7 +65,7 @@ schemars = { version = "0.8.21", features = ["derive"] }
 serde_dynamo = { version = "4", features = ["aws-sdk-dynamodb+1"] }
 
 # Strum
-strum = { version = "0.24.1", features = ["derive"] }
+strum = { version = "0.26.3", features = ["derive"] }
 
 # Internal workspace dependencies
 backend_storage = { path = "shared/backend_storage" }
@@ -78,6 +78,8 @@ mime = "0.3.0"
 
 # Crypto
 p256 = { version = "0.13", features = ["ecdsa", "pkcs8"] }
+
+hmac = "0.12.1"
 
 # Test dependencies
 http-body-util = "0.1.3"
