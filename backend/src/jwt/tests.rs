@@ -127,9 +127,13 @@ mod header_validation {
             "typ": typ,
             "kid": kid,
         });
+        let now = chrono::Utc::now().timestamp();
         let payload = serde_json::json!({
             "sub": "test",
             "iss": "test-issuer",
+            "iat": now,
+            "exp": now + 3600,
+            "nbf": now,
         });
 
         let header_b64 = URL_SAFE_NO_PAD.encode(serde_json::to_vec(&header).unwrap());
@@ -167,8 +171,13 @@ mod header_validation {
             "kid": "test",
             "x-extra": true
         });
+        let now = chrono::Utc::now().timestamp();
         let payload = serde_json::json!({
             "sub": "test",
+            "iss": "test-issuer",
+            "iat": now,
+            "exp": now + 3600,
+            "nbf": now,
         });
         let header_b64 = URL_SAFE_NO_PAD.encode(serde_json::to_vec(&header).unwrap());
         let payload_b64 = URL_SAFE_NO_PAD.encode(serde_json::to_vec(&payload).unwrap());
@@ -185,8 +194,13 @@ mod header_validation {
             "typ": "JWT",
             // Missing kid field
         });
+        let now = chrono::Utc::now().timestamp();
         let payload = serde_json::json!({
             "sub": "test",
+            "iss": "test-issuer",
+            "iat": now,
+            "exp": now + 3600,
+            "nbf": now,
         });
 
         let header_b64 = URL_SAFE_NO_PAD.encode(serde_json::to_vec(&header).unwrap());
@@ -213,82 +227,67 @@ mod header_validation {
 
 mod claims_validation {
     use super::*;
-    use chrono::{Duration, Utc};
+    use chrono::Utc;
 
     #[test]
     fn test_expired_token_rejected() {
-        let past = Utc::now() - Duration::hours(1);
+        let now = Utc::now().timestamp();
+        let past = now - 3600; // 1 hour ago
         let claims = JwsPayload {
             subject: "test".to_string(),
             issuer: "chat.toolsforhumanity.com".to_string(),
-            expires_at: Some(past.timestamp()),
-            not_before: None,
-            issued_at: None,
+            expires_at: past,
+            not_before: now - 7200, // 2 hours ago
+            issued_at: now - 7200,  // 2 hours ago
         };
 
-        let now = Utc::now().timestamp();
         let result = validate_claims(&claims, now, 60); // 60 second skew
         assert!(result.is_err());
     }
 
     #[test]
     fn test_expired_token_with_skew_accepted() {
+        let now = Utc::now().timestamp();
         let claims = JwsPayload {
             subject: "test".to_string(),
             issuer: "chat.toolsforhumanity.com".to_string(),
-            expires_at: Some(Utc::now().timestamp() - 30), // Expired 30 seconds ago
-            not_before: None,
-            issued_at: None,
+            expires_at: now - 30,   // Expired 30 seconds ago
+            not_before: now - 3600, // Valid 1 hour ago
+            issued_at: now - 3600,  // Issued 1 hour ago
         };
 
-        let now = Utc::now().timestamp();
         let result = validate_claims(&claims, now, 60); // 60 second skew - should accept
         assert!(result.is_ok());
     }
 
     #[test]
     fn test_not_before_future_rejected() {
-        let future = Utc::now() + Duration::hours(1);
+        let now = Utc::now().timestamp();
+        let future = now + 3600; // 1 hour in future
         let claims = JwsPayload {
             subject: "test".to_string(),
             issuer: "chat.toolsforhumanity.com".to_string(),
-            expires_at: None,
-            not_before: Some(future.timestamp()),
-            issued_at: None,
+            expires_at: now + 7200, // Expires 2 hours from now
+            not_before: future,
+            issued_at: now - 3600, // Issued 1 hour ago
         };
 
-        let now = Utc::now().timestamp();
         let result = validate_claims(&claims, now, 60);
         assert!(result.is_err());
     }
 
     #[test]
     fn test_not_before_with_skew_accepted() {
+        let now = Utc::now().timestamp();
         let claims = JwsPayload {
             subject: "test".to_string(),
             issuer: "chat.toolsforhumanity.com".to_string(),
-            expires_at: None,
-            not_before: Some(Utc::now().timestamp() + 30), // Valid in 30 seconds
-            issued_at: None,
+            expires_at: now + 7200, // Expires 2 hours from now
+            not_before: now + 30,   // Valid in 30 seconds
+            issued_at: now - 3600,  // Issued 1 hour ago
         };
 
-        let now = Utc::now().timestamp();
         let result = validate_claims(&claims, now, 60); // 60 second skew - should accept
-        assert!(result.is_ok());
-    }
-
-    #[test]
-    fn test_missing_optional_claims_accepted() {
-        let claims = JwsPayload {
-            subject: "test".to_string(),
-            issuer: "chat.toolsforhumanity.com".to_string(),
-            expires_at: None,
-            not_before: None,
-            issued_at: None,
-        };
-
-        let now = Utc::now().timestamp();
-        let result = validate_claims(&claims, now, 60);
         assert!(result.is_ok());
     }
 
@@ -299,9 +298,9 @@ mod claims_validation {
         let claims = JwsPayload {
             subject: "test".to_string(),
             issuer: "chat.toolsforhumanity.com".to_string(),
-            expires_at: Some(now),
-            not_before: None,
-            issued_at: None,
+            expires_at: now,
+            not_before: now - 3600, // Valid 1 hour ago
+            issued_at: now - 3600,  // Issued 1 hour ago
         };
 
         // Without skew - should fail (now >= exp)
@@ -321,9 +320,9 @@ mod claims_validation {
         let claims = JwsPayload {
             subject: "test".to_string(),
             issuer: "chat.toolsforhumanity.com".to_string(),
-            expires_at: Some(now + 30),
-            not_before: Some(now - 30),
-            issued_at: Some(now - 30),
+            expires_at: now + 30,
+            not_before: now - 30,
+            issued_at: now - 30,
         };
 
         // Should be valid
@@ -344,9 +343,12 @@ mod claims_validation {
         let payload = JwsPayload::from_encrypted_push_id("encrypted-123".to_string());
         assert_eq!(payload.subject, "encrypted-123");
         assert_eq!(payload.issuer, "chat.toolsforhumanity.com");
-        assert!(payload.expires_at.is_some());
-        assert!(payload.not_before.is_some());
-        assert!(payload.issued_at.is_some());
+
+        // Verify timestamps are set to reasonable values
+        let now = Utc::now().timestamp();
+        assert!(payload.expires_at > now); // Should expire in the future
+        assert!(payload.not_before <= now); // Should be valid now
+        assert!(payload.issued_at <= now); // Should not be issued in the future
     }
 
     #[test]
@@ -355,9 +357,9 @@ mod claims_validation {
         let claims = JwsPayload {
             subject: "test".to_string(),
             issuer: "chat.toolsforhumanity.com".to_string(),
-            issued_at: Some(now + 120), // 2 minutes in future
-            expires_at: Some(now + 3600),
-            not_before: Some(now - 60),
+            issued_at: now + 120, // 2 minutes in future
+            expires_at: now + 3600,
+            not_before: now - 60,
         };
 
         // With 60s skew, iat is still in the future -> reject
@@ -371,9 +373,9 @@ mod claims_validation {
         let claims = JwsPayload {
             subject: "test".to_string(),
             issuer: "attacker.example".to_string(),
-            issued_at: Some(now),
-            expires_at: Some(now + 3600),
-            not_before: Some(now - 60),
+            issued_at: now,
+            expires_at: now + 3600,
+            not_before: now - 60,
         };
 
         // validate_claims enforces issuer now
@@ -422,8 +424,13 @@ mod signature_format {
             "typ": "JWT",
             "kid": "test",
         });
+        let now = chrono::Utc::now().timestamp();
         let payload = serde_json::json!({
             "sub": "test",
+            "iss": "test-issuer",
+            "iat": now,
+            "exp": now + 3600,
+            "nbf": now,
         });
 
         let header_b64 = URL_SAFE_NO_PAD.encode(serde_json::to_vec(&header).unwrap());
@@ -565,9 +572,9 @@ mod integration_helpers {
         let payload = JwsPayload {
             subject: "test-sub".to_string(),
             issuer: "test-issuer".to_string(),
-            expires_at: Some(1_234_567_890),
-            not_before: Some(1_234_567_890),
-            issued_at: Some(1_234_567_890),
+            expires_at: 1_234_567_890,
+            not_before: 1_234_567_890,
+            issued_at: 1_234_567_890,
         };
 
         let result = craft_signing_input(&header, &payload).unwrap();

@@ -33,12 +33,12 @@ pub struct JwsPayload {
     pub subject: String,
     #[serde(rename = "iss")]
     pub issuer: String,
-    #[serde(rename = "iat", skip_serializing_if = "Option::is_none")]
-    pub issued_at: Option<i64>,
-    #[serde(rename = "exp", skip_serializing_if = "Option::is_none")]
-    pub expires_at: Option<i64>,
-    #[serde(rename = "nbf", skip_serializing_if = "Option::is_none")]
-    pub not_before: Option<i64>,
+    #[serde(rename = "iat")]
+    pub issued_at: i64,
+    #[serde(rename = "exp")]
+    pub expires_at: i64,
+    #[serde(rename = "nbf")]
+    pub not_before: i64,
 }
 
 impl JwsPayload {
@@ -49,9 +49,9 @@ impl JwsPayload {
         Self {
             subject: encrypted_push_id,
             issuer: "chat.toolsforhumanity.com".to_owned(),
-            issued_at: Some(now),
-            expires_at: Some(exp),
-            not_before: Some(now),
+            issued_at: now,
+            expires_at: exp,
+            not_before: now,
         }
     }
 }
