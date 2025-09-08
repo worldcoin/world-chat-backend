@@ -3917,7 +3917,9 @@ dependencies = [
 
 [[package]]
 name = "pontifex"
-version = "0.1.4"
+version = "0.1.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9cbd578cf97f1dfedf1e8e772cfe7c18646a5f8cec641292956eaeed7f9ef80c"
 dependencies = [
  "hyper 0.14.32",
  "hyper-rustls 0.25.0",

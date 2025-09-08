@@ -81,7 +81,7 @@ mime = "0.3.0"
 p256 = { version = "0.13", features = ["ecdsa", "pkcs8"] }
 hmac = "0.12.1"
 
-pontifex = { path="../pontifex" }
+pontifex = "0.1.5"
 
 enclave-types = { path="shared/enclave-types" }
 
