@@ -7,6 +7,7 @@ use axum::{
 };
 use axum_jsonschema::Json;
 use backend_storage::auth_proof::AuthProofStorageError;
+use backend_storage::push_subscription::PushSubscriptionStorageError;
 use schemars::JsonSchema;
 use serde::Serialize;
 
@@ -195,6 +196,50 @@ impl From<AuthProofStorageError> for AppError {
             }
             SerializationError(msg) => {
                 tracing::error!("Serialization error: {msg}");
+                Self::new(
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "internal_error",
+                    "Internal server error",
+                    false,
+                )
+            }
+        }
+    }
+}
+
+impl From<PushSubscriptionStorageError> for AppError {
+    #[allow(clippy::cognitive_complexity)]
+    fn from(err: PushSubscriptionStorageError) -> Self {
+        use PushSubscriptionStorageError::{
+            DynamoDbDeleteError, DynamoDbGetError, DynamoDbPutError, DynamoDbQueryError,
+            ParseSubscriptionError, PushSubscriptionExists, SerializationError,
+        };
+
+        match &err {
+            DynamoDbPutError(_)
+            | DynamoDbDeleteError(_)
+            | DynamoDbGetError(_)
+            | DynamoDbQueryError(_) => {
+                tracing::error!("DynamoDB error: {err}");
+                Self::new(
+                    StatusCode::SERVICE_UNAVAILABLE,
+                    "database_error",
+                    "Database service temporarily unavailable",
+                    true,
+                )
+            }
+            // This should never happen, mapping this for completeness
+            PushSubscriptionExists => {
+                tracing::error!("Push subscription already exists");
+                Self::new(
+                    StatusCode::CONFLICT,
+                    "already_exists",
+                    "Push subscription already exists",
+                    false,
+                )
+            }
+            SerializationError(msg) | ParseSubscriptionError(msg) => {
+                tracing::error!("Serialization/Parse error: {msg}");
                 Self::new(
                     StatusCode::INTERNAL_SERVER_ERROR,
                     "internal_error",
