@@ -7,6 +7,8 @@ use aws_sdk_s3::Client as S3Client;
 use axum::{body::Body, http::Request, response::Response, Extension, Router};
 use backend::{jwt::JwtManager, media_storage::MediaStorage, routes, types::Environment};
 use backend_storage::auth_proof::AuthProofStorage;
+use backend_storage::push_subscription::PushSubscriptionStorage;
+use http::Method;
 use std::sync::Arc;
 use tower::ServiceExt;
 
@@ -31,6 +33,7 @@ pub struct TestSetup {
     pub environment: Environment,
     pub media_storage: Arc<MediaStorage>,
     pub kms_client: Arc<KmsClient>,
+    pub push_subscription_storage: Arc<PushSubscriptionStorage>,
     // Keep DynamoDbTestSetup alive for the duration of the test
     _dynamodb_setup: DynamoDbTestSetup,
 }
@@ -76,12 +79,17 @@ impl TestSetup {
             dynamodb_client.clone(),
             dynamodb_test_setup.auth_proofs_table_name.clone(),
         ));
+        let push_subscription_storage = Arc::new(PushSubscriptionStorage::new(
+            dynamodb_client.clone(),
+            dynamodb_test_setup.push_subscriptions_table_name.clone(),
+        ));
 
         let router = routes::handler()
             .layer(Extension(environment.clone()))
             .layer(Extension(media_storage.clone()))
             .layer(Extension(auth_proof_storage.clone()))
             .layer(Extension(jwt_manager.clone()))
+            .layer(Extension(push_subscription_storage.clone()))
             .into();
 
         Self {
@@ -89,6 +97,7 @@ impl TestSetup {
             environment,
             media_storage,
             kms_client,
+            push_subscription_storage,
             _dynamodb_setup: dynamodb_test_setup,
         }
     }
@@ -119,36 +128,55 @@ impl TestSetup {
         Ok(json)
     }
 
+    //TODO: Replace this method with the generic send_request method
     pub async fn send_get_request(
         &self,
         route: &str,
     ) -> Result<Response, Box<dyn std::error::Error>> {
-        let request = Request::builder()
-            .uri(route)
-            .method("GET")
-            .body(Body::empty())?;
-        let response = self.router.clone().oneshot(request).await?;
-        Ok(response)
+        self.send_request(Method::GET, route, None, None).await
     }
 
     /// Send a POST request with custom headers (e.g., Authorization)
+    //TODO: Replace this method with the generic send_request method
     pub async fn send_post_request_with_headers(
         &self,
         route: &str,
         payload: serde_json::Value,
         headers: Vec<(&str, &str)>,
     ) -> Result<Response, Box<dyn std::error::Error>> {
-        let mut request_builder = Request::builder()
-            .uri(route)
-            .method("POST")
-            .header("Content-Type", "application/json");
+        self.send_request(Method::POST, route, Some(payload), Some(headers))
+            .await
+    }
 
-        // Add custom headers
-        for (key, value) in headers {
-            request_builder = request_builder.header(key, value);
+    /// Send a request with the specified HTTP method and optional headers
+    pub async fn send_request(
+        &self,
+        method: Method,
+        route: &str,
+        payload: Option<serde_json::Value>,
+        headers: Option<Vec<(&str, &str)>>,
+    ) -> Result<Response, Box<dyn std::error::Error>> {
+        let mut request_builder = Request::builder().uri(route).method(method);
+
+        // Add Content-Type header if payload is provided
+        if payload.is_some() {
+            request_builder = request_builder.header("Content-Type", "application/json");
         }
 
-        let request = request_builder.body(Body::from(payload.to_string()))?;
+        // Add custom headers if provided
+        if let Some(headers) = headers {
+            for (key, value) in headers {
+                request_builder = request_builder.header(key, value);
+            }
+        }
+
+        // Set the body based on payload
+        let body = match payload {
+            Some(payload) => Body::from(payload.to_string()),
+            None => Body::empty(),
+        };
+
+        let request = request_builder.body(body)?;
         let response = self.router.clone().oneshot(request).await?;
         Ok(response)
     }
