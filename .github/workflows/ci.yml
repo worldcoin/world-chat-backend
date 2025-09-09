@@ -129,6 +129,9 @@ jobs:
           - name: notification-worker
             port: 8001
             health_endpoint: /health
+          - name: enclave-worker
+            port: 8002
+            health_endpoint: /health
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
