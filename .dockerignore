@@ -6,3 +6,6 @@ Dockerfile
 .vscode
 .claude
 .DS_Store
+
+# Ignore codegen
+notification-worker/src/generated/

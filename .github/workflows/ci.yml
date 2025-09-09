@@ -1,8 +1,10 @@
 name: CI
 
 on:
-  - pull_request
-
+  pull_request:
+  push:
+    branches:
+      - main
 env:
   CARGO_TERM_COLOR: always
   RUST_BACKTRACE: 1
@@ -129,6 +131,9 @@ jobs:
           - name: notification-worker
             port: 8001
             health_endpoint: /health
+          - name: enclave-worker
+            port: 8002
+            health_endpoint: /health
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -145,8 +150,13 @@ jobs:
           load: true
           tags: ${{ matrix.service.name }}:latest
           build-args: GIT_REV=${{ github.sha }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          # Cache from the current branch and main
+          # We take advantage of cached layers from previous runs on the same branch or main
+          cache-from: |
+            type=gha,scope=${{ matrix.service.name }}-${{ github.ref_name }}
+            type=gha,scope=${{ matrix.service.name }}-main
+          # Cache to the current branch
+          cache-to: type=gha,mode=max,scope=${{ matrix.service.name }}-${{ github.ref_name }}
           platforms: linux/amd64
 
       - name: Start LocalStack and XMTP Node and wait for it to be healthy
