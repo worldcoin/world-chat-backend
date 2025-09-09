@@ -3,7 +3,7 @@ use std::sync::Arc;
 use anyhow::Result;
 use backend_storage::{push_subscription::PushSubscriptionStorage, queue::NotificationQueue};
 use datadog_tracing::axum::shutdown_signal;
-use enclave_worker::{notification_consumer::NotificationConsumer, server, types::Environment};
+use enclave_worker::{notification_processor::NotificationProcessor, server, types::Environment};
 use tokio_util::sync::CancellationToken;
 use tracing::info;
 
@@ -48,14 +48,14 @@ async fn main() -> Result<()> {
         signal_token.cancel();
     });
 
-    // Start notification consumer
-    let notification_consumer_handle = {
+    // Start notification processor
+    let notification_processor_handle = {
         let queue = notification_queue.clone();
         let storage = subscription_storage.clone();
         let token = shutdown_token.clone();
 
         tokio::spawn(async move {
-            NotificationConsumer::new(queue, storage, token)
+            NotificationProcessor::new(queue, storage, token)
                 .start()
                 .await;
         })
@@ -70,8 +70,8 @@ async fn main() -> Result<()> {
     )
     .await;
 
-    // Wait for consumer to finish
-    notification_consumer_handle.await.ok();
+    // Wait for processor to finish
+    notification_processor_handle.await.ok();
 
     // Ensure the tracer is properly shut down
     tracer_shutdown.shutdown();

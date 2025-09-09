@@ -1,5 +1,4 @@
 use anyhow::Context;
-// enclave-worker/src/notification_consumer/mod.rs
 use backend_storage::{
     push_subscription::PushSubscriptionStorage,
     queue::{Notification, NotificationQueue, QueueMessage},
@@ -10,9 +9,9 @@ use std::{sync::Arc, time::Duration};
 use tokio_util::sync::CancellationToken;
 use tracing::{error, info};
 
-pub struct NotificationConsumer {
+pub struct NotificationProcessor {
     queue: Arc<NotificationQueue>,
-    #[allow(dead_code)] // Will be used for nitro enclave integration
+    #[allow(dead_code)] // Will be used for nitro enclave integration to delete subscriptions
     storage: Arc<PushSubscriptionStorage>,
     shutdown: CancellationToken,
     http_client: Client,
@@ -20,7 +19,7 @@ pub struct NotificationConsumer {
     braze_api_url: String,
 }
 
-impl NotificationConsumer {
+impl NotificationProcessor {
     pub fn new(
         queue: Arc<NotificationQueue>,
         storage: Arc<PushSubscriptionStorage>,
@@ -49,7 +48,7 @@ impl NotificationConsumer {
     }
 
     pub async fn start(self) {
-        info!("Starting NotificationConsumer");
+        info!("Starting NotificationProcessor");
 
         // Poll queue until shutdown
         while !self.shutdown.is_cancelled() {
@@ -62,7 +61,7 @@ impl NotificationConsumer {
             }
         }
 
-        info!("NotificationConsumer shutdown complete");
+        info!("NotificationProcessor shutdown complete");
     }
 
     async fn poll_once(&self) -> anyhow::Result<()> {
