@@ -1,8 +1,12 @@
+use anyhow::Context;
 // enclave-worker/src/notification_consumer/mod.rs
-use backend_storage::{push_subscription::PushSubscriptionStorage, queue::NotificationQueue};
+use backend_storage::{
+    push_subscription::PushSubscriptionStorage,
+    queue::{Notification, NotificationQueue, QueueMessage},
+};
 use std::{sync::Arc, time::Duration};
 use tokio_util::sync::CancellationToken;
-use tracing::info;
+use tracing::{info, instrument};
 
 pub struct NotificationConsumer {
     queue: Arc<NotificationQueue>,
@@ -41,9 +45,28 @@ impl NotificationConsumer {
     }
 
     async fn poll_once(&self) -> anyhow::Result<()> {
-        // Poll SQS queue and send to channel
-        // Implementation details...
-        tokio::time::sleep(Duration::from_millis(1000)).await;
+        let messages = self
+            .queue
+            .poll_messages()
+            .await
+            .context("Failed to poll messages")?;
+
+        // TODO: Make these requests in parallel to improve performance
+        for message in messages {
+            self.process_and_ack(message).await?;
+        }
+
+        Ok(())
+    }
+
+    async fn process_and_ack(&self, message: QueueMessage<Notification>) -> anyhow::Result<()> {
+        let notification = message.body;
+        let receipt_handle = message.receipt_handle;
+
+        //TODO: Replace this with a call to nitro enclave
+
+        self.queue.ack_message(&receipt_handle).await?;
+
         Ok(())
     }
 }
