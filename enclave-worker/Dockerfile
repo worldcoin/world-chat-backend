@@ -45,5 +45,5 @@ COPY --from=builder /app/target/x86_64-unknown-linux-musl/release/enclave-worker
 
 # Set the entrypoint
 USER 100
-EXPOSE 8000
+EXPOSE 8002
 ENTRYPOINT ["/app/enclave-worker"]
