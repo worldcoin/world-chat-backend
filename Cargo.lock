@@ -2184,6 +2184,7 @@ dependencies = [
  "schemars",
  "serde",
  "tokio",
+ "tokio-util",
  "tower 0.5.2",
  "tower-http",
  "tracing",

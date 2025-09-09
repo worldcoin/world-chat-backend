@@ -26,7 +26,7 @@ toml = "0.8"
 # Async utilities
 futures = { workspace = true }
 tokio-stream = "0.1"
-tokio-util = "0.7"
+tokio-util = { workspace = true }
 flume = "0.11"
 
 # HTTP server for health checks
