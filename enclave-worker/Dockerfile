@@ -11,6 +11,8 @@ RUN apt-get update && apt-get install -y \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
+RUN rustup target add x86_64-unknown-linux-musl
+
 RUN cargo install cargo-chef
 
 # Plan stage - creates recipe.json for dependency caching
@@ -21,12 +23,12 @@ RUN cargo chef prepare --recipe-path recipe.json
 # Build stage - cooks dependencies then builds application
 FROM chef AS builder
 
-ARG GIT_REV
-ENV GIT_REV=${GIT_REV}
-
 # Copy recipe and build dependencies (cached if unchanged)
 COPY --from=planner /app/recipe.json recipe.json
-RUN cargo chef cook --release --recipe-path recipe.json
+RUN cargo chef cook --release --target x86_64-unknown-linux-musl --recipe-path recipe.json 
+
+ARG GIT_REV
+ENV GIT_REV=${GIT_REV}
 
 # Copy source code and build application
 COPY . .
