@@ -9,7 +9,7 @@ use backend_storage::{
 use base64::{engine::general_purpose::STANDARD, Engine as _};
 use tokio_util::sync::CancellationToken;
 
-use tracing::{debug, error, info, warn};
+use tracing::{debug, error, info, instrument, warn};
 
 use crate::xmtp_utils::is_v3_topic;
 
@@ -38,28 +38,29 @@ impl MessageProcessor {
 
     /// Runs the message processor loop
     #[allow(clippy::cognitive_complexity)]
+    #[instrument(skip(self, receiver, shutdown_token), fields(worker_id = self.worker_id))]
     pub async fn run(
         &self,
         receiver: flume::Receiver<Envelope>,
         shutdown_token: CancellationToken,
     ) {
-        info!("Message processor {} started", self.worker_id);
+        info!("Message processor started");
 
         loop {
             tokio::select! {
                 () = shutdown_token.cancelled() => {
-                    info!("Message processor {} received shutdown signal", self.worker_id);
+                    info!("Message processor received shutdown signal");
                     break;
                 }
                 result = receiver.recv_async() => {
                     match result {
                         Ok(message) => {
                             if let Err(e) = self.process_message(&message).await {
-                                error!("Worker {} failed to process message: {}", self.worker_id, e);
+                                error!("Failed to process message: {}", e);
                             }
                         }
                         Err(flume::RecvError::Disconnected) => {
-                            info!("Message channel closed for processor {}", self.worker_id);
+                            info!("Message channel closed");
                             break;
                         }
                     }
@@ -67,7 +68,7 @@ impl MessageProcessor {
             }
         }
 
-        info!("Message processor {} stopped", self.worker_id);
+        info!("Message processor stopped");
     }
 
     /// Processes a single message
@@ -75,6 +76,7 @@ impl MessageProcessor {
     /// # Errors
     ///
     /// Returns an error if the message cannot be processed.
+    #[instrument(skip(self, envelope), fields(worker_id = self.worker_id, content_topic = %envelope.content_topic))]
     pub async fn process_message(&self, envelope: &Envelope) -> anyhow::Result<()> {
         // Step 1: Filter out messages that are not V3, following example from XMTP
         if !is_v3_topic(&envelope.content_topic) {
@@ -82,9 +84,7 @@ impl MessageProcessor {
         }
 
         debug!(
-            "Worker {} processing message - Topic: {}, Timestamp: {}, Message size: {} bytes",
-            self.worker_id,
-            envelope.content_topic,
+            "Processing message - Timestamp: {}, Size: {} bytes",
             envelope.timestamp_ns,
             envelope.message.len()
         );
@@ -109,21 +109,15 @@ impl MessageProcessor {
                 // Don't block notification for valid HMACs but log error
                 Err(e) => {
                     error!(
-                        "Worker {} failed to check sender for subscription {}: {}. Message context: {:?}",
-                        self.worker_id,
-                        s.hmac_key,
-                        e,
-                        message_context
+                        "Failed to check sender for subscription {}: {}. Message context: {:?}",
+                        s.hmac_key, e, message_context
                     );
                     Some(s.encrypted_push_id) // Include on error to be safe
                 }
             })
             .collect::<HashSet<_>>();
         if subscribed_encrypted_push_ids.is_empty() {
-            warn!(
-                "Worker {} no subscriptions found for topic {}",
-                self.worker_id, envelope.content_topic
-            );
+            warn!("No subscriptions found for topic");
             return Ok(());
         }
 
