@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use aide::OperationIo;
 use axum::{
     extract::{FromRequestParts, Request},
     http::{header::AUTHORIZATION, request::Parts, StatusCode},
@@ -14,7 +15,7 @@ use crate::{
 };
 
 /// Authenticated user information extracted from JWT
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, OperationIo)]
 pub struct AuthenticatedUser {
     /// The encrypted push ID from the JWT subject
     pub encrypted_push_id: String,

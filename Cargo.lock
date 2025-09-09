@@ -1245,6 +1245,7 @@ dependencies = [
  "chrono",
  "datadog-tracing",
  "dotenvy",
+ "futures",
  "hex",
  "http 1.3.1",
  "http-body-util",
@@ -2160,11 +2161,31 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "edd0f118536f44f5ccd48bcb8b111bdc3de888b58c74639dfb034a357d0f206d"
 
 [[package]]
+name = "enclave-types"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "thiserror 2.0.12",
+]
+
+[[package]]
 name = "enclave-worker"
 version = "0.1.0"
 dependencies = [
+ "aide",
  "anyhow",
+ "aws-config",
+ "aws-sdk-dynamodb",
+ "aws-sdk-sqs",
+ "axum 0.7.9",
+ "axum-jsonschema",
+ "backend_storage",
+ "datadog-tracing",
+ "schemars",
+ "serde",
  "tokio",
+ "tower 0.5.2",
+ "tower-http",
  "tracing",
  "tracing-subscriber 0.3.20",
 ]

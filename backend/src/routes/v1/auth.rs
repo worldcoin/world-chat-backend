@@ -33,7 +33,10 @@ pub struct AuthRequest {
 
 #[derive(Debug, Serialize, JsonSchema)]
 pub struct AuthResponse {
+    /// JWT access token
     pub access_token: String,
+    /// Expires at Unix timestamp in seconds
+    pub expires_at: i64,
 }
 
 /// Authenticates a user with World ID proof and issues a JWT token.
@@ -77,9 +80,12 @@ pub async fn authorize_handler(
 
     // 3. Issue JWT token with stored encrypted push id
     let jws_payload = JwsPayload::from_encrypted_push_id(auth_proof.encrypted_push_id);
-    let access_token = jwt_manager.issue_token(jws_payload).await?;
+    let access_token = jwt_manager.issue_token(&jws_payload).await?;
 
-    Ok(Json(AuthResponse { access_token }))
+    Ok(Json(AuthResponse {
+        access_token,
+        expires_at: jws_payload.expires_at,
+    }))
 }
 
 /// Enforce a 5 minute window for the timestamp used in the signal.

@@ -5,6 +5,7 @@ members = [
     "secure-enclave",
     "shared/backend_storage",
     "notification-worker",
+    "shared/enclave-types",
 ]
 resolver = "2"
 
@@ -26,8 +27,9 @@ axum = "0.7.9"
 tower      = "0.5.2"
 tower-http = { version = "0.6.2", features = ["trace", "timeout"] }
 
-# Async runtime
+# Async 
 tokio = { version = "1.47.1", features = ["full"] }
+futures = "0.3.31"
 
 # Serialization
 serde      = { version = "1.0", features = ["derive"] }
@@ -80,6 +82,9 @@ mime = "0.3.0"
 p256 = { version = "0.13", features = ["ecdsa", "pkcs8"] }
 
 hmac = "0.12.1"
+
+# Enclave types
+enclave-types = { path = "shared/enclave-types" }
 
 # Datadog tracing
 datadog-tracing = { version = "0.3.0", features = ["axum"] }
