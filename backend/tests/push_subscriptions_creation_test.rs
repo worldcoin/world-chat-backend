@@ -81,6 +81,8 @@ async fn test_subscribe_with_duplicate_subscriptions() {
     assert!(!subscription_exists(&context, &topic, &hmac_key, &other_encrypted_push_id).await);
 }
 
+/// Assert we get 401, if enable auth
+/// Tests that route is protected
 #[tokio::test]
 async fn test_subscribe_without_auth_header() {
     let context = TestSetup::new(None, false).await; // Auth enabled
@@ -99,6 +101,8 @@ async fn test_subscribe_without_auth_header() {
     assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
 }
 
+/// Assert we get 401, if enable auth
+/// Tests that route is protected
 #[tokio::test]
 async fn test_subscribe_with_invalid_auth_header() {
     let context = TestSetup::new(None, false).await; // Auth enabled
@@ -138,7 +142,7 @@ async fn test_subscribe_empty_request_body() {
         .expect("Failed to send request");
 
     // Empty array should fail with bad request error
-    assert_eq!(response.status(), StatusCode::BAD_REQUEST,);
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
 }
 
 #[tokio::test]
