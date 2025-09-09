@@ -51,5 +51,7 @@ async fn main() -> anyhow::Result<()> {
     // Ensure the tracer is properly shut down
     tracer_shutdown.shutdown();
 
+    tracing::info!("Shutting down backend");
+
     result
 }
