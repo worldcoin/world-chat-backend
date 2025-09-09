@@ -87,13 +87,13 @@ impl JwtManager {
     ///
     /// # Errors
     /// Returns an error if header/payload serialization fails or KMS signing fails.
-    pub async fn issue_token(&self, payload: JwsPayload) -> Result<String, JwtError> {
+    pub async fn issue_token(&self, payload: &JwsPayload) -> Result<String, JwtError> {
         let header = JwsHeader {
             alg: ALG_ES256.to_string(),
             typ: TYP_JWT.to_string(),
             kid: self.kid.clone(),
         };
-        let signing_input = craft_signing_input(&header, &payload)?;
+        let signing_input = craft_signing_input(&header, payload)?;
 
         // Sign via KMS asynchronously and convert DER -> raw (r||s).
         let der_sig = self
@@ -172,21 +172,15 @@ pub(crate) fn validate_claims(claims: &JwsPayload, now: i64, skew: i64) -> Resul
     if claims.issuer != ISSUER {
         return Err(JwtError::InvalidToken);
     }
-    if let Some(nbf) = claims.not_before {
-        if now + skew < nbf {
-            return Err(JwtError::InvalidToken);
-        }
+    if now + skew < claims.not_before {
+        return Err(JwtError::InvalidToken);
     }
-    if let Some(exp) = claims.expires_at {
-        if now - skew >= exp {
-            return Err(JwtError::InvalidToken);
-        }
+    if now - skew >= claims.expires_at {
+        return Err(JwtError::InvalidToken);
     }
-    if let Some(iat) = claims.issued_at {
-        // Follow josekit validator practice: iat must not be in the future.
-        if iat > now + skew {
-            return Err(JwtError::InvalidToken);
-        }
+    // Follow josekit validator practice: iat must not be in the future.
+    if claims.issued_at > now + skew {
+        return Err(JwtError::InvalidToken);
     }
     Ok(())
 }

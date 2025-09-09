@@ -2172,8 +2172,20 @@ dependencies = [
 name = "enclave-worker"
 version = "0.1.0"
 dependencies = [
+ "aide",
  "anyhow",
+ "aws-config",
+ "aws-sdk-dynamodb",
+ "aws-sdk-sqs",
+ "axum 0.7.9",
+ "axum-jsonschema",
+ "backend_storage",
+ "datadog-tracing",
+ "schemars",
+ "serde",
  "tokio",
+ "tower 0.5.2",
+ "tower-http",
  "tracing",
  "tracing-subscriber 0.3.20",
 ]
