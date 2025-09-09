@@ -92,7 +92,8 @@ impl From<PushSubscriptionStorageError> for AppError {
     fn from(err: PushSubscriptionStorageError) -> Self {
         use PushSubscriptionStorageError::{
             DynamoDbDeleteError, DynamoDbGetError, DynamoDbPutError, DynamoDbQueryError,
-            ParseSubscriptionError, PushSubscriptionExists, SerializationError,
+            DynamoDbUpdateError, ParseSubscriptionError, PushSubscriptionExists,
+            SerializationError,
         };
 
         match &err {
@@ -110,7 +111,8 @@ impl From<PushSubscriptionStorageError> for AppError {
             DynamoDbPutError(_)
             | DynamoDbDeleteError(_)
             | DynamoDbGetError(_)
-            | DynamoDbQueryError(_) => {
+            | DynamoDbQueryError(_)
+            | DynamoDbUpdateError(_) => {
                 tracing::error!("DynamoDB error: {err}");
                 Self::new(
                     StatusCode::SERVICE_UNAVAILABLE,
