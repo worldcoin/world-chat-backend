@@ -501,6 +501,42 @@ mod signature_format {
         let result = verify_signature_with_key(&tampered_parts, &verifying_key);
         assert!(matches!(result, Err(JwtError::InvalidSignature)));
     }
+
+    #[test]
+    fn test_jwt_signed_with_wrong_key() {
+        // Generate two different keypairs
+        let (signing_key_wrong, _) = generate_test_keypair();
+        let (_, verifying_key_correct) = generate_test_keypair();
+
+        // Create and sign token with wrong key
+        let payload = JwsPayload::from_encrypted_push_id("test-123".to_string());
+        let token = create_test_token(&signing_key_wrong, "test-kid", &payload);
+
+        // Try to verify with different key - should fail
+        let parts = JwsTokenParts::try_from(token.as_str()).unwrap();
+        let result = verify_signature_with_key(&parts, &verifying_key_correct);
+        assert!(matches!(result, Err(JwtError::InvalidSignature)));
+    }
+
+    #[test]
+    fn test_jwt_with_empty_signature() {
+        let header = JwsHeader {
+            alg: ALG_ES256.to_string(),
+            typ: TYP_JWT.to_string(),
+            kid: "test-kid".to_string(),
+        };
+        let payload = JwsPayload::from_encrypted_push_id("test-123".to_string());
+
+        // Create token with empty signature (header.payload.)
+        let signing_input = craft_signing_input(&header, &payload).unwrap();
+        let token_empty_sig = format!("{}.", signing_input);
+
+        // Should parse successfully but fail verification
+        let parts = JwsTokenParts::try_from(token_empty_sig.as_str()).unwrap();
+        let (_, verifying_key) = generate_test_keypair();
+        let result = verify_signature_with_key(&parts, &verifying_key);
+        assert!(result.is_err());
+    }
 }
 
 mod key_management {

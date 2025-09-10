@@ -4,7 +4,10 @@ use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine as _};
 use chrono::Utc;
 use common::TestSetup;
 use http::StatusCode;
+use p256::ecdsa::{signature::DigestSigner, Signature, SigningKey};
+use p256::SecretKey;
 use serde_json::json;
+use sha2::{Digest, Sha256};
 use uuid::Uuid;
 use walletkit_core::{
     proof::{ProofContext, ProofOutput},
@@ -444,6 +447,62 @@ async fn test_validate_rejects_payload_tamper() {
         .expect("failed to build JwtManager");
     let result = manager.validate(&tampered);
     assert!(result.is_err(), "payload tamper should be rejected");
+}
+
+#[tokio::test]
+async fn test_protected_endpoint_rejects_jwt_with_different_signing_key() {
+    // Test with auth enabled
+    let context = TestSetup::new(None, false).await;
+
+    // Get a valid JWT token first
+    let valid_token = get_valid_jwt_token(&context).await;
+
+    // Split the token into its three parts
+    let parts: Vec<&str> = valid_token.split('.').collect();
+    assert_eq!(parts.len(), 3, "JWT should have three parts");
+
+    // Generate an attacker's P-256 keypair (different from KMS key)
+    let attacker_secret = SecretKey::random(&mut rand::thread_rng());
+    let attacker_signing_key = SigningKey::from(attacker_secret);
+
+    // Create the signing input (header.payload)
+    let signing_input = format!("{}.{}", parts[0], parts[1]);
+
+    // Sign with the attacker's key using the same algorithm (ES256/P-256 with SHA-256)
+    let mut digest = Sha256::new();
+    digest.update(signing_input.as_bytes());
+    let attacker_signature: Signature = attacker_signing_key.sign_digest(digest);
+
+    // Convert signature to raw format (64 bytes) and encode as base64url
+    let attacker_sig_b64 = URL_SAFE_NO_PAD.encode(attacker_signature.to_bytes());
+
+    // Reconstruct the token with the attacker's signature
+    // This is a properly signed JWT, but with the wrong key
+    let forged_token = format!("{}.{}", signing_input, attacker_sig_b64);
+
+    // Try to use the forged token on a protected endpoint
+    let media_request = json!({
+        "content_digest_sha256": "a".repeat(64),
+        "content_length": 1024,
+        "content_type": "image/jpeg"
+    });
+
+    let response = context
+        .send_post_request_with_headers(
+            "/v1/media/presigned-urls",
+            media_request,
+            vec![("Authorization", &format!("Bearer {}", forged_token))],
+        )
+        .await
+        .expect("Failed to send request");
+
+    // Should be rejected with 401 Unauthorized because the signature
+    // doesn't match the KMS key's public key
+    assert_eq!(
+        response.status(),
+        StatusCode::UNAUTHORIZED,
+        "JWT signed with different key should be rejected"
+    );
 }
 
 #[tokio::test]
