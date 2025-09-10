@@ -9,7 +9,8 @@ const DEFAULT_REQUEST_TIMEOUT_SECS: u64 = 30;
 /// Maximum number of idle connections to maintain per host
 const MAX_IDLE_CONNECTIONS_PER_HOST: usize = 10;
 
-pub trait PushIdChallenger {
+#[async_trait::async_trait]
+pub trait PushIdChallenger: Send + Sync {
     async fn challenge_push_ids(
         &self,
         push_id_1: String,
@@ -23,6 +24,10 @@ pub struct PushIdChallengerImpl {
 }
 
 impl PushIdChallengerImpl {
+    /// Creates a new push id challenger
+    ///
+    /// # Panics if the HTTP client fails to be created
+    #[must_use]
     pub fn new(enclave_url: String) -> Self {
         let http_client = Client::builder()
             .timeout(Duration::from_secs(DEFAULT_REQUEST_TIMEOUT_SECS))
@@ -37,12 +42,18 @@ impl PushIdChallengerImpl {
     }
 }
 
+#[async_trait::async_trait]
 impl PushIdChallenger for PushIdChallengerImpl {
     async fn challenge_push_ids(
         &self,
         push_id_1: String,
         push_id_2: String,
     ) -> Result<bool, AppError> {
+        // If the push ids are the same, we don't need to challenge them
+        if push_id_1 == push_id_2 {
+            return Ok(true);
+        }
+
         let request = PushIdChallengeRequest {
             push_id_1,
             push_id_2,
@@ -50,7 +61,7 @@ impl PushIdChallenger for PushIdChallengerImpl {
 
         let response = self
             .http_client
-            .post(&self.enclave_url)
+            .post(format!("{}/push-id-challenge", self.enclave_url))
             .json(&request)
             .send()
             .await?
@@ -61,21 +72,33 @@ impl PushIdChallenger for PushIdChallengerImpl {
     }
 }
 
-#[cfg(test)]
+#[cfg(any(test, feature = "test-utils"))]
 pub mod mock {
     use super::*;
 
     pub struct MockPushIdChallenger {
-        push_ids_match: bool,
+        override_push_ids_match: Option<bool>,
     }
 
+    impl MockPushIdChallenger {
+        #[must_use]
+        pub fn new(override_push_ids_match: Option<bool>) -> Self {
+            Self {
+                override_push_ids_match,
+            }
+        }
+    }
+
+    #[async_trait::async_trait]
     impl PushIdChallenger for MockPushIdChallenger {
         async fn challenge_push_ids(
             &self,
-            _push_id_1: String,
-            _push_id_2: String,
+            push_id_1: String,
+            push_id_2: String,
         ) -> Result<bool, AppError> {
-            Ok(self.push_ids_match)
+            Ok(self
+                .override_push_ids_match
+                .unwrap_or(push_id_1 == push_id_2))
         }
     }
 }

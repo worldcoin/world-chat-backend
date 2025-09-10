@@ -5,7 +5,13 @@ use aws_sdk_kms::Client as KmsClient;
 use aws_sdk_s3::Client as S3Client;
 use backend_storage::{auth_proof::AuthProofStorage, push_subscription::PushSubscriptionStorage};
 
-use backend::{jwt::JwtManager, media_storage::MediaStorage, server, types::Environment};
+use backend::{
+    jwt::JwtManager,
+    media_storage::MediaStorage,
+    push_id_challenger::{PushIdChallenger, PushIdChallengerImpl},
+    server,
+    types::Environment,
+};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -39,12 +45,17 @@ async fn main() -> anyhow::Result<()> {
         environment.dynamodb_push_subscription_table_name(),
     ));
 
+    // Initalize Push ID challenger
+    let push_id_challenger: Arc<dyn PushIdChallenger> =
+        Arc::new(PushIdChallengerImpl::new(environment.enclave_http_url()));
+
     let result = server::start(
         environment,
         media_storage,
         jwt_manager,
         auth_proof_storage,
         push_subscription_storage,
+        push_id_challenger,
     )
     .await;
 

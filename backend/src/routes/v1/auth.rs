@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use axum::Extension;
+use axum::{http::StatusCode, Extension};
 use axum_jsonschema::Json;
 use backend_storage::auth_proof::{AuthProofInsertRequest, AuthProofStorage};
 use chrono::Utc;
@@ -11,9 +11,13 @@ use walletkit_core::CredentialType;
 
 use crate::{
     jwt::{JwsPayload, JwtManager},
+    push_id_challenger::PushIdChallenger,
     types::{AppError, Environment},
     world_id::{error::WorldIdError, verifier::verify_world_id_proof},
 };
+
+/// The threshold for the last push id rotation in seconds
+const PUSH_ID_ROTATION_THRESHOLD_SECS: i64 = 6 * 30 * 24 * 60 * 60; // 6 months
 
 #[derive(Deserialize, JsonSchema)]
 pub struct AuthRequest {
@@ -53,6 +57,7 @@ pub async fn authorize_handler(
     Extension(jwt_manager): Extension<Arc<JwtManager>>,
     Extension(auth_proof_storage): Extension<Arc<AuthProofStorage>>,
     Extension(environment): Extension<Environment>,
+    Extension(push_id_challenger): Extension<Arc<dyn PushIdChallenger>>,
     Json(request): Json<AuthRequest>,
 ) -> Result<Json<AuthResponse>, AppError> {
     // 1. Verify World ID proof
@@ -78,8 +83,46 @@ pub async fn authorize_handler(
         })
         .await?;
 
-    // 3. Issue JWT token with stored encrypted push id
-    let jws_payload = JwsPayload::from_encrypted_push_id(auth_proof.encrypted_push_id);
+    // 3. Challenge push ids
+    let push_ids_match = push_id_challenger
+        .challenge_push_ids(
+            auth_proof.encrypted_push_id.clone(),
+            request.encrypted_push_id.clone(),
+        )
+        .await?;
+
+    // 4.a If the push ids match, issue JWT token with stored encrypted push id
+    if push_ids_match {
+        let jws_payload = JwsPayload::from_encrypted_push_id(auth_proof.encrypted_push_id);
+        let access_token = jwt_manager.issue_token(&jws_payload).await?;
+
+        return Ok(Json(AuthResponse {
+            access_token,
+            expires_at: jws_payload.expires_at,
+        }));
+    }
+
+    // If the push ids don't match
+    // and the push id rotation is within the threshold, we return a 403
+    // This is to prevent abuse of the push id rotation
+    let is_push_id_rotation_within_threshold =
+        Utc::now().timestamp() <= auth_proof.push_id_rotated_at + PUSH_ID_ROTATION_THRESHOLD_SECS;
+    if is_push_id_rotation_within_threshold {
+        return Err(AppError::new(
+            StatusCode::FORBIDDEN,
+            "push_ids_mismatch",
+            "Push IDs mismatch",
+            false,
+        ));
+    }
+
+    // Otherwise, we update the encrypted push id and issue a JWT token with the new encrypted push id
+    auth_proof_storage
+        .update_encrypted_push_id(&auth_proof.nullifier, &request.encrypted_push_id.clone())
+        .await?;
+
+    // 5. Issue JWT token with stored encrypted push id
+    let jws_payload = JwsPayload::from_encrypted_push_id(request.encrypted_push_id);
     let access_token = jwt_manager.issue_token(&jws_payload).await?;
 
     Ok(Json(AuthResponse {
