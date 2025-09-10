@@ -26,7 +26,9 @@ pub struct PushIdChallengerImpl {
 impl PushIdChallengerImpl {
     /// Creates a new push id challenger
     ///
-    /// # Panics if the HTTP client fails to be created
+    /// # Panics
+    ///
+    /// If the HTTP client fails to be created
     #[must_use]
     pub fn new(enclave_url: String) -> Self {
         let http_client = Client::builder()
@@ -74,7 +76,7 @@ impl PushIdChallenger for PushIdChallengerImpl {
 
 #[cfg(any(test, feature = "test-utils"))]
 pub mod mock {
-    use super::*;
+    use super::{AppError, PushIdChallenger};
 
     pub struct MockPushIdChallenger {
         override_push_ids_match: Option<bool>,
@@ -82,7 +84,7 @@ pub mod mock {
 
     impl MockPushIdChallenger {
         #[must_use]
-        pub fn new(override_push_ids_match: Option<bool>) -> Self {
+        pub const fn new(override_push_ids_match: Option<bool>) -> Self {
             Self {
                 override_push_ids_match,
             }
