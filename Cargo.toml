@@ -5,7 +5,9 @@ members = [
     "secure-enclave",
     "shared/backend_storage",
     "notification-worker",
+     # TODO remove this and move types to common-types
     "shared/enclave-types",
+    "shared/common-types",
 ]
 resolver = "2"
 
@@ -86,6 +88,9 @@ hmac = "0.12.1"
 
 # Enclave types
 enclave-types = { path = "shared/enclave-types" }
+
+# Common types 
+common-types = { path = "shared/common-types" }
 
 # Datadog tracing
 datadog-tracing = { version = "0.3.0", features = ["axum"] }

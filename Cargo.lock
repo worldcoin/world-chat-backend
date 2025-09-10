@@ -1243,6 +1243,7 @@ dependencies = [
  "backend_storage",
  "base64 0.22.1",
  "chrono",
+ "common-types",
  "datadog-tracing",
  "dotenvy",
  "futures",
@@ -1675,6 +1676,14 @@ checksum = "ba5a308b75df32fe02788e748662718f03fde005016435c444eea572398219fd"
 dependencies = [
  "bytes",
  "memchr",
+]
+
+[[package]]
+name = "common-types"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "thiserror 2.0.12",
 ]
 
 [[package]]
