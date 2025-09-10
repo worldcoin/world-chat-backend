@@ -243,6 +243,20 @@ impl Environment {
             Self::Development { .. } => "world-chat-push-subscriptions".to_string(),
         }
     }
+
+    /// Returns the Enclave HTTP URL that is used to challenge push IDs
+    ///
+    /// # Panics
+    ///
+    /// Panics if the `ENCLAVE_HTTP_URL` environment variable is not set in production/staging
+    #[must_use]
+    pub fn enclave_http_url(&self) -> String {
+        match self {
+            Self::Production | Self::Staging => env::var("ENCLAVE_HTTP_URL")
+                .expect("ENCLAVE_HTTP_URL environment variable is not set"),
+            Self::Development { .. } => "http://localhost:8004".to_string(),
+        }
+    }
 }
 
 #[cfg(test)]
