@@ -2,7 +2,9 @@ use std::sync::Arc;
 
 use anyhow::Result;
 use backend_storage::{push_subscription::PushSubscriptionStorage, queue::NotificationQueue};
-use enclave_worker::{server, types::Environment};
+use datadog_tracing::axum::shutdown_signal;
+use enclave_worker::{notification_processor::NotificationProcessor, server, types::Environment};
+use tokio_util::sync::CancellationToken;
 use tracing::info;
 
 use aws_sdk_dynamodb::Client as DynamoDbClient;
@@ -37,10 +39,44 @@ async fn main() -> Result<()> {
 
     info!("✅ Initialized push subscription storage");
 
-    let _ = server::start(env, notification_queue, subscription_storage).await;
+    // Single shutdown token for everything
+    let shutdown_token = CancellationToken::new();
+    let signal_token = shutdown_token.clone();
+    tokio::spawn(async move {
+        shutdown_signal().await;
+        info!("Shutting down Enclave Worker...");
+        signal_token.cancel();
+    });
+
+    // Start notification processor
+    let notification_processor_handle = {
+        let queue = notification_queue.clone();
+        let storage = subscription_storage.clone();
+        let token = shutdown_token.clone();
+
+        tokio::spawn(async move {
+            NotificationProcessor::new(queue, storage, token)
+                .start()
+                .await;
+        })
+    };
+
+    // Start HTTP server (blocks until shutdown)
+    let server_result = server::start(
+        env,
+        notification_queue,
+        subscription_storage,
+        shutdown_token,
+    )
+    .await;
+
+    // Wait for processor to finish
+    notification_processor_handle.await.ok();
 
     // Ensure the tracer is properly shut down
     tracer_shutdown.shutdown();
 
-    Ok(())
+    info!("✅ Enclave Worker shutdown complete");
+
+    server_result
 }
