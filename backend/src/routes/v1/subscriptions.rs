@@ -12,6 +12,10 @@ use backend_storage::push_subscription::{
     PushSubscription, PushSubscriptionStorage, PushSubscriptionStorageError,
 };
 
+/// In the context of XMTP hmac keys for a conversation are rotated every 30-day epoch cycle
+/// We set a maximum of 40 days to prevent bad actors subscribing to a topic for a longer period of time
+const MAX_TTL_SECS: i64 = 40 * 24 * 60 * 60; // 40 days
+
 #[derive(Debug, Deserialize, Serialize, JsonSchema)]
 #[schemars(deny_unknown_fields)]
 pub struct CreateSubscriptionRequest {
@@ -22,7 +26,10 @@ pub struct CreateSubscriptionRequest {
     #[schemars(length(equal = 64))]
     pub hmac_key: String,
     /// TTL as unix timestamp
-    #[schemars(range(min = 1))]
+    #[schemars(
+        title = "Expiry (Unix seconds)",
+        description = "Must be > now+1s and < now+30d"
+    )]
     pub ttl: i64,
 }
 
@@ -78,15 +85,8 @@ pub async fn subscribe(
     Extension(push_storage): Extension<Arc<PushSubscriptionStorage>>,
     Json(payload): Json<Vec<CreateSubscriptionRequest>>,
 ) -> Result<StatusCode, AppError> {
-    // Payload is an empty array
-    if payload.is_empty() {
-        return Err(AppError::new(
-            StatusCode::BAD_REQUEST,
-            "empty_payload",
-            "Empty payload",
-            false,
-        ));
-    }
+    // Validate payload
+    validate_subscribe_payload(&payload)?;
 
     let push_subscriptions = payload
         .into_iter()
@@ -181,4 +181,39 @@ pub async fn unsubscribe(
     }
 
     Ok(StatusCode::NO_CONTENT)
+}
+
+fn validate_subscribe_payload(payload: &[CreateSubscriptionRequest]) -> Result<(), AppError> {
+    if payload.is_empty() {
+        return Err(AppError::new(
+            StatusCode::BAD_REQUEST,
+            "empty_payload",
+            "Empty payload",
+            false,
+        ));
+    }
+
+    let now = chrono::Utc::now().timestamp();
+    for subscription in payload {
+        // strictly > now + 1 second
+        if subscription.ttl <= now + 1 {
+            return Err(AppError::new(
+                StatusCode::BAD_REQUEST,
+                "invalid_ttl",
+                "TTL must be greater than 0",
+                false,
+            ));
+        }
+        // strictly < now + 30 days
+        if subscription.ttl >= now + MAX_TTL_SECS {
+            return Err(AppError::new(
+                StatusCode::BAD_REQUEST,
+                "invalid_ttl",
+                "TTL must be greater than 0",
+                false,
+            ));
+        }
+    }
+
+    Ok(())
 }

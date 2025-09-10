@@ -1,5 +1,6 @@
 mod common;
 
+use backend::routes::v1::subscriptions::CreateSubscriptionRequest;
 use chrono::Utc;
 use http::StatusCode;
 use serde_json::json;
@@ -33,6 +34,47 @@ async fn test_subscribe_happy_path_single_subscription() {
     assert_eq!(response.status(), StatusCode::CREATED);
 
     assert!(subscription_exists(&context, &topic, &hmac_key, &encrypted_push_id).await);
+}
+
+#[tokio::test]
+async fn test_subscribe_happy_path_batch_subscriptions() {
+    let context = TestSetup::default().await;
+
+    let encrypted_push_id = format!("encrypted-push-{}", Uuid::new_v4());
+    let mut subscriptions: Vec<CreateSubscriptionRequest> = Vec::new();
+
+    for i in 0..10 {
+        subscriptions.push(CreateSubscriptionRequest {
+            topic: format!("topic-{}", i),
+            hmac_key: generate_hmac_key(),
+            ttl: Utc::now().timestamp() + 3600,
+        });
+    }
+
+    let subscription_request = json!(subscriptions);
+
+    let response = context
+        .send_post_request_with_headers(
+            "/v1/subscriptions",
+            subscription_request,
+            vec![("Authorization", &format!("Bearer {}", encrypted_push_id))],
+        )
+        .await
+        .expect("Failed to send request");
+
+    assert_eq!(response.status(), StatusCode::CREATED);
+
+    for subscription in subscriptions {
+        assert!(
+            subscription_exists(
+                &context,
+                &subscription.topic,
+                &subscription.hmac_key,
+                &encrypted_push_id
+            )
+            .await
+        );
+    }
 }
 
 #[tokio::test]
@@ -256,6 +298,14 @@ async fn test_subscribe_invalid_ttl_values() {
                 "ttl": 0, // Should be >= 1 according to schema validation
             }]),
             "zero ttl",
+        ),
+        (
+            json!([{
+                "topic": format!("topic-{}", Uuid::new_v4()),
+                "hmac_key": generate_hmac_key(),
+                "ttl": Utc::now().timestamp() + (40 * 24 *3600) + 1, // Shouldn't allow ttl greater than 40 days
+            }]),
+            "ttl too far in the future",
         ),
         (
             json!([{
