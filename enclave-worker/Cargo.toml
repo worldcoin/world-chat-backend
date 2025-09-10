@@ -18,6 +18,7 @@ tower-http = { workspace = true }
 
 # Async runtime
 tokio = { workspace = true }
+tokio-util = { workspace = true }
 
 # Logging
 tracing = { workspace = true }
@@ -38,3 +39,5 @@ backend_storage = { workspace = true }
 
 schemars = { workspace = true }
 serde = { workspace = true }
+serde_json = { workspace = true }
+reqwest = { workspace = true }

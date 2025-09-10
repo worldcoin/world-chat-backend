@@ -4,8 +4,9 @@ use aide::openapi::OpenApi;
 use axum::Extension;
 use backend_storage::push_subscription::PushSubscriptionStorage;
 use backend_storage::queue::NotificationQueue;
-use datadog_tracing::axum::{shutdown_signal, OtelAxumLayer, OtelInResponseLayer};
+use datadog_tracing::axum::{OtelAxumLayer, OtelInResponseLayer};
 use tokio::net::TcpListener;
+use tokio_util::sync::CancellationToken;
 
 use crate::routes;
 use crate::types::Environment;
@@ -19,6 +20,7 @@ pub async fn start(
     environment: Environment,
     notification_queue: Arc<NotificationQueue>,
     push_subscription_storage: Arc<PushSubscriptionStorage>,
+    shutdown_token: CancellationToken,
 ) -> anyhow::Result<()> {
     let mut openapi = OpenApi::default();
 
@@ -45,7 +47,9 @@ pub async fn start(
     tracing::info!("🔄 Enclave Worker started on http://{addr}");
 
     axum::serve(listener, router.into_make_service())
-        .with_graceful_shutdown(shutdown_signal())
+        .with_graceful_shutdown(async move {
+            shutdown_token.cancelled().await;
+        })
         .await
         .map_err(anyhow::Error::from)
 }
