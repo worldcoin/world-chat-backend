@@ -13,8 +13,8 @@ const MAX_IDLE_CONNECTIONS_PER_HOST: usize = 10;
 pub trait PushIdChallenger: Send + Sync {
     async fn challenge_push_ids(
         &self,
-        push_id_1: String,
-        push_id_2: String,
+        encrypted_push_id_1: String,
+        encrypted_push_id_2: String,
     ) -> Result<bool, AppError>;
 }
 
@@ -23,6 +23,12 @@ pub struct PushIdChallengerImpl {
     http_client: Client,
 }
 
+/// Implementation of the push id challenger
+///
+/// Communicates with a trusted nitro enclave that can verify if the encrypted push ids match.
+///
+/// TODO: This implementation is not complete, as it doesn't ensure we're talking a **trusted** nitro enclave.
+/// TODO: In a follow up PR, we'll verify the nitro enclave attestation and enforce TLS.
 impl PushIdChallengerImpl {
     /// Creates a new push id challenger
     ///
@@ -48,17 +54,17 @@ impl PushIdChallengerImpl {
 impl PushIdChallenger for PushIdChallengerImpl {
     async fn challenge_push_ids(
         &self,
-        push_id_1: String,
-        push_id_2: String,
+        encrypted_push_id_1: String,
+        encrypted_push_id_2: String,
     ) -> Result<bool, AppError> {
         // If the push ids are the same, we don't need to challenge them
-        if push_id_1 == push_id_2 {
+        if encrypted_push_id_1 == encrypted_push_id_2 {
             return Ok(true);
         }
 
         let request = PushIdChallengeRequest {
-            push_id_1,
-            push_id_2,
+            encrypted_push_id_1,
+            encrypted_push_id_2,
         };
 
         let response = self
@@ -95,12 +101,12 @@ pub mod mock {
     impl PushIdChallenger for MockPushIdChallenger {
         async fn challenge_push_ids(
             &self,
-            push_id_1: String,
-            push_id_2: String,
+            encrypted_push_id_1: String,
+            encrypted_push_id_2: String,
         ) -> Result<bool, AppError> {
             Ok(self
                 .override_push_ids_match
-                .unwrap_or(push_id_1 == push_id_2))
+                .unwrap_or(encrypted_push_id_1 == encrypted_push_id_2))
         }
     }
 }
