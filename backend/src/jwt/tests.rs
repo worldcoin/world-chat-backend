@@ -529,7 +529,7 @@ mod signature_format {
 
         // Create token with empty signature (header.payload.)
         let signing_input = craft_signing_input(&header, &payload).unwrap();
-        let token_empty_sig = format!("{}.", signing_input);
+        let token_empty_sig = format!("{signing_input}.");
 
         // Should parse successfully but fail verification
         let parts = JwsTokenParts::try_from(token_empty_sig.as_str()).unwrap();
