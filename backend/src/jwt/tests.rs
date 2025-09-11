@@ -519,9 +519,9 @@ mod signature_format {
     }
 
     #[test]
-    fn test_jwt_with_empty_signature() {
+    fn test_valid_unsecured_jwt() {
         let header = JwsHeader {
-            alg: ALG_ES256.to_string(),
+            alg: "none".to_string(),
             typ: TYP_JWT.to_string(),
             kid: "test-kid".to_string(),
         };
