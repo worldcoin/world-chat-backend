@@ -45,4 +45,6 @@ COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 # Copy the binary
 COPY --from=builder /app/target/x86_64-unknown-linux-musl/release/secure-enclave /app/secure-enclave
 
+USER 100
+
 ENTRYPOINT ["/app/secure-enclave"]
