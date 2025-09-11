@@ -118,6 +118,34 @@ jobs:
         with:
           command: check ${{ matrix.checks }}
           rust-version: stable
+  
+  build-secure-enclave-docker:
+    name: Build Secure Enclave Docker
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Secure Enclave Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: secure-enclave/Dockerfile
+          push: false
+          load: true
+          tags: secure-enclave:latest
+          build-args: GIT_REV=${{ github.sha }}
+          # Cache from the current branch and main
+          # We take advantage of cached layers from previous runs on the same branch or main
+          cache-from: |
+            type=gha,scope=secure-enclave-${{ github.ref_name }}
+            type=gha,scope=secure-enclave-main
+          # Cache to the current branch
+          cache-to: type=gha,mode=max,scope=secure-enclave-${{ github.ref_name }}
+          platforms: linux/amd64
 
   build-docker:
     name: Build and Test Docker
