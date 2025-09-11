@@ -263,7 +263,7 @@ impl Environment {
 
                 url
             }
-            Self::Development { .. } => "http://localhost:8003".to_string(),
+            Self::Development { .. } => "http://localhost:8002".to_string(),
         }
     }
 }
