@@ -87,6 +87,11 @@ hmac = "0.12.1"
 # Enclave types
 enclave-types = { path = "shared/enclave-types" }
 
+# Pontifex
+
+pontifex = { rev = "4509bf1812f0b6da58afac4428f106b41aa3f692", git = 'https://github.com/worldcoin/pontifex' }
+# pontifex = { version = "1.0.0" }
+
 # Datadog tracing
 datadog-tracing = { version = "0.3.0", features = ["axum"] }
 
