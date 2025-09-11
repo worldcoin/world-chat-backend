@@ -244,17 +244,26 @@ impl Environment {
         }
     }
 
-    /// Returns the Enclave HTTP URL that is used to challenge push IDs
+    /// Returns the Enclave Worker HTTP URL that is used to challenge push IDs
     ///
     /// # Panics
     ///
-    /// Panics if the `ENCLAVE_HTTP_URL` environment variable is not set in production/staging
+    /// Panics if the `ENCLAVE_WORKER_URL` environment variable is not set in production/staging
     #[must_use]
-    pub fn enclave_http_url(&self) -> String {
+    pub fn enclave_worker_url(&self) -> String {
         match self {
-            Self::Production | Self::Staging => env::var("ENCLAVE_HTTP_URL")
-                .expect("ENCLAVE_HTTP_URL environment variable is not set"),
-            Self::Development { .. } => "http://localhost:8004".to_string(),
+            Self::Production | Self::Staging => {
+                let url = env::var("ENCLAVE_WORKER_URL")
+                    .expect("ENCLAVE_WORKER_URL environment variable is not set");
+
+                assert!(
+                    url.starts_with("https://"),
+                    "Enclave Worker URL in Production/Staging must use https"
+                );
+
+                url
+            }
+            Self::Development { .. } => "http://localhost:8003".to_string(),
         }
     }
 }

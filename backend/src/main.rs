@@ -47,7 +47,7 @@ async fn main() -> anyhow::Result<()> {
 
     // Initalize Push ID challenger
     let push_id_challenger: Arc<dyn PushIdChallenger> =
-        Arc::new(PushIdChallengerImpl::new(environment.enclave_http_url()));
+        Arc::new(PushIdChallengerImpl::new(environment.enclave_worker_url()));
 
     let result = server::start(
         environment,

@@ -19,16 +19,13 @@ pub trait PushIdChallenger: Send + Sync {
 }
 
 pub struct PushIdChallengerImpl {
-    enclave_url: String,
+    enclave_worker_url: String,
     http_client: Client,
 }
 
 /// Implementation of the push id challenger
 ///
-/// Communicates with a trusted nitro enclave that can verify if the encrypted push ids match.
-///
-/// TODO: This implementation is not complete, as it doesn't ensure we're talking a **trusted** nitro enclave.
-/// TODO: In a follow up PR, we'll verify the nitro enclave attestation and enforce TLS.
+/// Communicates with the enclave worker that wraps the trusted nitro enclave that can verify if the encrypted push ids match.
 impl PushIdChallengerImpl {
     /// Creates a new push id challenger
     ///
@@ -36,7 +33,7 @@ impl PushIdChallengerImpl {
     ///
     /// If the HTTP client fails to be created
     #[must_use]
-    pub fn new(enclave_url: String) -> Self {
+    pub fn new(enclave_worker_url: String) -> Self {
         let http_client = Client::builder()
             .timeout(Duration::from_secs(DEFAULT_REQUEST_TIMEOUT_SECS))
             .pool_max_idle_per_host(MAX_IDLE_CONNECTIONS_PER_HOST)
@@ -44,7 +41,7 @@ impl PushIdChallengerImpl {
             .expect("Failed to create HTTP client");
 
         Self {
-            enclave_url,
+            enclave_worker_url,
             http_client,
         }
     }
@@ -69,7 +66,7 @@ impl PushIdChallenger for PushIdChallengerImpl {
 
         let response = self
             .http_client
-            .post(format!("{}/push-id-challenge", self.enclave_url))
+            .post(format!("{}/push-id-challenge", self.enclave_worker_url))
             .json(&request)
             .send()
             .await?
