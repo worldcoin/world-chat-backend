@@ -3924,8 +3924,9 @@ dependencies = [
 
 [[package]]
 name = "pontifex"
-version = "1.0.0"
-source = "git+https://github.com/worldcoin/pontifex?rev=4509bf1812f0b6da58afac4428f106b41aa3f692#4509bf1812f0b6da58afac4428f106b41aa3f692"
+version = "1.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f3adbcba0ee607c4319f191c2b86da437c2d42c0f0d36f9f812c3e142ba541c5"
 dependencies = [
  "const-fnv1a-hash",
  "hyper 0.14.32",
