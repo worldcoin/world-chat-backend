@@ -3314,6 +3314,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "memoffset"
+version = "0.9.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "488016bfae457b036d996092f6cb448677611ce4449e970ceaf42695203f218a"
+dependencies = [
+ "autocfg",
+]
+
+[[package]]
 name = "mime"
 version = "0.3.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3355,7 +3364,7 @@ dependencies = [
  "combine",
  "libc",
  "mach2",
- "nix",
+ "nix 0.26.4",
  "sysctl",
  "thiserror 1.0.69",
  "widestring",
@@ -3386,8 +3395,21 @@ dependencies = [
  "bitflags 1.3.2",
  "cfg-if",
  "libc",
- "memoffset",
+ "memoffset 0.7.1",
  "pin-utils",
+]
+
+[[package]]
+name = "nix"
+version = "0.29.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "71e2746dc3a24dd78b3cfcb7be93368c6de9963d30f43a6a73998a9cf4b17b46"
+dependencies = [
+ "bitflags 2.9.1",
+ "cfg-if",
+ "cfg_aliases",
+ "libc",
+ "memoffset 0.9.1",
 ]
 
 [[package]]
@@ -3786,6 +3808,16 @@ name = "paste"
 version = "1.0.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "57c0d7b74b563b49d38dae00a0c37d4d6de9b432382b2892f0574ddcae73fd0a"
+
+[[package]]
+name = "pem"
+version = "3.0.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "38af38e8470ac9dee3ce1bae1af9c1671fffc44ddfd8bd1d0a3445bf349a8ef3"
+dependencies = [
+ "base64 0.22.1",
+ "serde",
+]
 
 [[package]]
 name = "pem-rfc7468"
@@ -4321,6 +4353,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "rcgen"
+version = "0.14.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4c83367ba62b3f1dbd0f086ede4e5ebfb4713fb234dbbc5807772a31245ff46d"
+dependencies = [
+ "pem",
+ "ring",
+ "rustls-pki-types",
+ "time",
+ "yasna",
+]
+
+[[package]]
 name = "redox_syscall"
 version = "0.5.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4832,7 +4877,14 @@ name = "secure-enclave"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "axum 0.7.9",
+ "hyper 1.6.0",
+ "hyper-util",
+ "rcgen",
  "tokio",
+ "tokio-rustls 0.26.2",
+ "tokio-vsock",
+ "tower-service",
  "tracing",
  "tracing-subscriber 0.3.20",
 ]
@@ -5747,6 +5799,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "tokio-vsock"
+version = "0.7.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8b319ef9394889dab2e1b4f0085b45ba11d0c79dc9d1a9d1afc057d009d0f1c7"
+dependencies = [
+ "bytes",
+ "futures",
+ "libc",
+ "tokio",
+ "vsock",
+]
+
+[[package]]
 name = "toml"
 version = "0.8.23"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6195,6 +6260,16 @@ name = "vsimd"
 version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5c3082ca00d5a5ef149bb8b555a72ae84c9c59f7250f013ac822ac2e49b19c64"
+
+[[package]]
+name = "vsock"
+version = "0.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4e8b4d00e672f147fc86a09738fadb1445bd1c0a40542378dfb82909deeee688"
+dependencies = [
+ "libc",
+ "nix 0.29.0",
+]
 
 [[package]]
 name = "walkdir"
@@ -6757,6 +6832,15 @@ name = "yansi"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cfe53a6657fd280eaa890a3bc59152892ffa3e30101319d168b781ed6529b049"
+
+[[package]]
+name = "yasna"
+version = "0.5.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e17bb3549cc1321ae1296b9cdc2698e2b6cb1992adfa19a8c72e5b7a738f44cd"
+dependencies = [
+ "time",
+]
 
 [[package]]
 name = "yoke"

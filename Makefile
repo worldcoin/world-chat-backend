@@ -1,50 +1,90 @@
-.PHONY: help fmt lint check build test clean run-backend run-enclave-worker run-secure-enclave audit
+# Makefile for fast enclave development
 
-help: ## Show this help message
-	@echo 'Usage: make [target]'
-	@echo ''
-	@echo 'Targets:'
-	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "  %-15s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
+# Variables
+ENCLAVE_CID ?= 16
+DEBUG_MODE ?= true
 
-fmt: ## Format Rust code using rustfmt
-	cargo fmt --all
+# Colors for output
+GREEN := \033[0;32m
+YELLOW := \033[1;33m
+NC := \033[0m
 
-lint: ## Run clippy lints
-	cargo clippy --all-targets --all-features --
+.PHONY: help build deploy clean console status kill all
 
-check: fmt lint ## Run all checks (format + lint)
-	@echo "All checks passed!"
+help:
+	@echo "Fast Enclave Development Commands:"
+	@echo "  make build   - Build secure-enclave binary locally"
+	@echo "  make deploy  - Build and deploy enclave (fast method)"
+	@echo "  make all     - Clean, build, and deploy"
+	@echo "  make console - Connect to enclave console"
+	@echo "  make status  - Show enclave status"
+	@echo "  make kill    - Terminate all enclaves"
+	@echo "  make clean   - Clean build artifacts"
 
-build: ## Build the project in debug mode
-	cargo build
+# Build the binary locally (uses cargo cache - FAST!)
+build:
+	@echo "$(YELLOW)Building secure-enclave...$(NC)"
+	@cargo build --release --bin secure-enclave
+	@echo "$(GREEN)✓ Build complete$(NC)"
 
-build-release: ## Build the project in release mode
-	cargo build --release
+# Deploy using fast method
+deploy: build
+	@echo "$(YELLOW)Copying binary...$(NC)"
+	@cp target/release/secure-enclave secure-enclave/secure-enclave-binary
+	@echo "$(YELLOW)Building Docker image...$(NC)"
+	@sudo docker build -t secure-enclave:fast -f secure-enclave/Dockerfile.fast . 
+	@echo "$(YELLOW)Building EIF...$(NC)"
+	@sudo nitro-cli build-enclave --docker-uri secure-enclave:fast --output-file secure-enclave.eif 
+	@echo "$(YELLOW)Deploying enclave...$(NC)"
+	@sudo nitro-cli terminate-enclave --all 2>/dev/null || true
+	@sleep 1
+	@sudo nitro-cli run-enclave \
+		--cpu-count 2 \
+		--memory 2048 \
+		--enclave-cid $(ENCLAVE_CID) \
+		--attach-console \
+		--eif-path secure-enclave.eif \
+		$(if $(filter true,$(DEBUG_MODE)),--debug-mode,)
+	@echo "$(GREEN)✓ Enclave deployed!$(NC)"
+	@sudo nitro-cli describe-enclaves | jq -r '.[0] | "ID: \(.EnclaveID)\nCID: \(.EnclaveCID)"'
 
-test: ## Run all tests
-	cargo test --all
+# Full cycle: clean, build, deploy
+all: kill clean deploy
 
-clean: ## Clean build artifacts
-	cargo clean
+# Connect to console
+console:
+	@ENCLAVE_ID=$$(sudo nitro-cli describe-enclaves | jq -r '.[0].EnclaveID'); \
+	if [ "$$ENCLAVE_ID" != "null" ]; then \
+		sudo nitro-cli console --enclave-id $$ENCLAVE_ID; \
+	else \
+		echo "No running enclave found"; \
+	fi
 
-run-backend: ## Run the backend server
-	cargo run --bin backend
+# Show status
+status:
+	@sudo nitro-cli describe-enclaves | jq '.'
 
-run-enclave-worker: ## Run the enclave worker
-	cargo run --bin enclave-worker
+# Kill all enclaves
+kill:
+	@echo "$(YELLOW)Terminating all enclaves...$(NC)"
+	@sudo nitro-cli terminate-enclave --all 2>/dev/null || true
+	@echo "$(GREEN)✓ Done$(NC)"
 
-run-secure-enclave: ## Run the secure enclave
-	cargo run --bin secure-enclave
+# Clean build artifacts
+clean:
+	@echo "$(YELLOW)Cleaning...$(NC)"
+	@rm -f secure-enclave.eif secure-enclave-fast.eif
+	@cargo clean 2>/dev/null || true
+	@echo "$(GREEN)✓ Clean complete$(NC)"
 
-audit: ## Run security, license, and ban checks
-	cargo deny check
+# Quick rebuild and deploy (most common during development)
+quick: deploy
 
-watch-backend: ## Run backend server with auto-reload (requires cargo-watch)
-	cargo watch -x 'run --bin backend'
+http-proxy:
+	@sudo docker run -d -p 5000:5000  --privileged --device=/dev/vsock --name socat alpine/socat tcp-listen:5000,fork,reuseaddr vsock-connect:16:5000
 
-watch-enclave-worker: ## Run enclave worker with auto-reload (requires cargo-watch)
-	cargo watch -x 'run --bin enclave-worker'
+kill-http-proxy:
+	@sudo docker rm -f socat
 
-install-dev-tools: ## Install development tools
-	rustup component add rustfmt clippy
-	cargo install cargo-deny cargo-watch
+status-http-proxy:
+	@sudo docker network inspect bridge | jq -r '.[0].Containers[] | select(.Name == "socat") | .IPv4Address'
