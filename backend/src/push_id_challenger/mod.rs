@@ -11,6 +11,8 @@ const MAX_IDLE_CONNECTIONS_PER_HOST: usize = 10;
 
 #[async_trait::async_trait]
 pub trait PushIdChallenger: Send + Sync {
+    /// Challenge 2 encrypted push ids by sending them to the enclave that can decrypt them
+    /// returns true if they match.
     async fn challenge_push_ids(
         &self,
         encrypted_push_id_1: String,
