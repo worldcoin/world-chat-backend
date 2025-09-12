@@ -68,7 +68,7 @@ impl PushIdChallenger for PushIdChallengerImpl {
 
         let response = self
             .http_client
-            .post(format!("{}/push-id-challenge", self.enclave_worker_url))
+            .post(format!("{}/v1/push-id-challenge", self.enclave_worker_url))
             .json(&request)
             .send()
             .await?
