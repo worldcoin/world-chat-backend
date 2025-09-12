@@ -7,6 +7,7 @@ use backend_storage::push_subscription::PushSubscriptionStorage;
 use datadog_tracing::axum::{shutdown_signal, OtelAxumLayer, OtelInResponseLayer};
 use tokio::net::TcpListener;
 
+use crate::push_id_challenger::PushIdChallenger;
 use crate::routes;
 use crate::{jwt::JwtManager, media_storage::MediaStorage, types::Environment};
 
@@ -21,6 +22,7 @@ pub async fn start(
     jwt_manager: Arc<JwtManager>,
     auth_proof_storage: Arc<AuthProofStorage>,
     push_subscription_storage: Arc<PushSubscriptionStorage>,
+    push_id_challenger: Arc<dyn PushIdChallenger>,
 ) -> anyhow::Result<()> {
     let mut openapi = OpenApi::default();
 
@@ -32,6 +34,7 @@ pub async fn start(
         .layer(Extension(jwt_manager))
         .layer(Extension(auth_proof_storage))
         .layer(Extension(push_subscription_storage))
+        .layer(Extension(push_id_challenger))
         // Include trace context as header into the response
         .layer(OtelInResponseLayer)
         // Start OpenTelemetry trace on incoming request

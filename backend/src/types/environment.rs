@@ -243,6 +243,29 @@ impl Environment {
             Self::Development { .. } => "world-chat-push-subscriptions".to_string(),
         }
     }
+
+    /// Returns the Enclave Worker HTTP URL that is used to challenge push IDs
+    ///
+    /// # Panics
+    ///
+    /// Panics if the `ENCLAVE_WORKER_URL` environment variable is not set in production/staging
+    #[must_use]
+    pub fn enclave_worker_url(&self) -> String {
+        match self {
+            Self::Production | Self::Staging => {
+                let url = env::var("ENCLAVE_WORKER_URL")
+                    .expect("ENCLAVE_WORKER_URL environment variable is not set");
+
+                assert!(
+                    url.starts_with("https://"),
+                    "Enclave Worker URL in Production/Staging must use https"
+                );
+
+                url
+            }
+            Self::Development { .. } => "http://localhost:8002".to_string(),
+        }
+    }
 }
 
 #[cfg(test)]

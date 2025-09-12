@@ -19,6 +19,7 @@ tower-http = { workspace = true }
 # Async 
 tokio = { workspace = true }
 futures = { workspace = true }
+async-trait = { workspace = true }
 
 # Serialization
 serde = { workspace = true }
@@ -67,7 +68,13 @@ mime = { workspace = true }
 p256 = { workspace = true }
 sha2 = { workspace = true }
 
+common-types = { workspace = true }
+
+[features]
+test-utils = []
+
 [dev-dependencies]
+backend = { path = ".", features = ["test-utils"] }
 http-body-util = { workspace = true }
 tower = { workspace = true }
 tokio-test = { workspace = true }

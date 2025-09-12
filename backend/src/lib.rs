@@ -3,6 +3,7 @@
 pub mod jwt;
 pub mod media_storage;
 pub mod middleware;
+pub mod push_id_challenger;
 pub mod routes;
 pub mod server;
 pub mod types;

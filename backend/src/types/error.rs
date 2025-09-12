@@ -379,3 +379,16 @@ impl From<JwtError> for AppError {
         }
     }
 }
+
+/// Convert reqwest errors to application errors
+impl From<reqwest::Error> for AppError {
+    fn from(err: reqwest::Error) -> Self {
+        tracing::error!("Reqwest error: {err:?}");
+        Self::new(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "internal_error",
+            "Internal server error",
+            false,
+        )
+    }
+}
