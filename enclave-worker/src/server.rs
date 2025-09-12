@@ -20,6 +20,7 @@ pub async fn start(
     environment: Environment,
     notification_queue: Arc<NotificationQueue>,
     push_subscription_storage: Arc<PushSubscriptionStorage>,
+    enclave_connection_details: pontifex::client::ConnectionDetails,
     shutdown_token: CancellationToken,
 ) -> anyhow::Result<()> {
     let mut openapi = OpenApi::default();
@@ -30,6 +31,7 @@ pub async fn start(
         .layer(Extension(environment))
         .layer(Extension(push_subscription_storage))
         .layer(Extension(notification_queue))
+        .layer(Extension(enclave_connection_details))
         // Include trace context as header into the response
         .layer(OtelInResponseLayer)
         // Start OpenTelemetry trace on incoming request
