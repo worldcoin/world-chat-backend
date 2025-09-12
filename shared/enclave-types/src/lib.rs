@@ -6,8 +6,6 @@ use thiserror::Error;
 pub enum EnclaveError {
     #[error("Enclave not initialized. Call Initialize first.")]
     NotInitialized,
-    #[error("Unexpected response type")]
-    UnexpectedResponse,
 }
 
 /// Braze API configuration

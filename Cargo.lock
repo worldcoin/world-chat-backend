@@ -2188,6 +2188,8 @@ dependencies = [
  "axum-jsonschema",
  "backend_storage",
  "datadog-tracing",
+ "enclave-types",
+ "pontifex",
  "reqwest 0.12.23",
  "schemars",
  "serde",
