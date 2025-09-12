@@ -41,3 +41,7 @@ schemars = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 reqwest = { workspace = true }
+
+pontifex = { workspace = true, features = ["client"] }
+
+enclave-types = { workspace = true }
