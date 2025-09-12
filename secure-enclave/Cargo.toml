@@ -18,3 +18,8 @@ tracing-subscriber = { workspace = true }
 
 # Error handling
 anyhow = { workspace = true }
+
+# Pontifex server
+pontifex = { workspace = true, features = ["server", "http"] }
+
+enclave-types = { workspace = true }

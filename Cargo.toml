@@ -87,6 +87,9 @@ hmac = "0.12.1"
 # Enclave types
 enclave-types = { path = "shared/enclave-types" }
 
+# Pontifex
+pontifex = { version = "1.0.1" }
+
 # Datadog tracing
 datadog-tracing = { version = "0.3.0", features = ["axum"] }
 
