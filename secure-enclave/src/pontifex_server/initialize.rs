@@ -14,7 +14,10 @@ pub async fn handler(
     let mut state = state.write().await;
     state.http_proxy_client = Some(client);
     state.braze_api_key = Some(config.braze_api_key);
-    state.braze_api_endpoint = Some(config.braze_api_endpoint);
+    state.braze_api_endpoint = Some(format!(
+        "https://rest.{}.braze.com",
+        config.braze_api_region
+    ));
     state.initialized = true;
 
     info!("✅ Enclave initialized successfully");

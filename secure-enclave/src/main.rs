@@ -8,7 +8,7 @@ const PONTIFEX_PORT: u32 = 1000;
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    // Initialize tracing
+    // TODO: This is used for development, remove this before we go live
     tracing_subscriber::fmt()
         .with_max_level(tracing::Level::DEBUG)
         .with_level(true)

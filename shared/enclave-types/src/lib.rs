@@ -15,8 +15,8 @@ pub enum EnclaveError {
 pub struct EnclaveInitializeRequest {
     /// Braze API key
     pub braze_api_key: String,
-    /// Braze REST endpoint URL (e.g., https://rest.iad-01.braze.com)
-    pub braze_api_endpoint: String,
+    /// Braze REST API region (e.g., https://rest.{braze_api_region}.braze.com)
+    pub braze_api_region: String,
     /// Enclave HTTP proxy port
     pub braze_http_proxy_port: u32,
 }
