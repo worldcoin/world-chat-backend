@@ -93,6 +93,9 @@ enclave-types = { path = "shared/enclave-types" }
 # Common types 
 common-types = { path = "shared/common-types" }
 
+# Pontifex
+pontifex = { version = "1.0.1" }
+
 # Datadog tracing
 datadog-tracing = { version = "0.3.0", features = ["axum"] }
 
