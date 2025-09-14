@@ -4959,6 +4959,8 @@ name = "secure-enclave"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "enclave-types",
+ "pontifex",
  "tokio",
  "tracing",
  "tracing-subscriber 0.3.20",
