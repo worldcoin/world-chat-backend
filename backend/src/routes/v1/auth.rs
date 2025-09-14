@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use axum::Extension;
+use axum::{http::StatusCode, Extension};
 use axum_jsonschema::Json;
 use backend_storage::auth_proof::{AuthProofInsertRequest, AuthProofStorage};
 use chrono::Utc;
@@ -11,9 +11,13 @@ use walletkit_core::CredentialType;
 
 use crate::{
     jwt::{JwsPayload, JwtManager},
+    push_id_challenger::PushIdChallenger,
     types::{AppError, Environment},
     world_id::{error::WorldIdError, verifier::verify_world_id_proof},
 };
+
+/// The threshold for the last push id rotation in seconds
+const PUSH_ID_ROTATION_THRESHOLD_SECS: i64 = 6 * 30 * 24 * 60 * 60; // 6 months
 
 #[derive(Deserialize, JsonSchema)]
 pub struct AuthRequest {
@@ -53,6 +57,7 @@ pub async fn authorize_handler(
     Extension(jwt_manager): Extension<Arc<JwtManager>>,
     Extension(auth_proof_storage): Extension<Arc<AuthProofStorage>>,
     Extension(environment): Extension<Environment>,
+    Extension(push_id_challenger): Extension<Arc<dyn PushIdChallenger>>,
     Json(request): Json<AuthRequest>,
 ) -> Result<Json<AuthResponse>, AppError> {
     // 1. Verify World ID proof
@@ -78,14 +83,46 @@ pub async fn authorize_handler(
         })
         .await?;
 
-    // 3. Issue JWT token with stored encrypted push id
-    let jws_payload = JwsPayload::from_encrypted_push_id(auth_proof.encrypted_push_id);
-    let access_token = jwt_manager.issue_token(&jws_payload).await?;
+    // 3. Decide the push id action
+    // - If the push ids match, issue a JWT token with the stored encrypted push id
+    // - If the push ids don't match, but the push id rotation is within the threshold, reject the rotation
+    // - Otherwise, rotate the push id and issue a JWT token with the new encrypted push id
+    let push_id_action = {
+        let push_ids_match = push_id_challenger
+            .challenge_push_ids(
+                auth_proof.encrypted_push_id.clone(),
+                request.encrypted_push_id.clone(),
+            )
+            .await?;
+        let is_push_id_rotation_within_threshold = Utc::now().timestamp()
+            <= auth_proof.push_id_rotated_at + PUSH_ID_ROTATION_THRESHOLD_SECS;
 
-    Ok(Json(AuthResponse {
-        access_token,
-        expires_at: jws_payload.expires_at,
-    }))
+        if push_ids_match {
+            PushIdAction::IssueStored(auth_proof.encrypted_push_id)
+        } else if is_push_id_rotation_within_threshold {
+            PushIdAction::RejectRotation
+        } else {
+            PushIdAction::RotateAndIssue(request.encrypted_push_id)
+        }
+    };
+
+    match push_id_action {
+        PushIdAction::IssueStored(encrypted_push_id) => {
+            issue_jwt_token(&jwt_manager, encrypted_push_id).await
+        }
+        PushIdAction::RejectRotation => Err(AppError::new(
+            StatusCode::FORBIDDEN,
+            "push_ids_mismatch",
+            "Push IDs mismatch",
+            false,
+        )),
+        PushIdAction::RotateAndIssue(encrypted_push_id) => {
+            auth_proof_storage
+                .update_encrypted_push_id(&auth_proof.nullifier, &encrypted_push_id)
+                .await?;
+            issue_jwt_token(&jwt_manager, encrypted_push_id).await
+        }
+    }
 }
 
 /// Enforce a 5 minute window for the timestamp used in the signal.
@@ -112,4 +149,25 @@ fn validate_and_craft_signal(
     }
 
     Ok(format!("{encrypted_push_id}:{timestamp}"))
+}
+
+/// Enum with possible push id action states
+enum PushIdAction {
+    IssueStored(String),
+    RejectRotation,
+    RotateAndIssue(String),
+}
+
+/// Helper function to issue a JWT token and return a Json<AuthResponse>
+async fn issue_jwt_token(
+    jwt_manager: &JwtManager,
+    encrypted_push_id: String,
+) -> Result<Json<AuthResponse>, AppError> {
+    let jws_payload = JwsPayload::from_encrypted_push_id(encrypted_push_id);
+    let access_token = jwt_manager.issue_token(&jws_payload).await?;
+
+    Ok(Json(AuthResponse {
+        access_token,
+        expires_at: jws_payload.expires_at,
+    }))
 }
