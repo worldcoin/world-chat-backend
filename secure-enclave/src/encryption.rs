@@ -27,33 +27,26 @@ impl KeyPair {
 /// See Randomness Section in:
 /// `<https://blog.trailofbits.com/2024/09/24/notes-on-aws-nitro-enclaves-attack-surface>`
 pub fn verify_nsm_hwrng_current() -> anyhow::Result<()> {
-    // This is the list of hardware available RNGs.
     const SYSFS_PATHS: [&str; 2] = [
         "/sys/class/misc/hw_random/rng_current",
         "/sys/devices/virtual/misc/hw_random/rng_current",
     ];
 
-    let mut last_err: Option<anyhow::Error> = None;
     for path in SYSFS_PATHS {
         if Path::new(path).exists() {
-            match fs::read_to_string(path) {
-                Ok(contents) => {
-                    let current = contents.trim();
-                    tracing::info!("rng_current={current}");
-                    if current == "nsm-hwrng" {
-                        return Ok(());
-                    }
+            let contents = fs::read_to_string(path)?;
+            let current = contents.trim();
+            tracing::info!("rng_current={current}");
 
-                    // Also log available RNGs to aid debugging
-
-                    return Err(anyhow::anyhow!(format!(
-                        "rng_current is '{current}', expected 'nsm-hwrng'"
-                    )));
-                }
-                Err(e) => last_err = Some(e.into()),
-            }
+            return if current == "nsm-hwrng" {
+                Ok(())
+            } else {
+                Err(anyhow::anyhow!(
+                    "rng_current is '{current}', expected 'nsm-hwrng'"
+                ))
+            };
         }
     }
 
-    Err(last_err.unwrap_or_else(|| anyhow::anyhow!("rng_current sysfs path not found")))
+    Err(anyhow::anyhow!("rng_current sysfs path not found"))
 }
