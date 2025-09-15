@@ -8,6 +8,11 @@ pub enum EnclaveError {
     NotInitialized,
     #[error("Unexpected response type")]
     UnexpectedResponse,
+    #[error("Secure module not initialized")]
+    SecureModuleNotInitialized,
+    // TODO: Add source pontifex attestation error (it's missing serialization decorator now)
+    #[error("Attestation failed")]
+    AttestationFailed(),
 }
 
 /// Braze API configuration
@@ -38,4 +43,18 @@ pub struct EnclaveHealthCheckRequest;
 impl Request for EnclaveHealthCheckRequest {
     const ROUTE_ID: &'static str = "/v1/health-check";
     type Response = Result<(), EnclaveError>;
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EnclavePublicKeyRequest;
+
+impl Request for EnclavePublicKeyRequest {
+    const ROUTE_ID: &'static str = "/v1/public-key";
+    type Response = Result<EnclavePublicKeyResponse, EnclaveError>;
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EnclavePublicKeyResponse {
+    /// Base64-encoded attestation document
+    pub attestation: Vec<u8>,
 }
