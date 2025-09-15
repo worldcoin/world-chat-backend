@@ -55,6 +55,6 @@ impl Request for EnclavePublicKeyRequest {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EnclavePublicKeyResponse {
-    /// Base64-encoded attestation document
+    /// Attestation document bytes
     pub attestation: Vec<u8>,
 }
