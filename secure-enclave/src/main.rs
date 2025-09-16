@@ -1,10 +1,16 @@
 use anyhow::Result;
-use secure_enclave::{pontifex_server::start_pontifex_server, state::EnclaveState};
+use secure_enclave::{
+    encryption::{verify_nsm_hwrng_current, KeyPair},
+    pontifex_server::start_pontifex_server,
+    state::EnclaveState,
+};
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use tracing::{error, info};
 
 const PONTIFEX_PORT: u32 = 1000;
+/// EX_CONFIG exit code
+const EXIT_RNG_MISCONFIG: i32 = 78;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -17,8 +23,18 @@ async fn main() -> Result<()> {
 
     info!("Starting Secure Enclave");
 
+    // Ensure kernel RNG is backed by the Nitro Secure Module HW RNG.
+    // Otherwise, hard fail.
+    if let Err(_e) = verify_nsm_hwrng_current() {
+        std::process::exit(EXIT_RNG_MISCONFIG);
+    }
+
+    let keys = KeyPair::generate();
+
+    tracing::info!("🔑 Generated encryption keys");
+
     // TODO: Explore retrying on failure and compatibility with pod restart
-    let state = Arc::new(RwLock::new(EnclaveState::default()));
+    let state = Arc::new(RwLock::new(EnclaveState::new(keys)));
     if let Err(e) = start_pontifex_server(state, PONTIFEX_PORT).await {
         error!("Failed to start pontifex server: {e}");
         return Err(e);
