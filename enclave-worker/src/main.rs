@@ -39,6 +39,10 @@ async fn main() -> Result<()> {
 
     info!("✅ Initialized push subscription storage");
 
+    // Initialize Enclave connection details
+    let enclave_connection_details =
+        pontifex::client::ConnectionDetails::new(env.enclave_cid(), env.enclave_port());
+
     // Single shutdown token for everything
     let shutdown_token = CancellationToken::new();
     let signal_token = shutdown_token.clone();
@@ -66,6 +70,7 @@ async fn main() -> Result<()> {
         env,
         notification_queue,
         subscription_storage,
+        enclave_connection_details,
         shutdown_token,
     )
     .await;

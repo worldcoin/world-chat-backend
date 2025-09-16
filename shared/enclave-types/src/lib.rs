@@ -6,8 +6,6 @@ use thiserror::Error;
 pub enum EnclaveError {
     #[error("Enclave not initialized. Call Initialize first.")]
     NotInitialized,
-    #[error("Unexpected response type")]
-    UnexpectedResponse,
     #[error("Secure module not initialized")]
     SecureModuleNotInitialized,
     // TODO: Add source pontifex attestation error (it's missing serialization decorator now)
@@ -57,4 +55,15 @@ impl Request for EnclavePublicKeyRequest {
 pub struct EnclavePublicKeyResponse {
     /// Attestation document bytes
     pub attestation: Vec<u8>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EnclavePushIdChallengeRequest {
+    pub encrypted_push_id_1: String,
+    pub encrypted_push_id_2: String,
+}
+
+impl Request for EnclavePushIdChallengeRequest {
+    const ROUTE_ID: &'static str = "/v1/push-id-challenge";
+    type Response = Result<bool, EnclaveError>;
 }
