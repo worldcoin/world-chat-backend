@@ -148,11 +148,31 @@ impl From<pontifex::client::Error> for AppError {
 
 impl From<enclave_types::EnclaveError> for AppError {
     fn from(err: enclave_types::EnclaveError) -> Self {
-        use enclave_types::EnclaveError::NotInitialized;
+        use enclave_types::EnclaveError::{
+            AttestationFailed, NotInitialized, SecureModuleNotInitialized,
+        };
 
         match &err {
             NotInitialized => {
                 tracing::error!("Enclave not initialized");
+                Self::new(
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "internal_error",
+                    "Internal server error",
+                    false,
+                )
+            }
+            SecureModuleNotInitialized => {
+                tracing::error!("Secure module not initialized");
+                Self::new(
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "internal_error",
+                    "Internal server error",
+                    false,
+                )
+            }
+            AttestationFailed() => {
+                tracing::error!("Attestation failed");
                 Self::new(
                     StatusCode::INTERNAL_SERVER_ERROR,
                     "internal_error",
