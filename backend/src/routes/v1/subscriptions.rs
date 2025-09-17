@@ -22,8 +22,8 @@ pub struct CreateSubscriptionRequest {
     /// Topic for the subscription
     #[schemars(length(min = 1))]
     pub topic: String,
-    /// HMAC key for subscription validation (64 hex characters)
-    #[schemars(length(equal = 64))]
+    /// HMAC key for subscription validation (42 bytes or 84 hex characters)
+    #[schemars(length(equal = 84))]
     pub hmac_key: String,
     /// TTL as unix timestamp
     #[schemars(
@@ -36,8 +36,8 @@ pub struct CreateSubscriptionRequest {
 #[derive(Debug, Deserialize, Serialize, JsonSchema)]
 #[schemars(deny_unknown_fields)]
 pub struct UnsubscribeRequest {
-    /// HMAC key for subscription validation (64 hex characters)
-    #[schemars(length(equal = 64))]
+    /// HMAC key for subscription validation (42 bytes or 84 hex characters)
+    #[schemars(length(equal = 84))]
     pub hmac_key: String,
     /// Topic to unsubscribe from
     #[schemars(length(min = 1))]
