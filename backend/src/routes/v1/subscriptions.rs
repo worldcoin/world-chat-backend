@@ -36,12 +36,12 @@ pub struct CreateSubscriptionRequest {
 #[derive(Debug, Deserialize, Serialize, JsonSchema)]
 #[schemars(deny_unknown_fields)]
 pub struct UnsubscribeRequest {
-    /// HMAC key for subscription validation (64 hex characters)
-    #[schemars(length(equal = 64))]
-    pub hmac_key: String,
     /// Topic to unsubscribe from
     #[schemars(length(min = 1))]
     pub topic: String,
+    /// Encrypted push ID to unsubscribe
+    #[schemars(length(min = 1))]
+    pub encrypted_push_id: String,
 }
 
 /// Subscribe to push notifications for multiple topics
@@ -128,18 +128,19 @@ pub async fn subscribe(
 
 /// Unsubscribe from push notifications for a specific topic
 ///
-/// Removes or marks for deletion a push notification subscription. The behavior depends on
-/// whether the requesting user is the original subscriber:
+/// Removes or marks for deletion all push notification subscriptions for the given topic
+/// and encrypted_push_id combination. The behavior depends on whether the requesting user
+/// owns the subscriptions:
 ///
-/// - **If the user is the original subscriber**: The subscription is immediately deleted
-/// - **If the user is not the original subscriber**: The user's encrypted push ID is added to the deletion_request set,
-///   this acts as a tombstone for the subscription, and if the plaintext push ids are the same it's lazily deleted.
+/// - **If the user owns the subscriptions**: All matching subscriptions are immediately deleted
+/// - **If the user doesn't own the subscriptions**: The user's encrypted push ID is added to
+///   the deletion_request set for each subscription, acting as a tombstone
 ///
 /// # Arguments
 ///
 /// * `user` - The authenticated user making the unsubscribe request
 /// * `push_storage` - DynamoDB storage handler for push subscriptions
-/// * `payload` - Unsubscribe request containing topic and HMAC key
+/// * `payload` - Unsubscribe request containing topic and encrypted_push_id
 ///
 /// # Returns
 ///
@@ -148,7 +149,7 @@ pub async fn subscribe(
 /// # Errors
 ///
 /// Returns an error if:
-/// - `404 NOT_FOUND` - Subscription with the given topic and HMAC key does not exist
+/// - `404 NOT_FOUND` - No subscriptions found for the given topic and encrypted_push_id
 /// - `401 UNAUTHORIZED` - Invalid or missing authentication
 /// - `500 INTERNAL_SERVER_ERROR` - Other unexpected errors during storage operations
 #[instrument(skip(push_storage, payload))]
@@ -157,26 +158,36 @@ pub async fn unsubscribe(
     Extension(push_storage): Extension<Arc<PushSubscriptionStorage>>,
     Json(payload): Json<UnsubscribeRequest>,
 ) -> Result<StatusCode, AppError> {
-    let push_subscription = push_storage
-        .get_one(&payload.topic, &payload.hmac_key)
-        .await?
-        .ok_or_else(|| {
-            AppError::new(
-                StatusCode::NOT_FOUND,
-                "push_subscription_not_found",
-                "Push subscription not found",
-                false,
-            )
-        })?;
+    // Get all subscriptions for the topic that match the encrypted_push_id
+    let matching_subscriptions = push_storage
+        .get_all_by_topic_and_push_id(&payload.topic, &payload.encrypted_push_id)
+        .await?;
 
-    if push_subscription.encrypted_push_id == user.encrypted_push_id {
+    if matching_subscriptions.is_empty() {
+        return Err(AppError::new(
+            StatusCode::NOT_FOUND,
+            "push_subscription_not_found",
+            "No push subscriptions found for the given topic and encrypted_push_id",
+            false,
+        ));
+    }
+
+    // Collect hmac_keys for batch operations
+    let hmac_keys: Vec<String> = matching_subscriptions
+        .iter()
+        .map(|sub| sub.hmac_key.clone())
+        .collect();
+
+    // Check if the user owns these subscriptions
+    if payload.encrypted_push_id == user.encrypted_push_id {
+        // User owns the subscriptions - batch delete them
         push_storage
-            .delete(&payload.topic, &payload.hmac_key)
+            .batch_delete(&payload.topic, &hmac_keys)
             .await?;
     } else {
-        // Add the user's encrypted push id to the deletion request using native DynamoDB string set ADD
+        // User doesn't own the subscriptions - batch append deletion requests
         push_storage
-            .append_delete_request(&payload.topic, &payload.hmac_key, &user.encrypted_push_id)
+            .batch_append_delete_requests(&payload.topic, &hmac_keys, &user.encrypted_push_id)
             .await?;
     }
 
