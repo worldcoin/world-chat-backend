@@ -4,13 +4,14 @@
 
 mod error;
 
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 
 use aws_sdk_dynamodb::{
     error::SdkError,
-    types::{AttributeValue, Select},
+    types::{AttributeValue, DeleteRequest, Select, WriteRequest},
     Client as DynamoDbClient,
 };
+use futures::future;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 
@@ -288,5 +289,153 @@ impl PushSubscriptionStorage {
             .await?;
 
         Ok(())
+    }
+
+    /// Gets all push subscriptions for a specific `topic` and `encrypted_push_id`
+    ///
+    /// # Arguments
+    ///
+    /// * `topic` - The topic to query subscriptions for
+    /// * `encrypted_push_id` - The encrypted push ID to filter by
+    ///
+    /// # Returns
+    ///
+    /// A vector of push subscriptions matching the `topic` and `encrypted_push_id`
+    ///
+    /// # Errors
+    ///
+    /// Returns `PushSubscriptionStorageError` if the Dynamo DB operation fails
+    pub async fn get_all_by_topic_and_push_id(
+        &self,
+        topic: &str,
+        encrypted_push_id: &str,
+    ) -> PushSubscriptionStorageResult<Vec<PushSubscription>> {
+        let response = self
+            .dynamodb_client
+            .query()
+            .table_name(&self.table_name)
+            .key_condition_expression("#topic = :topic")
+            .filter_expression("#encrypted_push_id = :encrypted_push_id")
+            .expression_attribute_names("#topic", PushSubscriptionAttribute::Topic.to_string())
+            .expression_attribute_names(
+                "#encrypted_push_id",
+                PushSubscriptionAttribute::EncryptedPushId.to_string(),
+            )
+            .expression_attribute_values(":topic", AttributeValue::S(topic.to_string()))
+            .expression_attribute_values(
+                ":encrypted_push_id",
+                AttributeValue::S(encrypted_push_id.to_string()),
+            )
+            .select(Select::AllAttributes)
+            .send()
+            .await?;
+
+        response
+            .items()
+            .iter()
+            .map(|item| {
+                serde_dynamo::from_item(item.clone()).map_err(|e| {
+                    PushSubscriptionStorageError::ParseSubscriptionError(e.to_string())
+                })
+            })
+            .collect()
+    }
+
+    /// Batch delete multiple subscriptions by topic and `hmac_keys`
+    ///
+    /// # Arguments
+    ///
+    /// * `topic` - The topic of the subscriptions to delete
+    /// * `hmac_keys` - The HMAC keys of the subscriptions to delete
+    ///
+    /// # Errors
+    ///
+    /// Returns `PushSubscriptionStorageError` if the Dynamo DB operation fails
+    pub async fn batch_delete(
+        &self,
+        topic: &str,
+        hmac_keys: &[String],
+    ) -> PushSubscriptionStorageResult<()> {
+        // DynamoDB batch delete has a limit of 25 items per request
+        for chunk in hmac_keys.chunks(25) {
+            let write_requests = chunk
+                .iter()
+                .map(|hmac_key| Self::build_delete_req(topic.to_string(), hmac_key.to_string()))
+                .collect::<Result<Vec<_>, _>>()?;
+
+            self.dynamodb_client
+                .batch_write_item()
+                .request_items(&self.table_name, write_requests)
+                .send()
+                .await?;
+        }
+
+        Ok(())
+    }
+
+    /// Batch append deletion requests to multiple subscriptions
+    ///
+    /// # Arguments
+    ///
+    /// * `topic` - The topic of the subscriptions
+    /// * `hmac_keys` - The HMAC keys of the subscriptions
+    /// * `encrypted_push_id` - The encrypted push ID to add to deletion requests
+    ///
+    /// # Errors
+    ///
+    /// Returns `PushSubscriptionStorageError` if the Dynamo DB operation fails
+    pub async fn batch_append_delete_requests(
+        &self,
+        topic: &str,
+        hmac_keys: &[String],
+        encrypted_push_id: &str,
+    ) -> PushSubscriptionStorageResult<()> {
+        // Use parallel update operations for efficiency
+        let futures: Vec<_> = hmac_keys
+            .iter()
+            .map(|hmac_key| self.append_delete_request(topic, hmac_key, encrypted_push_id))
+            .collect();
+
+        future::try_join_all(futures).await?;
+        Ok(())
+    }
+
+    /// Builds a delete request for a subscription
+    ///
+    /// # Arguments
+    ///
+    /// * `topic` - The topic of the subscription
+    /// * `hmac_key` - The HMAC key of the subscription
+    ///
+    /// # Returns
+    ///
+    /// A delete request for the subscription
+    fn build_delete_req(
+        topic: String,
+        hmac_key: String,
+    ) -> PushSubscriptionStorageResult<WriteRequest> {
+        let key = HashMap::from([
+            (
+                PushSubscriptionAttribute::Topic.to_string(),
+                AttributeValue::S(topic),
+            ),
+            (
+                PushSubscriptionAttribute::HmacKey.to_string(),
+                AttributeValue::S(hmac_key),
+            ),
+        ]);
+
+        Ok(WriteRequest::builder()
+            .delete_request(
+                DeleteRequest::builder()
+                    .set_key(Some(key))
+                    .build()
+                    .map_err(|e| {
+                        PushSubscriptionStorageError::SerializationError(format!(
+                            "Failed to build delete request: {e:?}",
+                        ))
+                    })?,
+            )
+            .build())
     }
 }

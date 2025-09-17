@@ -2,8 +2,8 @@
 
 use aws_sdk_dynamodb::error::SdkError;
 use aws_sdk_dynamodb::operation::{
-    delete_item::DeleteItemError, get_item::GetItemError, put_item::PutItemError,
-    query::QueryError, update_item::UpdateItemError,
+    batch_write_item::BatchWriteItemError, delete_item::DeleteItemError, get_item::GetItemError,
+    put_item::PutItemError, query::QueryError, update_item::UpdateItemError,
 };
 use thiserror::Error;
 
@@ -32,6 +32,10 @@ pub enum PushSubscriptionStorageError {
     /// Failed to update subscription in Dynamo DB
     #[error("Failed to update subscription in DynamoDB: {0}")]
     DynamoDbUpdateError(#[from] SdkError<UpdateItemError>),
+
+    /// Failed to batch write items to Dynamo DB
+    #[error("Failed to batch write items to DynamoDB: {0}")]
+    DynamoDbBatchWriteError(#[from] SdkError<BatchWriteItemError>),
 
     /// Failed to parse subscription from Dynamo DB item
     #[error("Failed to parse subscription: {0:?}")]
