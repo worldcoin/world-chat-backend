@@ -291,9 +291,7 @@ impl PushSubscriptionStorage {
         Ok(())
     }
 
-    /// Gets all push subscriptions for a specific topic and `encrypted_push_id`
-    ///
-    /// This method queries all subscriptions for a topic and filters by `encrypted_push_id`
+    /// Gets all push subscriptions for a specific `topic` and `encrypted_push_id`
     ///
     /// # Arguments
     ///
@@ -302,7 +300,7 @@ impl PushSubscriptionStorage {
     ///
     /// # Returns
     ///
-    /// A vector of push subscriptions matching the topic and `encrypted_push_id`
+    /// A vector of push subscriptions matching the `topic` and `encrypted_push_id`
     ///
     /// # Errors
     ///
@@ -312,12 +310,35 @@ impl PushSubscriptionStorage {
         topic: &str,
         encrypted_push_id: &str,
     ) -> PushSubscriptionStorageResult<Vec<PushSubscription>> {
-        let all_subscriptions = self.get_all_by_topic(topic).await?;
+        let response = self
+            .dynamodb_client
+            .query()
+            .table_name(&self.table_name)
+            .key_condition_expression("#topic = :topic")
+            .filter_expression("#encrypted_push_id = :encrypted_push_id")
+            .expression_attribute_names("#topic", PushSubscriptionAttribute::Topic.to_string())
+            .expression_attribute_names(
+                "#encrypted_push_id",
+                PushSubscriptionAttribute::EncryptedPushId.to_string(),
+            )
+            .expression_attribute_values(":topic", AttributeValue::S(topic.to_string()))
+            .expression_attribute_values(
+                ":encrypted_push_id",
+                AttributeValue::S(encrypted_push_id.to_string()),
+            )
+            .select(Select::AllAttributes)
+            .send()
+            .await?;
 
-        Ok(all_subscriptions
-            .into_iter()
-            .filter(|sub| sub.encrypted_push_id == encrypted_push_id)
-            .collect())
+        response
+            .items()
+            .iter()
+            .map(|item| {
+                serde_dynamo::from_item(item.clone()).map_err(|e| {
+                    PushSubscriptionStorageError::ParseSubscriptionError(e.to_string())
+                })
+            })
+            .collect()
     }
 
     /// Batch delete multiple subscriptions by topic and `hmac_keys`
