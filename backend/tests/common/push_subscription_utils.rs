@@ -5,7 +5,7 @@ use rand::{distributions::Alphanumeric, Rng};
 pub fn generate_hmac_key() -> String {
     rand::thread_rng()
         .sample_iter(&Alphanumeric)
-        .take(64)
+        .take(84)
         .map(char::from)
         .collect()
 }
