@@ -56,7 +56,7 @@ impl MessageProcessor {
                     match result {
                         Ok(message) => {
                             if let Err(e) = self.process_message(&message).await {
-                                error!("Failed to process message: {}", e);
+                                error!("Failed to process message: {:#?}", e);
                             }
                         }
                         Err(flume::RecvError::Disconnected) => {
@@ -117,7 +117,6 @@ impl MessageProcessor {
             })
             .collect::<HashSet<_>>();
         if subscribed_encrypted_push_ids.is_empty() {
-            warn!("No subscriptions found for topic");
             return Ok(());
         }
 
