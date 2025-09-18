@@ -117,7 +117,6 @@ impl MessageProcessor {
             })
             .collect::<HashSet<_>>();
         if subscribed_encrypted_push_ids.is_empty() {
-            warn!("No subscriptions found for topic");
             return Ok(());
         }
 
