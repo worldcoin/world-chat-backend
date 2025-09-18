@@ -35,7 +35,7 @@ impl NotificationProcessor {
         let braze_api_key =
             std::env::var("BRAZE_API_KEY").unwrap_or_else(|_| "YOUR_BRAZE_API_KEY".to_string());
         let braze_api_url = std::env::var("BRAZE_API_URL")
-            .unwrap_or_else(|_| "https://rest.iad-01.braze.com/messages/send".to_string());
+            .unwrap_or_else(|_| "https://rest.iad-05.braze.com/messages/send".to_string());
 
         Self {
             queue,
