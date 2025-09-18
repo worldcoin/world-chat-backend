@@ -88,39 +88,39 @@ pub async fn auth_middleware(
 
     // If auth is disabled, we skip token validation
     // and use the token as the encrypted push id
-    if environment.disable_auth() {
-        if let Some(token) = stripped_auth_header {
-            let authenticated_user = AuthenticatedUser {
-                encrypted_push_id: token.to_string(),
-            };
-            request.extensions_mut().insert(authenticated_user);
-        }
-
-        return Ok(next.run(request).await);
+    // if environment.disable_auth() {
+    if let Some(token) = stripped_auth_header {
+        let authenticated_user = AuthenticatedUser {
+            encrypted_push_id: token.to_string(),
+        };
+        request.extensions_mut().insert(authenticated_user);
     }
 
-    let token = stripped_auth_header.ok_or_else(|| {
-        AppError::new(
-            StatusCode::UNAUTHORIZED,
-            "missing_token",
-            "Authorization header must contain a valid Bearer token",
-            false,
-        )
-    })?;
+    return Ok(next.run(request).await);
+    // }
 
-    // Validate JWT
-    let claims = jwt_manager.validate(token).map_err(|_| {
-        AppError::new(
-            StatusCode::UNAUTHORIZED,
-            "invalid_token",
-            "Invalid or expired token",
-            false,
-        )
-    })?;
+    // let token = stripped_auth_header.ok_or_else(|| {
+    //     AppError::new(
+    //         StatusCode::UNAUTHORIZED,
+    //         "missing_token",
+    //         "Authorization header must contain a valid Bearer token",
+    //         false,
+    //     )
+    // })?;
 
-    // Add authenticated user to request extensions
-    let user = AuthenticatedUser::from(claims);
-    request.extensions_mut().insert(user);
+    // // Validate JWT
+    // let claims = jwt_manager.validate(token).map_err(|_| {
+    //     AppError::new(
+    //         StatusCode::UNAUTHORIZED,
+    //         "invalid_token",
+    //         "Invalid or expired token",
+    //         false,
+    //     )
+    // })?;
 
-    Ok(next.run(request).await)
+    // // Add authenticated user to request extensions
+    // let user = AuthenticatedUser::from(claims);
+    // request.extensions_mut().insert(user);
+
+    // Ok(next.run(request).await)
 }
