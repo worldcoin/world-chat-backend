@@ -96,7 +96,7 @@ pub async fn auth_middleware(
         request.extensions_mut().insert(authenticated_user);
     }
 
-    return Ok(next.run(request).await);
+    Ok(next.run(request).await)
     // }
 
     // let token = stripped_auth_header.ok_or_else(|| {
