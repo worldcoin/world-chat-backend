@@ -2041,6 +2041,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "datadog-metrics"
+version = "0.1.0"
+dependencies = [
+ "dogstatsd",
+ "once_cell",
+ "serde",
+ "tracing",
+]
+
+[[package]]
 name = "datadog-tracing"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2182,6 +2192,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "dogstatsd"
+version = "0.12.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "faeb22dbbf6aef8e687ad83f9cd9fd893ac5c0f36d2e46fb0cbcf7ae19640ec0"
+dependencies = [
+ "chrono",
+ "retry",
+]
+
+[[package]]
 name = "dotenvy"
 version = "0.15.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2304,6 +2324,7 @@ dependencies = [
  "axum 0.7.9",
  "axum-jsonschema",
  "backend_storage",
+ "datadog-metrics",
  "datadog-tracing",
  "enclave-types",
  "pontifex",
@@ -3610,6 +3631,7 @@ dependencies = [
  "base64 0.22.1",
  "chrono",
  "clap",
+ "datadog-metrics",
  "datadog-tracing",
  "dotenvy",
  "flume",
@@ -4693,6 +4715,15 @@ dependencies = [
  "wasm-streams",
  "web-sys",
  "webpki-roots 1.0.1",
+]
+
+[[package]]
+name = "retry"
+version = "2.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a1e211f878258887b3e65dd3c8ff9f530fe109f441a117ee0cdc27f341355032"
+dependencies = [
+ "rand 0.9.1",
 ]
 
 [[package]]

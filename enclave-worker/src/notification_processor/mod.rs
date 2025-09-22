@@ -3,11 +3,12 @@ use backend_storage::{
     push_subscription::PushSubscriptionStorage,
     queue::{Notification, NotificationQueue, QueueMessage},
 };
+use datadog_metrics::dd_incr;
 use reqwest::Client;
 use serde_json::json;
 use std::{sync::Arc, time::Duration};
 use tokio_util::sync::CancellationToken;
-use tracing::{error, info};
+use tracing::{error, info, instrument, Span};
 
 pub struct NotificationProcessor {
     queue: Arc<NotificationQueue>,
@@ -79,6 +80,7 @@ impl NotificationProcessor {
         Ok(())
     }
 
+    #[instrument(skip(self, message), fields(message_id = %message.message_id))]
     async fn process_and_ack(&self, message: QueueMessage<Notification>) -> anyhow::Result<()> {
         let notification = message.body;
         let receipt_handle = message.receipt_handle;
@@ -143,6 +145,8 @@ impl NotificationProcessor {
 
         // Acknowledge the message after successful processing
         self.queue.ack_message(&receipt_handle).await?;
+
+        dd_incr!("notification.sent");
 
         Ok(())
     }

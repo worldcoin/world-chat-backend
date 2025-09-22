@@ -8,6 +8,7 @@ members = [
      # TODO remove this and move types to common-types
     "shared/enclave-types",
     "shared/common-types",
+    "shared/datadog-metrics",
 ]
 resolver = "2"
 
@@ -101,6 +102,9 @@ datadog-tracing = { version = "0.3.0", features = ["axum"] }
 
 # Crypto box
 crypto_box = { version = "0.9.1" }
+
+# Datadog metrics
+datadog-metrics = { path = "shared/datadog-metrics" }
 
 # Test dependencies
 http-body-util = "0.1.3"

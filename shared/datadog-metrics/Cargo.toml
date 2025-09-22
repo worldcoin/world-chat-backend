@@ -1,0 +1,11 @@
+[package]
+name = "datadog-metrics"
+version = { workspace = true }
+edition = { workspace = true }
+license = { workspace = true }
+
+[dependencies]
+tracing = { workspace = true }
+serde = { workspace = true }
+dogstatsd = "0.12.1"
+once_cell = "1.21.3"
