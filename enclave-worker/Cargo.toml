@@ -29,6 +29,7 @@ anyhow = { workspace = true }
 
 # Datadog tracing
 datadog-tracing = { version = "0.3.0", features = ["axum"] }
+datadog-metrics = { workspace = true }
 
 # AWS SDK
 aws-config = { workspace = true }

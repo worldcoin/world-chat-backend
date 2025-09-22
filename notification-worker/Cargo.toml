@@ -46,6 +46,7 @@ hex = { workspace = true }
 
 # Datadog tracing
 datadog-tracing = { workspace = true }
+datadog-metrics = { workspace = true }
 
 # Testing dependencies
 [dev-dependencies]
