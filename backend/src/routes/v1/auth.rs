@@ -10,8 +10,8 @@ use serde::{Deserialize, Serialize};
 use walletkit_core::CredentialType;
 
 use crate::{
+    enclave_worker_api::EnclaveWorkerApi,
     jwt::{JwsPayload, JwtManager},
-    push_id_challenger::PushIdChallenger,
     types::{AppError, Environment},
     world_id::{error::WorldIdError, verifier::verify_world_id_proof},
 };
@@ -57,7 +57,7 @@ pub async fn authorize_handler(
     Extension(jwt_manager): Extension<Arc<JwtManager>>,
     Extension(auth_proof_storage): Extension<Arc<AuthProofStorage>>,
     Extension(environment): Extension<Environment>,
-    Extension(push_id_challenger): Extension<Arc<dyn PushIdChallenger>>,
+    Extension(enclave_worker_api): Extension<Arc<dyn EnclaveWorkerApi>>,
     Json(request): Json<AuthRequest>,
 ) -> Result<Json<AuthResponse>, AppError> {
     // 1. Verify World ID proof
@@ -88,7 +88,7 @@ pub async fn authorize_handler(
     // - If the push ids don't match, but the push id rotation is within the threshold, reject the rotation
     // - Otherwise, rotate the push id and issue a JWT token with the new encrypted push id
     let push_id_action = {
-        let push_ids_match = push_id_challenger
+        let push_ids_match = enclave_worker_api
             .challenge_push_ids(
                 auth_proof.encrypted_push_id.clone(),
                 request.encrypted_push_id.clone(),

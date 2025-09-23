@@ -4,13 +4,14 @@ use std::time::Duration;
 use crate::types::AppError;
 use reqwest::Client;
 
-/// Default timeout for push id challenger requests
+/// Default request timeout in seconds
 const DEFAULT_REQUEST_TIMEOUT_SECS: u64 = 30;
 /// Maximum number of idle connections to maintain per host
 const MAX_IDLE_CONNECTIONS_PER_HOST: usize = 10;
 
+/// Trait for the Enclave Worker API
 #[async_trait::async_trait]
-pub trait PushIdChallenger: Send + Sync {
+pub trait EnclaveWorkerApi: Send + Sync {
     /// Challenge 2 encrypted push ids by sending them to the enclave that can decrypt them
     /// returns true if they match.
     async fn challenge_push_ids(
@@ -20,16 +21,16 @@ pub trait PushIdChallenger: Send + Sync {
     ) -> Result<bool, AppError>;
 }
 
-pub struct PushIdChallengerImpl {
+pub struct EnclaveWorkerApiClient {
     enclave_worker_url: String,
     http_client: Client,
 }
 
-/// Implementation of the push id challenger
+/// Implements an HTTP client to the Enclave Worker API
 ///
-/// Communicates with the enclave worker that wraps the trusted nitro enclave that can verify if the encrypted push ids match.
-impl PushIdChallengerImpl {
-    /// Creates a new push id challenger
+/// For more details see `enclave-worker` crate in this repository.
+impl EnclaveWorkerApiClient {
+    /// Creates a new Enclave Worker API client
     ///
     /// # Panics
     ///
@@ -50,7 +51,7 @@ impl PushIdChallengerImpl {
 }
 
 #[async_trait::async_trait]
-impl PushIdChallenger for PushIdChallengerImpl {
+impl EnclaveWorkerApi for EnclaveWorkerApiClient {
     async fn challenge_push_ids(
         &self,
         encrypted_push_id_1: String,
@@ -81,13 +82,13 @@ impl PushIdChallenger for PushIdChallengerImpl {
 
 #[cfg(any(test, feature = "test-utils"))]
 pub mod mock {
-    use super::{AppError, PushIdChallenger};
+    use super::{AppError, EnclaveWorkerApi};
 
-    pub struct MockPushIdChallenger {
+    pub struct MockEnclaveWorkerApiClient {
         override_push_ids_match: Option<bool>,
     }
 
-    impl MockPushIdChallenger {
+    impl MockEnclaveWorkerApiClient {
         #[must_use]
         pub const fn new(override_push_ids_match: Option<bool>) -> Self {
             Self {
@@ -97,7 +98,7 @@ pub mod mock {
     }
 
     #[async_trait::async_trait]
-    impl PushIdChallenger for MockPushIdChallenger {
+    impl EnclaveWorkerApi for MockEnclaveWorkerApiClient {
         async fn challenge_push_ids(
             &self,
             encrypted_push_id_1: String,

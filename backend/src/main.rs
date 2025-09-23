@@ -6,9 +6,9 @@ use aws_sdk_s3::Client as S3Client;
 use backend_storage::{auth_proof::AuthProofStorage, push_subscription::PushSubscriptionStorage};
 
 use backend::{
+    enclave_worker_api::{EnclaveWorkerApi, EnclaveWorkerApiClient},
     jwt::JwtManager,
     media_storage::MediaStorage,
-    push_id_challenger::{PushIdChallenger, PushIdChallengerImpl},
     server,
     types::Environment,
 };
@@ -45,9 +45,10 @@ async fn main() -> anyhow::Result<()> {
         environment.dynamodb_push_subscription_table_name(),
     ));
 
-    // Initalize Push ID challenger
-    let push_id_challenger: Arc<dyn PushIdChallenger> =
-        Arc::new(PushIdChallengerImpl::new(environment.enclave_worker_url()));
+    // Initalize Enclave Worker API client
+    let enclave_worker_api: Arc<dyn EnclaveWorkerApi> = Arc::new(EnclaveWorkerApiClient::new(
+        environment.enclave_worker_url(),
+    ));
 
     let result = server::start(
         environment,
@@ -55,7 +56,7 @@ async fn main() -> anyhow::Result<()> {
         jwt_manager,
         auth_proof_storage,
         push_subscription_storage,
-        push_id_challenger,
+        enclave_worker_api,
     )
     .await;
 
