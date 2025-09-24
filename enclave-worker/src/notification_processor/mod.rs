@@ -59,6 +59,7 @@ impl NotificationProcessor {
 
         // TODO: Make these requests in parallel to improve performance
         for message in messages {
+            tracing::info!("Processing message: {}", message.message_id);
             self.process_and_ack(message).await?;
         }
 
