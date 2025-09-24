@@ -5,8 +5,8 @@ use aws_sdk_kms::types::{KeySpec, KeyUsageType};
 use aws_sdk_kms::Client as KmsClient;
 use aws_sdk_s3::Client as S3Client;
 use axum::{body::Body, http::Request, response::Response, Extension, Router};
-use backend::push_id_challenger::mock::MockPushIdChallenger;
-use backend::push_id_challenger::PushIdChallenger;
+use backend::enclave_worker_api::mock::MockEnclaveWorkerApiClient;
+use backend::enclave_worker_api::EnclaveWorkerApi;
 use backend::{jwt::JwtManager, media_storage::MediaStorage, routes, types::Environment};
 use backend_storage::auth_proof::AuthProofStorage;
 use backend_storage::push_subscription::PushSubscriptionStorage;
@@ -38,7 +38,7 @@ pub struct TestSetup {
     pub push_subscription_storage: Arc<PushSubscriptionStorage>,
     // Keep alive for the duration of the test
     _dynamodb_setup: DynamoDbTestSetup,
-    _push_id_challenger: Arc<dyn PushIdChallenger>,
+    _enclave_worker_api: Arc<dyn EnclaveWorkerApi>,
 }
 
 impl TestSetup {
@@ -87,8 +87,8 @@ impl TestSetup {
             dynamodb_test_setup.push_subscriptions_table_name.clone(),
         ));
 
-        let push_id_challenger: Arc<dyn PushIdChallenger> =
-            Arc::new(MockPushIdChallenger::new(None));
+        let enclave_worker_api: Arc<dyn EnclaveWorkerApi> =
+            Arc::new(MockEnclaveWorkerApiClient::new(None));
 
         let router = routes::handler()
             .layer(Extension(environment.clone()))
@@ -96,7 +96,7 @@ impl TestSetup {
             .layer(Extension(auth_proof_storage.clone()))
             .layer(Extension(jwt_manager.clone()))
             .layer(Extension(push_subscription_storage.clone()))
-            .layer(Extension(push_id_challenger.clone()))
+            .layer(Extension(enclave_worker_api.clone()))
             .into();
 
         Self {
@@ -105,7 +105,7 @@ impl TestSetup {
             media_storage,
             kms_client,
             push_subscription_storage,
-            _push_id_challenger: push_id_challenger,
+            _enclave_worker_api: enclave_worker_api,
             _dynamodb_setup: dynamodb_test_setup,
         }
     }

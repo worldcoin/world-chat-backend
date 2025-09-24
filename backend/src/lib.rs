@@ -1,9 +1,9 @@
 #![deny(clippy::all, clippy::pedantic, clippy::nursery, dead_code)]
 
+pub mod enclave_worker_api;
 pub mod jwt;
 pub mod media_storage;
 pub mod middleware;
-pub mod push_id_challenger;
 pub mod routes;
 pub mod server;
 pub mod types;
