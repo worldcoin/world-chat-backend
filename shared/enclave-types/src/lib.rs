@@ -11,6 +11,8 @@ pub enum EnclaveError {
     // TODO: Add source pontifex attestation error (it's missing serialization decorator now)
     #[error("Attestation failed")]
     AttestationFailed(),
+    #[error("Failed to send request to Braze: {0}")]
+    BrazeRequestFailed(String),
 }
 
 /// Braze API configuration
@@ -66,4 +68,19 @@ pub struct EnclavePushIdChallengeRequest {
 impl Request for EnclavePushIdChallengeRequest {
     const ROUTE_ID: &'static str = "/v1/push-id-challenge";
     type Response = Result<bool, EnclaveError>;
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EnclaveNotificationRequest {
+    /// Topic for the notification
+    pub topic: String,
+    /// Encrypted Push IDs of the subscribers
+    pub subscribed_encrypted_push_ids: Vec<String>,
+    /// Encrypted Message Base64 encoded
+    pub encrypted_message_base64: String,
+}
+
+impl Request for EnclaveNotificationRequest {
+    const ROUTE_ID: &'static str = "/v1/notification";
+    type Response = Result<(), EnclaveError>;
 }

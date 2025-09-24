@@ -28,6 +28,7 @@ axum-jsonschema = { version = "0.8.0", features = ["aide"] }
 axum = "0.7.9"
 tower      = "0.5.2"
 tower-http = { version = "0.6.2", features = ["trace", "timeout"] }
+hyper = { version = "0.14", features = ["client", "http1", "http2"] }
 
 # Async 
 tokio = { version = "1.47.1", features = ["full"] }

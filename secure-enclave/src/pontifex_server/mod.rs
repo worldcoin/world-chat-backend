@@ -1,11 +1,16 @@
 use std::sync::Arc;
 
 use anyhow::Context;
-use enclave_types::{EnclaveHealthCheckRequest, EnclaveInitializeRequest, EnclavePublicKeyRequest};
+use enclave_types::{
+    EnclaveHealthCheckRequest, EnclaveInitializeRequest, EnclaveNotificationRequest,
+    EnclavePublicKeyRequest,
+};
 use pontifex::Router;
 use tokio::sync::RwLock;
+
 mod health;
 mod initialize;
+mod notification;
 mod public_key;
 
 use crate::state::EnclaveState;
@@ -18,7 +23,8 @@ pub async fn start_pontifex_server(
     let router = Router::with_state(state)
         .route::<EnclaveInitializeRequest, _, _>(initialize::handler)
         .route::<EnclaveHealthCheckRequest, _, _>(health::handler)
-        .route::<EnclavePublicKeyRequest, _, _>(public_key::handler);
+        .route::<EnclavePublicKeyRequest, _, _>(public_key::handler)
+        .route::<EnclaveNotificationRequest, _, _>(notification::handler);
 
     // Start pontifex server
     router
