@@ -20,6 +20,12 @@ pub struct NotificationProcessor {
 }
 
 impl NotificationProcessor {
+    /// Creates a new `NotificationProcessor`
+    ///
+    /// # Panics
+    ///
+    /// If the HTTP client fails to create, this will panic.
+    #[must_use]
     pub fn new(
         queue: Arc<NotificationQueue>,
         storage: Arc<PushSubscriptionStorage>,
@@ -54,7 +60,7 @@ impl NotificationProcessor {
         while !self.shutdown.is_cancelled() {
             tokio::select! {
                 _ = self.poll_once() => {},
-                _ = self.shutdown.cancelled() => {
+                () = self.shutdown.cancelled() => {
                     info!("Queue poller shutting down");
                     break;
                 }
