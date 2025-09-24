@@ -95,7 +95,8 @@ enclave-types = { path = "shared/enclave-types" }
 common-types = { path = "shared/common-types" }
 
 # Pontifex
-pontifex = { version = "1.0.1" }
+# TODO: Update when branch is merged
+pontifex = { git = "https://github.com/worldcoin/pontifex.git", branch = "takis/http-2" }
 
 # Datadog tracing
 datadog-tracing = { version = "0.3.0", features = ["axum"] }

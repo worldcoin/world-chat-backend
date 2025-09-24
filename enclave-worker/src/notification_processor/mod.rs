@@ -6,7 +6,7 @@ use backend_storage::{
 use enclave_types::EnclaveNotificationRequest;
 use std::sync::Arc;
 use tokio_util::sync::CancellationToken;
-use tracing::info;
+use tracing::{error, info};
 
 pub struct NotificationProcessor {
     queue: Arc<NotificationQueue>,
@@ -37,7 +37,9 @@ impl NotificationProcessor {
         // Poll queue until shutdown
         while !self.shutdown.is_cancelled() {
             tokio::select! {
-                _ = self.poll_once() => {},
+                Err(e) = self.poll_once() => {
+                    error!("Failed to poll messages: {:?}", e);
+                },
                 _ = self.shutdown.cancelled() => {
                     info!("Queue poller shutting down");
                     break;

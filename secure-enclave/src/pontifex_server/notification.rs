@@ -21,7 +21,8 @@ pub async fn handler(
 
     let client = state.http_proxy_client.as_ref().unwrap();
     let braze_api_key = state.braze_api_key.clone().unwrap();
-    let braze_api_endpoint = state.braze_api_endpoint.clone().unwrap();
+    let braze_api_endpoint = state.braze_api_url.clone().unwrap();
+    let braze_api_endpoint = format!("{braze_api_endpoint}/messages/send");
 
     send_braze_notification(
         client,
@@ -73,7 +74,6 @@ async fn send_braze_notification(
             }
         }
     });
-
     let body = Body::from(body.to_string());
 
     let req = Request::builder()
