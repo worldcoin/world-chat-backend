@@ -3,6 +3,7 @@ use std::sync::Arc;
 use anyhow::Result;
 use backend_storage::{push_subscription::PushSubscriptionStorage, queue::NotificationQueue};
 use datadog_tracing::axum::shutdown_signal;
+use enclave_types::EnclaveInitializeRequest;
 use enclave_worker::{notification_processor::NotificationProcessor, server, types::Environment};
 use tokio_util::sync::CancellationToken;
 use tracing::info;
@@ -27,7 +28,6 @@ async fn main() -> Result<()> {
         sqs_client,
         env.notification_queue_config(),
     ));
-
     info!("✅ Initialized notification queue");
 
     // Initialise Push Notification Subscription storage
@@ -36,12 +36,22 @@ async fn main() -> Result<()> {
         dynamodb_client,
         env.push_subscription_table_name(),
     ));
-
     info!("✅ Initialized push subscription storage");
 
-    // Initialize Enclave connection details
+    // Initialize Enclave
     let enclave_connection_details =
         pontifex::client::ConnectionDetails::new(env.enclave_cid(), env.enclave_port());
+    pontifex::client::send::<EnclaveInitializeRequest>(
+        enclave_connection_details,
+        &EnclaveInitializeRequest {
+            braze_api_key: env.braze_api_key(),
+            braze_api_region: env.braze_api_region(),
+            braze_http_proxy_port: env.braze_http_proxy_port(),
+        },
+    )
+    .await
+    .expect("Failed to initialize Enclave");
+    info!("✅ Enclave initialized successfully");
 
     // Single shutdown token for everything
     let shutdown_token = CancellationToken::new();
@@ -59,7 +69,7 @@ async fn main() -> Result<()> {
         let token = shutdown_token.clone();
 
         tokio::spawn(async move {
-            NotificationProcessor::new(queue, storage, token)
+            NotificationProcessor::new(queue, storage, token, enclave_connection_details)
                 .start()
                 .await;
         })

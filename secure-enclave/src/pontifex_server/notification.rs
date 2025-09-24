@@ -57,7 +57,8 @@ async fn send_braze_notification(
                 "sound": "default",
                 "extra": {
                     "topic": topic,
-                    "encrypted_message": encrypted_message_base64
+                    "encryptedMessageBase64": encrypted_message_base64,
+                    "messageKind": "v3-conversation"
                 }
             },
             "android_push": {
@@ -66,7 +67,8 @@ async fn send_braze_notification(
                 "priority": "high",
                 "extra": {
                     "topic": topic,
-                    "encrypted_message": encrypted_message_base64
+                    "encryptedMessageBase64": encrypted_message_base64,
+                    "messageKind": "v3-conversation"
                 }
             }
         }

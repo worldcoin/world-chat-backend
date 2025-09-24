@@ -26,15 +26,9 @@ pub struct EnclaveInitializeRequest {
     pub braze_http_proxy_port: u32,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct EnclaveInitializeResponse {
-    /// Success message
-    pub success: bool,
-}
-
 impl Request for EnclaveInitializeRequest {
     const ROUTE_ID: &'static str = "/v1/initialize";
-    type Response = Result<EnclaveInitializeResponse, EnclaveError>;
+    type Response = ();
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

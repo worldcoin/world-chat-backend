@@ -1,14 +1,11 @@
 use std::sync::Arc;
 
 use crate::state::EnclaveState;
-use enclave_types::{EnclaveError, EnclaveInitializeRequest, EnclaveInitializeResponse};
+use enclave_types::EnclaveInitializeRequest;
 use tokio::sync::RwLock;
 use tracing::info;
 
-pub async fn handler(
-    state: Arc<RwLock<EnclaveState>>,
-    config: EnclaveInitializeRequest,
-) -> Result<EnclaveInitializeResponse, EnclaveError> {
+pub async fn handler(state: Arc<RwLock<EnclaveState>>, config: EnclaveInitializeRequest) {
     let client = pontifex::http::client(config.braze_http_proxy_port);
 
     let mut state = state.write().await;
@@ -21,6 +18,4 @@ pub async fn handler(
     state.initialized = true;
 
     info!("✅ Enclave initialized successfully");
-
-    Ok(EnclaveInitializeResponse { success: true })
 }
