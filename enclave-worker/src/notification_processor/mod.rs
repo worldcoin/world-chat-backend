@@ -37,8 +37,11 @@ impl NotificationProcessor {
         // Poll queue until shutdown
         while !self.shutdown.is_cancelled() {
             tokio::select! {
-                Err(e) = self.poll_once() => {
-                    error!("Failed to poll messages: {:?}", e);
+                result = self.poll_once() => match result {
+                    Ok(_) => {}
+                    Err(e) => {
+                        error!(error = ?e, "Failed to poll messages");
+                    }
                 },
                 _ = self.shutdown.cancelled() => {
                     info!("Queue poller shutting down");
