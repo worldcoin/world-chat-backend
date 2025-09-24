@@ -17,6 +17,6 @@ pub async fn handler(
             .await??;
 
     Ok(Json(AttestationDocumentResponse {
-        attestation: STANDARD.encode(response.attestation),
+        attestation_doc_base64: STANDARD.encode(response.attestation),
     }))
 }

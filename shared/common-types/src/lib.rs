@@ -12,7 +12,7 @@ pub struct PushIdChallengeResponse {
     pub push_ids_match: bool,
 }
 
-#[derive(Debug, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Serialize, Deserialize, JsonSchema, Clone)]
 pub struct AttestationDocumentResponse {
-    pub attestation: String,
+    pub attestation_doc_base64: String,
 }
