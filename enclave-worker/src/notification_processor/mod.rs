@@ -3,12 +3,11 @@ use backend_storage::{
     push_subscription::PushSubscriptionStorage,
     queue::{Notification, NotificationQueue, QueueMessage},
 };
-use datadog_metrics::dd_incr;
 use reqwest::Client;
 use serde_json::json;
-use std::{sync::Arc, time::Duration};
+use std::{sync::Arc, time::Duration, time::Instant};
 use tokio_util::sync::CancellationToken;
-use tracing::{error, info, instrument, Span};
+use tracing::{error, info, instrument};
 
 pub struct NotificationProcessor {
     queue: Arc<NotificationQueue>,
@@ -66,15 +65,27 @@ impl NotificationProcessor {
     }
 
     async fn poll_once(&self) -> anyhow::Result<()> {
+        datadog_metrics::increment("enclave_worker.queue.poll.attempt");
+        
         let messages = self
             .queue
             .poll_messages()
             .await
             .context("Failed to poll messages")?;
+        
+        let message_count = messages.len();
+        if message_count > 0 {
+            datadog_metrics::gauge("enclave_worker.queue.batch_size", message_count as f64);
+            info!("Received {} messages from queue", message_count);
+        }
 
         // TODO: Make these requests in parallel to improve performance
         for message in messages {
-            self.process_and_ack(message).await?;
+            if let Err(e) = self.process_and_ack(message).await {
+                error!("Failed to process message: {}", e);
+                datadog_metrics::increment("enclave_worker.notification.processing.failed");
+                // Continue processing other messages even if one fails
+            }
         }
 
         Ok(())
@@ -82,8 +93,12 @@ impl NotificationProcessor {
 
     #[instrument(skip(self, message), fields(message_id = %message.message_id))]
     async fn process_and_ack(&self, message: QueueMessage<Notification>) -> anyhow::Result<()> {
+        let start = Instant::now();
         let notification = message.body;
         let receipt_handle = message.receipt_handle;
+        
+        // Track processing attempt
+        datadog_metrics::increment("enclave_worker.notification.processing.started");
 
         //TODO: This is temporary to test the e2e flow. This will be replaced with a call to the nitro enclave.
         {
@@ -117,6 +132,7 @@ impl NotificationProcessor {
             });
 
             // Send to Braze API
+            let braze_start = Instant::now();
             let response = self
                 .http_client
                 .post(format!("{}/messages/send", self.braze_api_url))
@@ -126,6 +142,9 @@ impl NotificationProcessor {
                 .send()
                 .await
                 .context("Failed to send request to Braze")?;
+            
+            let braze_latency = braze_start.elapsed().as_millis() as u64;
+            datadog_metrics::timing("enclave_worker.braze.api.latency", braze_latency);
 
             if !response.status().is_success() {
                 let status = response.status();
@@ -134,19 +153,33 @@ impl NotificationProcessor {
                     .await
                     .unwrap_or_else(|_| "Unknown error".to_string());
                 error!("Braze API error - Status: {}, Body: {}", status, error_body);
+                datadog_metrics::increment_with_tags(
+                    "enclave_worker.braze.api.error",
+                    &[&format!("status_code:{}", status.as_u16())]
+                );
                 return Err(anyhow::anyhow!("Braze API returned error: {}", status));
             }
 
+            let recipient_count = notification.subscribed_encrypted_push_ids.len();
             info!(
                 "Successfully sent notification to {} recipients via Braze",
-                notification.subscribed_encrypted_push_ids.len()
+                recipient_count
+            );
+            
+            datadog_metrics::increment_with_tags(
+                "enclave_worker.notification.sent",
+                &[&format!("recipient_count:{}", recipient_count)]
             );
         }
 
         // Acknowledge the message after successful processing
         self.queue.ack_message(&receipt_handle).await?;
-
-        dd_incr!("notification.sent");
+        
+        datadog_metrics::increment("enclave_worker.notification.acked");
+        
+        // Record total processing time
+        let total_time = start.elapsed().as_millis() as u64;
+        datadog_metrics::timing("enclave_worker.notification.processing.duration", total_time);
 
         Ok(())
     }

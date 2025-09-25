@@ -100,6 +100,9 @@ pontifex = { version = "1.0.1" }
 # Datadog tracing
 datadog-tracing = { version = "0.3.0", features = ["axum"] }
 
+# DogStatsD client
+dogstatsd = "0.12.1"
+
 # Crypto box
 crypto_box = { version = "0.9.1" }
 

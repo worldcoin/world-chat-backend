@@ -21,6 +21,25 @@ async fn main() -> Result<()> {
     // The _guard must be kept alive for the duration of the program
     let (_guard, tracer_shutdown) = datadog_tracing::init()?;
 
+    // Initialize DogStatsD metrics client
+    let (dd_host, dd_port) = (
+        std::env::var("DD_AGENT_HOST").unwrap_or_else(|_| "localhost".to_string()),
+        std::env::var("DD_DOGSTATSD_PORT").unwrap_or_else(|_| "8125".to_string()),
+    );
+    let env_name = match env {
+        Environment::Production => "production",
+        Environment::Staging => "staging",
+        Environment::Development => "development",
+    };
+    datadog_metrics::init(
+        format!("{}:{}", dd_host, dd_port),
+        "world_chat",
+        "enclave_worker",
+        env_name,
+    );
+
+    info!("✅ Initialized DogStatsD metrics");
+
     // Initialize notification queue
     let sqs_client = Arc::new(SqsClient::new(&env.aws_config().await));
     let notification_queue = Arc::new(NotificationQueue::new(

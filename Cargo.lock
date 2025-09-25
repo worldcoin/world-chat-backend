@@ -2046,7 +2046,7 @@ version = "0.1.0"
 dependencies = [
  "dogstatsd",
  "once_cell",
- "serde",
+ "tokio",
  "tracing",
 ]
 
