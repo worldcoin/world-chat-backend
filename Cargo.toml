@@ -96,7 +96,7 @@ common-types = { path = "shared/common-types" }
 
 # Pontifex
 # TODO: Update when branch is merged
-pontifex = { git = "https://github.com/worldcoin/pontifex.git", branch = "takis/http-2" }
+pontifex = { version = "1.1.1" }
 
 # Datadog tracing
 datadog-tracing = { version = "0.3.0", features = ["axum"] }
