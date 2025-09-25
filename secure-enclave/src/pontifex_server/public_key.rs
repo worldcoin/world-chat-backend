@@ -1,14 +1,14 @@
 use std::sync::Arc;
 
 use crate::state::EnclaveState;
-use enclave_types::{EnclaveError, EnclavePublicKeyRequest, EnclavePublicKeyResponse};
+use enclave_types::{EnclaveAttestationDocRequest, EnclaveAttestationDocResponse, EnclaveError};
 use pontifex::SecureModule;
 use tokio::sync::RwLock;
 
 pub async fn handler(
     state: Arc<RwLock<EnclaveState>>,
-    _: EnclavePublicKeyRequest,
-) -> Result<EnclavePublicKeyResponse, EnclaveError> {
+    _: EnclaveAttestationDocRequest,
+) -> Result<EnclaveAttestationDocResponse, EnclaveError> {
     let public_key = state.read().await.keys.public_key.to_bytes().to_vec();
     let nsm = SecureModule::try_global().ok_or(EnclaveError::SecureModuleNotInitialized)?;
 
@@ -19,5 +19,5 @@ pub async fn handler(
             EnclaveError::AttestationFailed()
         })?;
 
-    Ok(EnclavePublicKeyResponse { attestation })
+    Ok(EnclaveAttestationDocResponse { attestation })
 }
