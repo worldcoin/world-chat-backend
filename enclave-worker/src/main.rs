@@ -22,13 +22,10 @@ async fn main() -> Result<()> {
     let (_guard, tracer_shutdown) = datadog_tracing::init()?;
 
     // Initialize DogStatsD metrics client
-    let (dd_host, dd_port) = (
-        std::env::var("DD_AGENT_HOST").expect("DD_AGENT_HOST environment variable is not set"),
-        std::env::var("DD_DOGSTATSD_PORT")
-            .expect("DD_DOGSTATSD_PORT environment variable is not set"),
-    );
+    let dd_agent_host =
+        std::env::var("DD_AGENT_HOST").expect("DD_AGENT_HOST environment variable is not set");
     datadog_metrics::init(
-        format!("{}:{}", dd_host, dd_port),
+        dd_agent_host,
         "world_chat",
         "enclave_worker",
         env.to_string(),

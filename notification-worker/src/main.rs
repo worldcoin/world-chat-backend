@@ -26,6 +26,15 @@ async fn main() -> anyhow::Result<()> {
     let env = Environment::from_env();
     info!("Starting XMTP Notification Worker in {:?} environment", env);
 
+    let dd_agent_host =
+        std::env::var("DD_AGENT_HOST").expect("DD_AGENT_HOST environment variable is not set");
+    datadog_metrics::init(
+        dd_agent_host,
+        "world_chat",
+        "notification_worker",
+        env.to_string(),
+    );
+
     // Initialize notification queue
     let sqs_client = Arc::new(SqsClient::new(&env.aws_config().await));
     let notification_queue = Arc::new(NotificationQueue::new(

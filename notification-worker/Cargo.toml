@@ -48,6 +48,8 @@ hex = { workspace = true }
 datadog-tracing = { workspace = true }
 datadog-metrics = { workspace = true }
 
+strum = { workspace = true }
+
 # Testing dependencies
 [dev-dependencies]
 uuid = { workspace = true }
