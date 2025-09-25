@@ -1,14 +1,12 @@
 use std::sync::Arc;
 
 use crate::state::EnclaveState;
-use anyhow::Context;
 use enclave_types::{EnclaveError, EnclaveNotificationRequest};
 use hyper::{Body, Method, Request, Version};
 use pontifex::http::HttpClient;
 use serde_json::json;
 use tokio::sync::RwLock;
 
-// TODO: Add actual health check
 pub async fn handler(
     state: Arc<RwLock<EnclaveState>>,
     request: EnclaveNotificationRequest,
@@ -83,7 +81,7 @@ async fn send_braze_notification(
         .header("Authorization", format!("Bearer {}", braze_api_key))
         .header("Content-Type", "application/json")
         .body(body)
-        .expect("request builder");
+        .map_err(|e| EnclaveError::BrazeRequestFailed(format!("{e:?}")))?;
 
     client
         .request(req)
