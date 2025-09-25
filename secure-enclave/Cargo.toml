@@ -12,8 +12,9 @@ path = "src/main.rs"
 # Async runtime
 tokio = { workspace = true }
 
-
+# Encryption
 crypto_box = { workspace = true, features = ["seal"] }
+chacha20poly1305 = { workspace = true }
 
 # Logging
 tracing = { workspace = true }
