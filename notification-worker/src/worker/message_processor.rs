@@ -7,7 +7,6 @@ use backend_storage::{
     queue::{Notification, NotificationQueue},
 };
 use base64::{engine::general_purpose::STANDARD, Engine as _};
-use datadog_metrics::dd_incr;
 use tokio_util::sync::CancellationToken;
 
 use tracing::{debug, error, info, instrument, Span};
@@ -136,7 +135,7 @@ impl MessageProcessor {
             .context("Failed to send message to notification queue")?;
 
         Span::current().record("message_id", message_id);
-        dd_incr!("notification.started");
+        datadog_metrics::increment("notification.started");
 
         Ok(())
     }

@@ -46,3 +46,5 @@ reqwest = { workspace = true }
 pontifex = { workspace = true, features = ["client"] }
 
 enclave-types = { workspace = true }
+
+strum = { workspace = true }

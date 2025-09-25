@@ -100,35 +100,6 @@ pub fn timing_with_tags(metric: &str, ms: u64, tags: &[&str]) {
     }
 }
 
-/// Record a gauge value
-pub fn gauge(metric: &str, value: f64) {
-    if METRICS_SUPPRESS.load(Ordering::Relaxed) {
-        return;
-    }
-
-    if let Some(client) = DATADOG.get() {
-        let tags: Vec<&str> = vec![];
-        let value_str = value.to_string();
-        if let Err(e) = client.gauge(metric, &value_str, &tags) {
-            error!("Failed to send gauge {}: {}", metric, e);
-        }
-    }
-}
-
-/// Record a gauge with additional tags
-pub fn gauge_with_tags(metric: &str, value: f64, tags: &[&str]) {
-    if METRICS_SUPPRESS.load(Ordering::Relaxed) {
-        return;
-    }
-
-    if let Some(client) = DATADOG.get() {
-        let value_str = value.to_string();
-        if let Err(e) = client.gauge(metric, &value_str, tags) {
-            error!("Failed to send gauge {}: {}", metric, e);
-        }
-    }
-}
-
 /// Helper functions to control metrics
 pub fn suppress_metrics() {
     METRICS_SUPPRESS.store(true, Ordering::Relaxed);

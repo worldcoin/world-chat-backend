@@ -2,15 +2,19 @@ use std::{env, time::Duration};
 
 use aws_config::{retry::RetryConfig, timeout::TimeoutConfig, BehaviorVersion};
 use backend_storage::queue::QueueConfig;
+use strum::{Display, EnumString};
 
 /// Application environment configuration
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, EnumString, Display)]
 pub enum Environment {
     /// Production environment
+    #[strum(serialize = "production")]
     Production,
     /// Staging environment  
+    #[strum(serialize = "staging")]
     Staging,
     /// Development environment (uses `LocalStack`)
+    #[strum(serialize = "development")]
     Development,
 }
 

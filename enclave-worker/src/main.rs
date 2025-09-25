@@ -23,19 +23,15 @@ async fn main() -> Result<()> {
 
     // Initialize DogStatsD metrics client
     let (dd_host, dd_port) = (
-        std::env::var("DD_AGENT_HOST").unwrap_or_else(|_| "localhost".to_string()),
-        std::env::var("DD_DOGSTATSD_PORT").unwrap_or_else(|_| "8125".to_string()),
+        std::env::var("DD_AGENT_HOST").expect("DD_AGENT_HOST environment variable is not set"),
+        std::env::var("DD_DOGSTATSD_PORT")
+            .expect("DD_DOGSTATSD_PORT environment variable is not set"),
     );
-    let env_name = match env {
-        Environment::Production => "production",
-        Environment::Staging => "staging",
-        Environment::Development => "development",
-    };
     datadog_metrics::init(
         format!("{}:{}", dd_host, dd_port),
         "world_chat",
         "enclave_worker",
-        env_name,
+        env.to_string(),
     );
 
     info!("✅ Initialized DogStatsD metrics");
