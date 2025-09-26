@@ -1,3 +1,4 @@
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -9,4 +10,9 @@ pub struct PushIdChallengeRequest {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PushIdChallengeResponse {
     pub push_ids_match: bool,
+}
+
+#[derive(Debug, Serialize, Deserialize, JsonSchema, Clone)]
+pub struct AttestationDocumentResponse {
+    pub attestation_doc_base64: String,
 }

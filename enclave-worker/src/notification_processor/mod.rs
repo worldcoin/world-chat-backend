@@ -17,6 +17,12 @@ pub struct NotificationProcessor {
 }
 
 impl NotificationProcessor {
+    /// Creates a new `NotificationProcessor`
+    ///
+    /// # Panics
+    ///
+    /// If the HTTP client fails to create, this will panic.
+    #[must_use]
     pub fn new(
         queue: Arc<NotificationQueue>,
         storage: Arc<PushSubscriptionStorage>,

@@ -1732,6 +1732,7 @@ dependencies = [
 name = "common-types"
 version = "0.1.0"
 dependencies = [
+ "schemars 0.8.22",
  "serde",
  "thiserror 2.0.12",
 ]
@@ -2304,6 +2305,8 @@ dependencies = [
  "axum 0.7.9",
  "axum-jsonschema",
  "backend_storage",
+ "base64 0.22.1",
+ "common-types",
  "datadog-tracing",
  "enclave-types",
  "pontifex",

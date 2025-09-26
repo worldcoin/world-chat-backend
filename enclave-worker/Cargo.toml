@@ -45,3 +45,6 @@ reqwest = { workspace = true }
 pontifex = { workspace = true, features = ["client"] }
 
 enclave-types = { workspace = true }
+common-types = { workspace = true }
+
+base64 = { workspace = true }

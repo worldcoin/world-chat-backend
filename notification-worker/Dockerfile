@@ -1,5 +1,5 @@
 # Use cargo-chef to cache dependencies
-FROM rust:1.86.0-slim AS chef
+FROM public.ecr.aws/docker/library/rust:1.86.0-slim AS chef
 WORKDIR /app
 
 # Install musl target and dependencies
