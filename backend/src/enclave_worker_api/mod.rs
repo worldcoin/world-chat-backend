@@ -1,4 +1,4 @@
-use common_types::{PushIdChallengeRequest, PushIdChallengeResponse};
+use common_types::{AttestationDocumentResponse, PushIdChallengeRequest, PushIdChallengeResponse};
 use std::time::Duration;
 
 use crate::types::AppError;
@@ -19,6 +19,9 @@ pub trait EnclaveWorkerApi: Send + Sync {
         encrypted_push_id_1: String,
         encrypted_push_id_2: String,
     ) -> Result<bool, AppError>;
+
+    /// Get the attestation document from the enclave
+    async fn get_attestation_document(&self) -> Result<AttestationDocumentResponse, AppError>;
 }
 
 pub struct EnclaveWorkerApiClient {
@@ -78,21 +81,43 @@ impl EnclaveWorkerApi for EnclaveWorkerApiClient {
 
         Ok(response.push_ids_match)
     }
+
+    async fn get_attestation_document(&self) -> Result<AttestationDocumentResponse, AppError> {
+        let response = self
+            .http_client
+            .get(format!(
+                "{}/v1/attestation-document",
+                self.enclave_worker_url
+            ))
+            .send()
+            .await?
+            .json::<AttestationDocumentResponse>()
+            .await?;
+
+        Ok(response)
+    }
 }
 
 #[cfg(any(test, feature = "test-utils"))]
 pub mod mock {
+    use common_types::AttestationDocumentResponse;
+
     use super::{AppError, EnclaveWorkerApi};
 
     pub struct MockEnclaveWorkerApiClient {
         override_push_ids_match: Option<bool>,
+        override_attestation_document: Option<AttestationDocumentResponse>,
     }
 
     impl MockEnclaveWorkerApiClient {
         #[must_use]
-        pub const fn new(override_push_ids_match: Option<bool>) -> Self {
+        pub const fn new(
+            override_push_ids_match: Option<bool>,
+            override_attestation_document: Option<AttestationDocumentResponse>,
+        ) -> Self {
             Self {
                 override_push_ids_match,
+                override_attestation_document,
             }
         }
     }
@@ -107,6 +132,15 @@ pub mod mock {
             Ok(self
                 .override_push_ids_match
                 .unwrap_or(encrypted_push_id_1 == encrypted_push_id_2))
+        }
+
+        async fn get_attestation_document(&self) -> Result<AttestationDocumentResponse, AppError> {
+            Ok(self
+                .override_attestation_document
+                .clone()
+                .unwrap_or(AttestationDocumentResponse {
+                    attestation_doc_base64: String::new(),
+                }))
         }
     }
 }

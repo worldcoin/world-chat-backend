@@ -1,3 +1,4 @@
+pub mod attestation;
 pub mod auth;
 pub mod media;
 pub mod subscriptions;
@@ -18,6 +19,7 @@ pub fn handler() -> ApiRouter {
             "/media/presigned-urls",
             post(media::create_presigned_upload_url),
         )
+        .api_route("/attestation-document", get(attestation::handler))
         .api_route("/media/config", get(media::get_media_config))
         .api_route("/authorize", post(auth::authorize_handler));
 

@@ -44,15 +44,15 @@ impl Request for EnclaveHealthCheckRequest {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct EnclavePublicKeyRequest;
+pub struct EnclaveAttestationDocRequest;
 
-impl Request for EnclavePublicKeyRequest {
-    const ROUTE_ID: &'static str = "/v1/public-key";
-    type Response = Result<EnclavePublicKeyResponse, EnclaveError>;
+impl Request for EnclaveAttestationDocRequest {
+    const ROUTE_ID: &'static str = "/v1/attestation-doc";
+    type Response = Result<EnclaveAttestationDocResponse, EnclaveError>;
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct EnclavePublicKeyResponse {
+pub struct EnclaveAttestationDocResponse {
     /// Attestation document bytes
     pub attestation: Vec<u8>,
 }

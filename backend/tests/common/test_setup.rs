@@ -88,7 +88,7 @@ impl TestSetup {
         ));
 
         let enclave_worker_api: Arc<dyn EnclaveWorkerApi> =
-            Arc::new(MockEnclaveWorkerApiClient::new(None));
+            Arc::new(MockEnclaveWorkerApiClient::new(None, None));
 
         let router = routes::handler()
             .layer(Extension(environment.clone()))
