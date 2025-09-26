@@ -54,6 +54,17 @@ impl AppError {
             },
         }
     }
+
+    /// Create a new internal server error with no retry
+    #[must_use]
+    pub const fn internal_server_error() -> Self {
+        Self::new(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "internal_error",
+            "Internal server error",
+            false,
+        )
+    }
 }
 
 impl IntoResponse for AppError {
