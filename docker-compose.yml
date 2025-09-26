@@ -83,3 +83,20 @@ services:
       - world-chat-network
     environment:
       POSTGRES_PASSWORD: xmtp
+
+  # Redis Cache - Used by enclave-worker for caching attestation documents
+  # Simulates AWS ElastiCache for local development
+  # Connected via redis://redis:6379 in the enclave-worker service
+  redis:
+    image: redis:7-alpine
+    networks:
+      - world-chat-network
+    ports:
+      - "6379:6379"
+    command: redis-server --save 20 1 --loglevel warning
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
