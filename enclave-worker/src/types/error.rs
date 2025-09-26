@@ -148,6 +148,7 @@ impl From<pontifex::client::Error> for AppError {
 }
 
 impl From<enclave_types::EnclaveError> for AppError {
+    #[allow(clippy::cognitive_complexity)]
     fn from(err: enclave_types::EnclaveError) -> Self {
         use enclave_types::EnclaveError::{
             AttestationFailed, BrazeRequestFailed, NotInitialized, SecureModuleNotInitialized,

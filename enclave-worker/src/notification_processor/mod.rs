@@ -23,7 +23,7 @@ impl NotificationProcessor {
     ///
     /// If the HTTP client fails to create, this will panic.
     #[must_use]
-    pub fn new(
+    pub const fn new(
         queue: Arc<NotificationQueue>,
         storage: Arc<PushSubscriptionStorage>,
         shutdown: CancellationToken,
@@ -32,8 +32,8 @@ impl NotificationProcessor {
         Self {
             queue,
             storage,
-            shutdown,
             pontifex_connection_details,
+            shutdown,
         }
     }
 
@@ -44,12 +44,12 @@ impl NotificationProcessor {
         while !self.shutdown.is_cancelled() {
             tokio::select! {
                 result = self.poll_once() => match result {
-                    Ok(_) => {}
+                    Ok(()) => {}
                     Err(e) => {
                         error!(error = ?e, "Failed to poll messages");
                     }
                 },
-                _ = self.shutdown.cancelled() => {
+                () = self.shutdown.cancelled() => {
                     info!("Queue poller shutting down");
                     break;
                 }
