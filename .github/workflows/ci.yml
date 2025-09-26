@@ -119,9 +119,16 @@ jobs:
           command: check ${{ matrix.checks }}
           rust-version: stable
   
-  build-secure-enclave-docker:
+  # Test docker image build for secure-enclave and enclave-worker
+  # We cannot test health check for enclave-worker as it requires a running enclave
+  build-enclave-docker:
     name: Build Secure Enclave Docker
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service:
+          - name: secure-enclave
+          - name: enclave-worker
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -129,25 +136,25 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Build Secure Enclave Docker image
+      - name: Build ${{ matrix.service.name }} Docker image
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: secure-enclave/Dockerfile
+          file: ${{ matrix.service.name }}/Dockerfile
           push: false
           load: true
-          tags: secure-enclave:latest
+          tags: ${{ matrix.service.name }}:latest
           build-args: GIT_REV=${{ github.sha }}
           # Cache from the current branch and main
           # We take advantage of cached layers from previous runs on the same branch or main
           cache-from: |
-            type=gha,scope=secure-enclave-${{ github.ref_name }}
-            type=gha,scope=secure-enclave-main
+            type=gha,scope=${{ matrix.service.name }}-${{ github.ref_name }}
+            type=gha,scope=${{ matrix.service.name }}-main
           # Cache to the current branch
-          cache-to: type=gha,mode=max,scope=secure-enclave-${{ github.ref_name }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.service.name }}-${{ github.ref_name }}
           platforms: linux/amd64
 
-  build-docker:
+  build-and-health-check-docker:
     name: Build and Test Docker
     runs-on: ubuntu-latest
     strategy:
@@ -158,9 +165,6 @@ jobs:
             health_endpoint: /health
           - name: notification-worker
             port: 8001
-            health_endpoint: /health
-          - name: enclave-worker
-            port: 8002
             health_endpoint: /health
     steps:
       - name: Checkout code
