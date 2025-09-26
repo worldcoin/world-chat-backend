@@ -3,7 +3,10 @@ use std::sync::Arc;
 use anyhow::Result;
 use backend_storage::{push_subscription::PushSubscriptionStorage, queue::NotificationQueue};
 use datadog_tracing::axum::shutdown_signal;
-use enclave_worker::{notification_processor::NotificationProcessor, server, types::Environment};
+use enclave_worker::{
+    cache::CacheManager, notification_processor::NotificationProcessor, redis::RedisClient, server,
+    types::Environment,
+};
 use tokio_util::sync::CancellationToken;
 use tracing::info;
 
@@ -27,7 +30,6 @@ async fn main() -> Result<()> {
         sqs_client,
         env.notification_queue_config(),
     ));
-
     info!("✅ Initialized notification queue");
 
     // Initialise Push Notification Subscription storage
@@ -36,12 +38,16 @@ async fn main() -> Result<()> {
         dynamodb_client,
         env.push_subscription_table_name(),
     ));
-
     info!("✅ Initialized push subscription storage");
 
     // Initialize Enclave connection details
     let enclave_connection_details =
         pontifex::client::ConnectionDetails::new(env.enclave_cid(), env.enclave_port());
+
+    // Initialize Redis client
+    let redis_client = RedisClient::new(&env.redis_url()).await?;
+    let cache_manager = CacheManager::new(redis_client);
+    info!("✅ Initialized Cache Manager");
 
     // Single shutdown token for everything
     let shutdown_token = CancellationToken::new();
@@ -71,6 +77,7 @@ async fn main() -> Result<()> {
         notification_queue,
         subscription_storage,
         enclave_connection_details,
+        cache_manager,
         shutdown_token,
     )
     .await;

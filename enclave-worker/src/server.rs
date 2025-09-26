@@ -8,6 +8,7 @@ use datadog_tracing::axum::{OtelAxumLayer, OtelInResponseLayer};
 use tokio::net::TcpListener;
 use tokio_util::sync::CancellationToken;
 
+use crate::cache::CacheManager;
 use crate::routes;
 use crate::types::Environment;
 
@@ -21,6 +22,7 @@ pub async fn start(
     notification_queue: Arc<NotificationQueue>,
     push_subscription_storage: Arc<PushSubscriptionStorage>,
     enclave_connection_details: pontifex::client::ConnectionDetails,
+    cache_manager: CacheManager,
     shutdown_token: CancellationToken,
 ) -> anyhow::Result<()> {
     let mut openapi = OpenApi::default();
@@ -32,6 +34,7 @@ pub async fn start(
         .layer(Extension(push_subscription_storage))
         .layer(Extension(notification_queue))
         .layer(Extension(enclave_connection_details))
+        .layer(Extension(cache_manager))
         // Include trace context as header into the response
         .layer(OtelInResponseLayer)
         // Start OpenTelemetry trace on incoming request

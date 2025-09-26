@@ -75,7 +75,7 @@ jobs:
 
       - name: Start LocalStack and wait for it to be healthy
         run: |
-          docker compose up -d --wait localstack
+          docker compose up -d --wait localstack redis
 
       - name: Run tests
         run: cargo test -- --nocapture
