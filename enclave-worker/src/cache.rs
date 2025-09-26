@@ -68,13 +68,10 @@ impl CacheManager {
 
             tracing::info!("Background refresh starting for key: {}", cache_key);
             match fetch_fn().await {
-                Ok(fresh) => {
-                    if let Err(e) = cm.set_with_ttl(&cache_key, &fresh, ttl_secs).await {
-                        tracing::warn!("Failed to update cache: {e}");
-                    } else {
-                        tracing::info!("Successfully refreshed key: {}", cache_key);
-                    }
-                }
+                Ok(fresh) => match cm.set_with_ttl(&cache_key, &fresh, ttl_secs).await {
+                    Ok(()) => tracing::info!("Successfully refreshed key: {}", cache_key),
+                    Err(e) => tracing::warn!("Failed to update cache: {e}"),
+                },
                 Err(e) => tracing::warn!("Refresh failed for {cache_key}: {e}"),
             }
 
