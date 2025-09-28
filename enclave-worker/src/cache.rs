@@ -44,7 +44,7 @@ impl CacheManager {
         }
 
         // Hit: maybe refresh in the background; always return the cached value.
-        let data = cached.ok_or(anyhow::anyhow!("Cached data is none"))?;
+        let data = cached.ok_or_else(|| anyhow::anyhow!("Cached data is none when cache hit"))?;
         if ttl > 0 && u64::try_from(ttl).unwrap_or(0) <= refresh_threshold_secs {
             self.spawn_background_refresh(cache_key.to_owned(), ttl_secs, fetch_fn)
                 .await;
