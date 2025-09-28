@@ -1,5 +1,5 @@
 use crate::redis::RedisClient;
-use redis::AsyncCommands;
+use redis::AsyncTypedCommands;
 use std::time::Duration;
 use tokio::time::timeout;
 
@@ -23,9 +23,6 @@ impl CacheManager {
     /// Returns an error if:
     /// - Redis operations timeout or fail  
     /// - The fetch function returns an error when cache miss occurs
-    ///
-    /// # Panics
-    /// Panics if the cached data cannot be unwrapped (should not happen in normal operation)
     pub async fn cache_with_refresh<F, Fut>(
         &self,
         cache_key: &str,
@@ -47,7 +44,7 @@ impl CacheManager {
         }
 
         // Hit: maybe refresh in the background; always return the cached value.
-        let data = cached.unwrap();
+        let data = cached.ok_or(anyhow::anyhow!("Cached data is none"))?;
         if ttl > 0 && u64::try_from(ttl).unwrap_or(0) <= refresh_threshold_secs {
             self.spawn_background_refresh(cache_key.to_owned(), ttl_secs, fetch_fn)
                 .await;
@@ -99,18 +96,20 @@ impl CacheManager {
 
     async fn set_with_ttl(&self, key: &str, data: &[u8], ttl_secs: u64) -> anyhow::Result<()> {
         let mut conn = self.redis_client.conn();
-        timeout(REDIS_TIMEOUT, conn.set_ex::<_, _, ()>(key, data, ttl_secs))
+        timeout(REDIS_TIMEOUT, conn.set_ex(key, data, ttl_secs))
             .await
             .map_err(|_| anyhow::anyhow!("Redis timeout"))?
             .map_err(|e| anyhow::anyhow!("Redis error: {e}"))?;
         Ok(())
     }
 
+    /// Try to acquire a lock for a given key. If the lock is already acquired or an error occurs, we return false.
     async fn try_acquire_lock(&self, lock_key: &str) -> bool {
         let mut conn = self.redis_client.conn();
-        timeout(
+
+        let lock_value = timeout(
             REDIS_TIMEOUT,
-            conn.set_options::<_, _, bool>(
+            conn.set_options(
                 lock_key,
                 "1",
                 redis::SetOptions::default()
@@ -118,14 +117,14 @@ impl CacheManager {
                     .with_expiration(redis::SetExpiry::EX(REFRESH_LOCK_TTL_SECS)),
             ),
         )
-        .await
-        .ok()
-        .and_then(Result::ok)
-        .unwrap_or(false)
+        .await;
+
+        // If we manage to set the lock value, we return true.
+        matches!(lock_value, Ok(Ok(Some(_))))
     }
 
     async fn release_lock(&self, lock_key: &str) {
         let mut conn = self.redis_client.conn();
-        let _ = timeout(REDIS_TIMEOUT, conn.del::<_, ()>(lock_key)).await;
+        let _ = timeout(REDIS_TIMEOUT, conn.del(lock_key)).await;
     }
 }
