@@ -170,4 +170,19 @@ impl Environment {
             .parse()
             .expect("BRAZE_HTTP_PROXY_PORT environment variable is not a valid u32")
     }
+
+    /// Returns the Redis URL for caching
+    ///
+    /// # Panics
+    ///
+    /// Panics if the `REDIS_URL` environment variable is not set in production/staging
+    #[must_use]
+    pub fn redis_url(&self) -> String {
+        match self {
+            Self::Production | Self::Staging => {
+                env::var("REDIS_URL").expect("REDIS_URL environment variable is not set")
+            }
+            Self::Development => "redis://localhost:6379".to_string(),
+        }
+    }
 }
