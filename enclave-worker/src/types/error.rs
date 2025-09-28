@@ -148,9 +148,10 @@ impl From<pontifex::client::Error> for AppError {
 }
 
 impl From<enclave_types::EnclaveError> for AppError {
+    #[allow(clippy::cognitive_complexity)]
     fn from(err: enclave_types::EnclaveError) -> Self {
         use enclave_types::EnclaveError::{
-            AttestationFailed, NotInitialized, SecureModuleNotInitialized,
+            AttestationFailed, BrazeRequestFailed, NotInitialized, SecureModuleNotInitialized,
         };
 
         match &err {
@@ -174,6 +175,15 @@ impl From<enclave_types::EnclaveError> for AppError {
             }
             AttestationFailed() => {
                 tracing::error!("Attestation failed");
+                Self::new(
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "internal_error",
+                    "Internal server error",
+                    false,
+                )
+            }
+            BrazeRequestFailed(msg) => {
+                tracing::error!("Braze request failed: {msg}");
                 Self::new(
                     StatusCode::INTERNAL_SERVER_ERROR,
                     "internal_error",

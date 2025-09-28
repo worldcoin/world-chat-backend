@@ -138,6 +138,39 @@ impl Environment {
             .expect("ENCLAVE_PORT environment variable is not a valid u32")
     }
 
+    /// Returns the Braze API KEY
+    ///
+    /// # Panics
+    ///
+    /// Panics if the `BRAZE_API_KEY` environment variable is not set in production/staging
+    #[must_use]
+    pub fn braze_api_key(&self) -> String {
+        env::var("BRAZE_API_KEY").expect("BRAZE_API_KEY environment variable is not set")
+    }
+
+    /// Returns the Braze API REGION
+    ///
+    /// # Panics
+    ///
+    /// Panics if the `BRAZE_API_REGION` environment variable is not set in production/staging
+    #[must_use]
+    pub fn braze_api_region(&self) -> String {
+        env::var("BRAZE_API_REGION").expect("BRAZE_API_REGION environment variable is not set")
+    }
+
+    /// Returns the Braze HTTP PROXY PORT
+    ///
+    /// # Panics
+    ///
+    /// Panics if the `BRAZE_HTTP_PROXY_PORT` environment variable is not set in production/staging
+    #[must_use]
+    pub fn braze_http_proxy_port(&self) -> u32 {
+        env::var("BRAZE_HTTP_PROXY_PORT")
+            .expect("BRAZE_HTTP_PROXY_PORT environment variable is not set")
+            .parse()
+            .expect("BRAZE_HTTP_PROXY_PORT environment variable is not a valid u32")
+    }
+
     /// Returns the Redis URL for caching
     ///
     /// # Panics

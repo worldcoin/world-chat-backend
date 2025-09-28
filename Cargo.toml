@@ -28,6 +28,7 @@ axum-jsonschema = { version = "0.8.0", features = ["aide"] }
 axum = "0.7.9"
 tower      = "0.5.2"
 tower-http = { version = "0.6.2", features = ["trace", "timeout"] }
+hyper = { version = "0.14" }
 
 # Async 
 tokio = { version = "1.47.1", features = ["full"] }
@@ -94,7 +95,7 @@ enclave-types = { path = "shared/enclave-types" }
 common-types = { path = "shared/common-types" }
 
 # Pontifex
-pontifex = { version = "1.0.1" }
+pontifex = { version = "1.1.1" }
 
 # Datadog tracing
 datadog-tracing = { version = "0.3.0", features = ["axum"] }
