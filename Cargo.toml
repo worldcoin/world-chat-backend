@@ -97,8 +97,9 @@ common-types = { path = "shared/common-types" }
 # Pontifex
 pontifex = { version = "1.1.1" }
 
-# Datadog tracing
+# Telemetry Datadog tracing, Metrics, Log correlationation
 datadog-tracing = { version = "0.3.0", features = ["axum"] }
+telemetry-batteries = { git = "https://github.com/worldcoin/telemetry-batteries.git", rev = "e3f38eca40985e56a044715bb9b3c8fd6a17ce40"}
 
 # Crypto box
 crypto_box = { version = "0.9.1" }

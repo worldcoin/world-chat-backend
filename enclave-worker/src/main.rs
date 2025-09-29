@@ -5,6 +5,7 @@ use backend_storage::{push_subscription::PushSubscriptionStorage, queue::Notific
 use datadog_tracing::axum::shutdown_signal;
 use enclave_types::EnclaveInitializeRequest;
 use enclave_worker::{notification_processor::NotificationProcessor, server, types::Environment};
+use telemetry_batteries::{metrics::statsd::StatsdBattery, tracing::datadog::DatadogBattery};
 use tokio_util::sync::CancellationToken;
 use tracing::info;
 
@@ -17,10 +18,20 @@ async fn main() -> Result<()> {
 
     info!("Starting Enclave Worker in {:?} environment", env);
 
+    let _shutdown_handle =
+        DatadogBattery::init(None, &std::env::var("DD_SERVICE").unwrap(), None, true);
+    StatsdBattery::init(
+        &std::env::var("METRICS_HOST").unwrap(),
+        std::env::var("METRICS_PORT").unwrap().parse().unwrap(),
+        5000,
+        1024,
+        Some("world_chat.enclave_worker"),
+    )?;
+
     // Initialize Datadog tracing
     // This will set up OpenTelemetry with Datadog exporter
     // The _guard must be kept alive for the duration of the program
-    let (_guard, tracer_shutdown) = datadog_tracing::init()?;
+    // let (_guard, tracer_shutdown) = datadog_tracing::init()?;
 
     // Initialize notification queue
     let sqs_client = Arc::new(SqsClient::new(&env.aws_config().await));
@@ -89,7 +100,7 @@ async fn main() -> Result<()> {
     notification_processor_handle.await.ok();
 
     // Ensure the tracer is properly shut down
-    tracer_shutdown.shutdown();
+    // tracer_shutdown.shutdown();
 
     info!("✅ Enclave Worker shutdown complete");
 

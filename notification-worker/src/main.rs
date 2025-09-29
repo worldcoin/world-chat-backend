@@ -1,4 +1,6 @@
 use std::sync::Arc;
+use telemetry_batteries::metrics::statsd::StatsdBattery;
+use telemetry_batteries::tracing::datadog::DatadogBattery;
 use tracing::{error, info};
 
 use aws_sdk_dynamodb::Client as DynamoDbClient;
@@ -15,7 +17,17 @@ async fn main() -> anyhow::Result<()> {
     // Initialize Datadog tracing
     // This will set up OpenTelemetry with Datadog exporter
     // The _guard must be kept alive for the duration of the program
-    let (_guard, tracer_shutdown) = datadog_tracing::init()?;
+    // let (_guard, tracer_shutdown) = datadog_tracing::init()?;
+
+    let _shutdown_handle =
+        DatadogBattery::init(None, &std::env::var("DD_SERVICE").unwrap(), None, true);
+    StatsdBattery::init(
+        &std::env::var("METRICS_HOST").unwrap(),
+        std::env::var("METRICS_PORT").unwrap().parse().unwrap(),
+        5000,
+        1024,
+        Some("world_chat.notification_worker"),
+    )?;
 
     // Initialize rustls crypto provider
     rustls::crypto::ring::default_provider()
@@ -85,7 +97,7 @@ async fn main() -> anyhow::Result<()> {
     info!("XMTP Notification Worker stopped");
 
     // Ensure the tracer is properly shut down
-    tracer_shutdown.shutdown();
+    // tracer_shutdown.shutdown();
 
     Ok(())
 }

@@ -5,6 +5,7 @@ use backend_storage::{
 };
 use enclave_types::EnclaveNotificationRequest;
 use std::sync::Arc;
+use telemetry_batteries::reexports::metrics;
 use tokio_util::sync::CancellationToken;
 use tracing::{error, info};
 
@@ -91,6 +92,8 @@ impl NotificationProcessor {
 
         // Acknowledge the message after successful processing
         self.queue.ack_message(&receipt_handle).await?;
+
+        metrics::counter!("notification_delivered").increment(1);
 
         Ok(())
     }

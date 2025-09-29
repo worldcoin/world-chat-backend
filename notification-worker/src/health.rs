@@ -31,12 +31,11 @@ async fn health() -> impl IntoResponse {
 ///
 /// Returns an error if the server fails to bind to the specified address
 pub async fn start_health_server(shutdown_token: CancellationToken) -> anyhow::Result<()> {
-    let app = Router::new()
-        .route("/health", get(health))
-        // Include trace context as header into the response
-        .layer(OtelInResponseLayer)
-        // Start OpenTelemetry trace on incoming request
-        .layer(OtelAxumLayer::default());
+    let app = Router::new().route("/health", get(health));
+    // Include trace context as header into the response
+    // .layer(OtelInResponseLayer)
+    // // Start OpenTelemetry trace on incoming request
+    // .layer(OtelAxumLayer::default());
 
     let addr = SocketAddr::from((
         [0, 0, 0, 0],
