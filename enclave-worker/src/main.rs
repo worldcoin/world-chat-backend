@@ -27,18 +27,13 @@ async fn main() -> Result<()> {
     // The _guard must be kept alive for the duration of the program
     let (_guard, tracer_shutdown) = datadog_tracing::init()?;
 
-    let metrics_url = format!("{}:{}", env.metrics_host(), env.metrics_port());
-    info!("Metrics URL: {}", metrics_url);
-
-    info!("Metrics URL 2: {}", env.metrics_url());
-
     DogStatsDBuilder::default()
         .with_global_labels(vec![
             Label::new("service", env.dd_service()),
             Label::new("env", env.dd_env()),
         ])
         .set_global_prefix("world_chat.enclave_worker")
-        .with_remote_address(metrics_url)
+        .with_remote_address(env.metrics_addr())
         .expect("failed to set remote address")
         .install()
         .expect("failed to install DogStatsD recorder");

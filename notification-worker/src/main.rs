@@ -29,7 +29,7 @@ async fn main() -> anyhow::Result<()> {
             Label::new("env", env.dd_env()),
         ])
         .set_global_prefix("world_chat.notification_worker")
-        .with_remote_address(env.metrics_url())
+        .with_remote_address(env.metrics_addr())
         .expect("failed to set remote address")
         .install()
         .expect("failed to install DogStatsD recorder");

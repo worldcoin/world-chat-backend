@@ -186,37 +186,21 @@ impl Environment {
         }
     }
 
-    /// Metrics url
+    /// Metrics addr (host:port) for DogStatsD
     ///
     /// # Panics
     ///
-    /// Panics if the `METRICS_URL` environment variable is not set in production/staging
+    /// Panics if the `DD_AGENT_HOST` environment variable is not set in production/staging
     #[must_use]
-    pub fn metrics_url(&self) -> String {
-        env::var("METRICS_URL").expect("METRICS_URL environment variable is not set")
-    }
+    pub fn metrics_addr(&self) -> String {
+        let dd_agent_host = match self {
+            Self::Production | Self::Staging => {
+                env::var("DD_AGENT_HOST").expect("DD_AGENT_HOST environment variable is not set")
+            }
+            Self::Development => "localhost".to_string(),
+        };
 
-    /// Metrics host
-    ///
-    /// # Panics
-    ///
-    /// Panics if the `METRICS_HOST` environment variable is not set in production/staging
-    #[must_use]
-    pub fn metrics_host(&self) -> String {
-        env::var("METRICS_HOST").expect("METRICS_HOST environment variable is not set")
-    }
-
-    /// Metrics port
-    ///
-    /// # Panics
-    ///
-    /// Panics if the `METRICS_PORT` environment variable is not set in production/staging
-    #[must_use]
-    pub fn metrics_port(&self) -> u32 {
-        env::var("METRICS_PORT")
-            .expect("METRICS_PORT environment variable is not set")
-            .parse()
-            .expect("METRICS_PORT environment variable is not a valid u32")
+        format!("{dd_agent_host}:8125")
     }
 
     /// DD Service
