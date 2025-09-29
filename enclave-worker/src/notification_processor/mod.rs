@@ -7,7 +7,7 @@ use enclave_types::EnclaveNotificationRequest;
 use metrics::counter;
 use std::sync::Arc;
 use tokio_util::sync::CancellationToken;
-use tracing::{error, info};
+use tracing::{error, info, instrument};
 
 pub struct NotificationProcessor {
     queue: Arc<NotificationQueue>,
@@ -76,6 +76,7 @@ impl NotificationProcessor {
         Ok(())
     }
 
+    #[instrument(skip(self, message), fields(message_id = %message.message_id))]
     async fn process_and_ack(&self, message: QueueMessage<Notification>) -> anyhow::Result<()> {
         let notification = message.body;
         let receipt_handle = message.receipt_handle;

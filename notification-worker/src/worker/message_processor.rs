@@ -10,7 +10,7 @@ use base64::{engine::general_purpose::STANDARD, Engine as _};
 use metrics::counter;
 use tokio_util::sync::CancellationToken;
 
-use tracing::{debug, error, info, instrument, warn};
+use tracing::{debug, error, info, instrument, Span};
 
 use crate::xmtp_utils::is_v3_topic;
 
@@ -77,7 +77,7 @@ impl MessageProcessor {
     /// # Errors
     ///
     /// Returns an error if the message cannot be processed.
-    #[instrument(skip(self, envelope), fields(worker_id = self.worker_id, content_topic = %envelope.content_topic))]
+    #[instrument(skip(self, envelope), fields(worker_id = self.worker_id, content_topic = %envelope.content_topic, message_id = tracing::field::Empty))]
     pub async fn process_message(&self, envelope: &Envelope) -> anyhow::Result<()> {
         // Step 1: Filter out messages that are not V3, following example from XMTP
         if !is_v3_topic(&envelope.content_topic) {
@@ -129,11 +129,13 @@ impl MessageProcessor {
         };
 
         // Step 4: Publish to notification queue
-        self.notification_queue
+        let message_id = self
+            .notification_queue
             .send_message(&notification)
             .await
             .context("Failed to send message to notification queue")?;
 
+        Span::current().record("message_id", message_id);
         counter!("notification_queued").increment(1);
 
         Ok(())
