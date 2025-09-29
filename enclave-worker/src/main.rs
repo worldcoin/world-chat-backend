@@ -61,11 +61,6 @@ async fn main() -> Result<()> {
     let cache_manager = CacheManager::new(redis_client);
     info!("✅ Initialized Cache Manager");
 
-    // Initialize Redis client
-    let redis_client = RedisClient::new(&env.redis_url()).await?;
-    let cache_manager = CacheManager::new(redis_client);
-    info!("✅ Initialized Cache Manager");
-
     // Single shutdown token for everything
     let shutdown_token = CancellationToken::new();
     let signal_token = shutdown_token.clone();
