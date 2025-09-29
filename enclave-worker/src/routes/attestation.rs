@@ -37,7 +37,7 @@ pub async fn handler(
         )
         .await
         .map_err(|e| {
-            tracing::error!("Failed to get attestation document: {e}");
+            tracing::error!("Failed to get attestation document: {e:?}");
             AppError::internal_server_error()
         })?;
 
