@@ -7,6 +7,7 @@ use backend_storage::{
     queue::{Notification, NotificationQueue},
 };
 use base64::{engine::general_purpose::STANDARD, Engine as _};
+use metrics::counter;
 use tokio_util::sync::CancellationToken;
 
 use tracing::{debug, error, info, instrument, warn};
@@ -133,6 +134,8 @@ impl MessageProcessor {
             .send_message(&notification)
             .await
             .context("Failed to send message to notification queue")?;
+
+        counter!("notification_queued").increment(1);
 
         Ok(())
     }

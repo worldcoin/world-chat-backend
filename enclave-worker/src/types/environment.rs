@@ -185,4 +185,47 @@ impl Environment {
             Self::Development => "redis://localhost:6379".to_string(),
         }
     }
+
+    /// Metrics host
+    ///
+    /// # Panics
+    ///
+    /// Panics if the `METRICS_HOST` environment variable is not set in production/staging
+    #[must_use]
+    pub fn metrics_host(&self) -> String {
+        env::var("METRICS_HOST").expect("METRICS_HOST environment variable is not set")
+    }
+
+    /// Metrics port
+    ///
+    /// # Panics
+    ///
+    /// Panics if the `METRICS_PORT` environment variable is not set in production/staging
+    #[must_use]
+    pub fn metrics_port(&self) -> u32 {
+        env::var("METRICS_PORT")
+            .expect("METRICS_PORT environment variable is not set")
+            .parse()
+            .expect("METRICS_PORT environment variable is not a valid u32")
+    }
+
+    /// DD Service
+    ///
+    /// # Panics
+    ///
+    /// Panics if the `DD_SERVICE` environment variable is not set in production/staging
+    #[must_use]
+    pub fn dd_service(&self) -> String {
+        env::var("DD_SERVICE").expect("DD_SERVICE environment variable is not set")
+    }
+
+    // DD Environment
+    ///
+    /// # Panics
+    ///
+    /// Panics if the `DD_ENV` environment variable is not set in production/staging
+    #[must_use]
+    pub fn dd_env(&self) -> String {
+        env::var("DD_ENV").expect("DD_ENV environment variable is not set")
+    }
 }

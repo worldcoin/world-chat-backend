@@ -4,6 +4,7 @@ use backend_storage::{
     queue::{Notification, NotificationQueue, QueueMessage},
 };
 use enclave_types::EnclaveNotificationRequest;
+use metrics::counter;
 use std::sync::Arc;
 use tokio_util::sync::CancellationToken;
 use tracing::{error, info};
@@ -91,6 +92,8 @@ impl NotificationProcessor {
 
         // Acknowledge the message after successful processing
         self.queue.ack_message(&receipt_handle).await?;
+
+        counter!("notification_delivered").increment(1);
 
         Ok(())
     }

@@ -8,6 +8,8 @@ use enclave_worker::{
     cache::CacheManager, notification_processor::NotificationProcessor, redis::RedisClient, server,
     types::Environment,
 };
+use metrics::Label;
+use metrics_exporter_dogstatsd::DogStatsDBuilder;
 use tokio_util::sync::CancellationToken;
 use tracing::info;
 
@@ -24,6 +26,17 @@ async fn main() -> Result<()> {
     // This will set up OpenTelemetry with Datadog exporter
     // The _guard must be kept alive for the duration of the program
     let (_guard, tracer_shutdown) = datadog_tracing::init()?;
+
+    DogStatsDBuilder::default()
+        .with_global_labels(vec![
+            Label::new("service", env.dd_service()),
+            Label::new("env", env.dd_env()),
+        ])
+        .set_global_prefix("world_chat.enclave_worker")
+        .with_remote_address(format!("{}:{}", env.metrics_host(), env.metrics_port()))
+        .expect("failed to set remote address")
+        .install()
+        .expect("failed to install DogStatsD recorder");
 
     // Initialize notification queue
     let sqs_client = Arc::new(SqsClient::new(&env.aws_config().await));
