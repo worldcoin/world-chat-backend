@@ -4,7 +4,10 @@ use anyhow::Result;
 use backend_storage::{push_subscription::PushSubscriptionStorage, queue::NotificationQueue};
 use datadog_tracing::axum::shutdown_signal;
 use enclave_types::EnclaveInitializeRequest;
-use enclave_worker::{notification_processor::NotificationProcessor, server, types::Environment};
+use enclave_worker::{
+    cache::CacheManager, notification_processor::NotificationProcessor, redis::RedisClient, server,
+    types::Environment,
+};
 use tokio_util::sync::CancellationToken;
 use tracing::info;
 
@@ -53,6 +56,11 @@ async fn main() -> Result<()> {
     .expect("Failed to initialize Enclave");
     info!("✅ Enclave initialized successfully");
 
+    // Initialize Redis client
+    let redis_client = RedisClient::new(&env.redis_url()).await?;
+    let cache_manager = CacheManager::new(redis_client);
+    info!("✅ Initialized Cache Manager");
+
     // Single shutdown token for everything
     let shutdown_token = CancellationToken::new();
     let signal_token = shutdown_token.clone();
@@ -81,6 +89,7 @@ async fn main() -> Result<()> {
         notification_queue,
         subscription_storage,
         enclave_connection_details,
+        cache_manager,
         shutdown_token,
     )
     .await;
