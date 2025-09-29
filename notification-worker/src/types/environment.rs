@@ -203,7 +203,7 @@ impl Environment {
         }
     }
 
-    /// Metrics addr (host:port) for DogStatsD
+    /// Metrics addr (host:port) for `DogStatsD`
     ///
     /// # Panics
     ///
@@ -218,26 +218,6 @@ impl Environment {
         };
 
         format!("{dd_agent_host}:8125")
-    }
-
-    /// DD Service
-    ///
-    /// # Panics
-    ///
-    /// Panics if the `DD_SERVICE` environment variable is not set in production/staging
-    #[must_use]
-    pub fn dd_service(&self) -> String {
-        env::var("DD_SERVICE").expect("DD_SERVICE environment variable is not set")
-    }
-
-    // DD Environment
-    ///
-    /// # Panics
-    ///
-    /// Panics if the `DD_ENV` environment variable is not set in production/staging
-    #[must_use]
-    pub fn dd_env(&self) -> String {
-        env::var("DD_ENV").expect("DD_ENV environment variable is not set")
     }
 }
 

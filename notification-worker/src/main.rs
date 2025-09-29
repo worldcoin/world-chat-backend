@@ -1,4 +1,3 @@
-use metrics::Label;
 use metrics_exporter_dogstatsd::DogStatsDBuilder;
 use std::sync::Arc;
 use tracing::{error, info};
@@ -24,10 +23,6 @@ async fn main() -> anyhow::Result<()> {
     let (_guard, tracer_shutdown) = datadog_tracing::init()?;
 
     DogStatsDBuilder::default()
-        .with_global_labels(vec![
-            Label::new("service", env.dd_service()),
-            Label::new("env", env.dd_env()),
-        ])
         .set_global_prefix("world_chat.notification_worker")
         .with_remote_address(env.metrics_addr())
         .expect("failed to set remote address")

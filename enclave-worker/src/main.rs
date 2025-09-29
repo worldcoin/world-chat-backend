@@ -8,7 +8,6 @@ use enclave_worker::{
     cache::CacheManager, notification_processor::NotificationProcessor, redis::RedisClient, server,
     types::Environment,
 };
-use metrics::Label;
 use metrics_exporter_dogstatsd::DogStatsDBuilder;
 use tokio_util::sync::CancellationToken;
 use tracing::info;
@@ -28,10 +27,6 @@ async fn main() -> Result<()> {
     let (_guard, tracer_shutdown) = datadog_tracing::init()?;
 
     DogStatsDBuilder::default()
-        .with_global_labels(vec![
-            Label::new("service", env.dd_service()),
-            Label::new("env", env.dd_env()),
-        ])
         .set_global_prefix("world_chat.enclave_worker")
         .with_remote_address(env.metrics_addr())
         .expect("failed to set remote address")
