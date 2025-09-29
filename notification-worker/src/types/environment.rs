@@ -213,6 +213,16 @@ impl Environment {
         env::var("METRICS_HOST").expect("METRICS_HOST environment variable is not set")
     }
 
+    /// Metrics url
+    ///
+    /// # Panics
+    ///
+    /// Panics if the `METRICS_URL` environment variable is not set in production/staging
+    #[must_use]
+    pub fn metrics_url(&self) -> String {
+        env::var("METRICS_URL").expect("METRICS_URL environment variable is not set")
+    }
+
     /// Metrics port
     ///
     /// # Panics
