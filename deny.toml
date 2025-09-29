@@ -14,6 +14,12 @@ unknown-registry = "deny"
 [bans]
 # Allow multiple versions of these crates - they're commonly duplicated in the ecosystem
 multiple-versions = "allow"
+deny = [
+    # forbid OpenSSL and related crates
+    { name = "openssl" },
+    { name = "openssl-sys" },
+    { name = "openssl-src" },
+]
 
 [licenses]
 version = 2
