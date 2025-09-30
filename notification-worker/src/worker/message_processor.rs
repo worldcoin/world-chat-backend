@@ -17,6 +17,7 @@ use crate::xmtp_utils::is_v3_topic;
 
 /// `MessageProcessor` handles individual message processing
 pub struct MessageProcessor {
+    #[allow(unused)]
     worker_id: usize,
     notification_queue: Arc<NotificationQueue>,
     subscription_storage: Arc<PushSubscriptionStorage>,
@@ -106,6 +107,8 @@ impl MessageProcessor {
             .subscription_storage
             .get_all_by_topic(&envelope.content_topic)
             .await?;
+
+        info!("Subscriptions found: {:?}", subscriptions);
         let subscribed_encrypted_push_ids = subscriptions
             .into_iter()
             .filter_map(|s| match message_context.is_sender(&s.hmac_key) {
