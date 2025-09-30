@@ -49,9 +49,10 @@ datadog-tracing = { workspace = true }
 metrics = { workspace = true }
 metrics-exporter-dogstatsd = { workspace = true }
 
+uuid = { workspace = true }
+
 # Testing dependencies
 [dev-dependencies]
-uuid = { workspace = true }
 serial_test = { workspace = true }
 dotenvy = { workspace = true }
 pretty_assertions = "1.4.1"

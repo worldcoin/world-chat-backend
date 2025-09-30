@@ -11,6 +11,7 @@ use metrics::counter;
 use tokio_util::sync::CancellationToken;
 
 use tracing::{debug, error, info, instrument, Span};
+use uuid::Uuid;
 
 use crate::xmtp_utils::is_v3_topic;
 
@@ -39,7 +40,6 @@ impl MessageProcessor {
 
     /// Runs the message processor loop
     #[allow(clippy::cognitive_complexity)]
-    #[instrument(skip(self, receiver, shutdown_token), fields(worker_id = self.worker_id))]
     pub async fn run(
         &self,
         receiver: flume::Receiver<Envelope>,
@@ -77,14 +77,17 @@ impl MessageProcessor {
     /// # Errors
     ///
     /// Returns an error if the message cannot be processed.
-    #[instrument(skip(self, envelope), fields(worker_id = self.worker_id, content_topic = %envelope.content_topic, message_id = tracing::field::Empty))]
+    #[instrument(skip(self, envelope), fields(content_topic = %envelope.content_topic, message_id = tracing::field::Empty, request_id = tracing::field::Empty))]
     pub async fn process_message(&self, envelope: &Envelope) -> anyhow::Result<()> {
+        let request_id = Uuid::new_v4().to_string().to_lowercase();
+        Span::current().record("request_id", request_id);
+
         // Step 1: Filter out messages that are not V3, following example from XMTP
         if !is_v3_topic(&envelope.content_topic) {
             return Ok(());
         }
 
-        debug!(
+        info!(
             "Processing message - Timestamp: {}, Size: {} bytes",
             envelope.timestamp_ns,
             envelope.message.len()
@@ -94,6 +97,7 @@ impl MessageProcessor {
 
         // Step 2: Filter out messages that should not be pushed
         if Some(false) == message_context.should_push {
+            info!("Message should not be pushed");
             return Ok(());
         }
 
