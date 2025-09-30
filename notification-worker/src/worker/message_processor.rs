@@ -10,7 +10,7 @@ use base64::{engine::general_purpose::STANDARD, Engine as _};
 use metrics::counter;
 use tokio_util::sync::CancellationToken;
 
-use tracing::{debug, error, info, instrument, Span};
+use tracing::{error, info, instrument, Span};
 use uuid::Uuid;
 
 use crate::xmtp_utils::is_v3_topic;
@@ -78,11 +78,8 @@ impl MessageProcessor {
     /// # Errors
     ///
     /// Returns an error if the message cannot be processed.
-    #[instrument(skip(self, envelope), fields(content_topic = %envelope.content_topic, message_id = tracing::field::Empty, request_id = tracing::field::Empty))]
+    #[instrument(skip(self, envelope), fields(content_topic = %envelope.content_topic, message_id = tracing::field::Empty, request_id = %Uuid::new_v4()))]
     pub async fn process_message(&self, envelope: &Envelope) -> anyhow::Result<()> {
-        let request_id = Uuid::new_v4().to_string().to_lowercase();
-        Span::current().record("request_id", request_id);
-
         // Step 1: Filter out messages that are not V3, following example from XMTP
         if !is_v3_topic(&envelope.content_topic) {
             return Ok(());
