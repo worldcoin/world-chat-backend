@@ -1,3 +1,4 @@
+use metrics_exporter_dogstatsd::DogStatsDBuilder;
 use std::sync::Arc;
 use tracing::{error, info};
 
@@ -12,19 +13,26 @@ use notification_worker::worker::XmtpWorker;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
+    // Get environment
+    let env = Environment::from_env();
+    info!("Starting XMTP Notification Worker in {:?} environment", env);
+
     // Initialize Datadog tracing
     // This will set up OpenTelemetry with Datadog exporter
     // The _guard must be kept alive for the duration of the program
     let (_guard, tracer_shutdown) = datadog_tracing::init()?;
 
+    DogStatsDBuilder::default()
+        .set_global_prefix("world_chat.notification_worker")
+        .with_remote_address(env.metrics_addr())
+        .expect("failed to set remote address")
+        .install()
+        .expect("failed to install DogStatsD recorder");
+
     // Initialize rustls crypto provider
     rustls::crypto::ring::default_provider()
         .install_default()
         .expect("Failed to install rustls crypto provider");
-
-    // Get environment
-    let env = Environment::from_env();
-    info!("Starting XMTP Notification Worker in {:?} environment", env);
 
     // Initialize notification queue
     let sqs_client = Arc::new(SqsClient::new(&env.aws_config().await));

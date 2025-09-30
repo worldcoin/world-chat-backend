@@ -204,12 +204,12 @@ fn validate_subscribe_payload(payload: &[CreateSubscriptionRequest]) -> Result<(
                 false,
             ));
         }
-        // strictly < now + 30 days
+        // strictly < now + 40 days
         if subscription.ttl >= now + MAX_TTL_SECS {
             return Err(AppError::new(
                 StatusCode::BAD_REQUEST,
                 "invalid_ttl",
-                "TTL must be greater than 0",
+                "TTL must be less than 40 days in the future",
                 false,
             ));
         }

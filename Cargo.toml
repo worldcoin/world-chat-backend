@@ -99,6 +99,8 @@ pontifex = { version = "1.1.1" }
 
 # Datadog tracing
 datadog-tracing = { version = "0.3.0", features = ["axum"] }
+metrics = "0.24.2"
+metrics-exporter-dogstatsd = "0.9.6"
 
 # Crypto box
 crypto_box = { version = "0.9.1" }

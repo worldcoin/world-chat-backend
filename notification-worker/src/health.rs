@@ -34,9 +34,9 @@ pub async fn start_health_server(shutdown_token: CancellationToken) -> anyhow::R
     let app = Router::new()
         .route("/health", get(health))
         // Include trace context as header into the response
-        .layer(OtelInResponseLayer)
+        .route_layer(OtelInResponseLayer)
         // Start OpenTelemetry trace on incoming request
-        .layer(OtelAxumLayer::default());
+        .route_layer(OtelAxumLayer::default());
 
     let addr = SocketAddr::from((
         [0, 0, 0, 0],

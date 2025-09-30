@@ -185,4 +185,21 @@ impl Environment {
             Self::Development => "redis://localhost:6379".to_string(),
         }
     }
+
+    /// Metrics addr (host:port) for `DogStatsD`
+    ///
+    /// # Panics
+    ///
+    /// Panics if the `DD_AGENT_HOST` environment variable is not set in production/staging
+    #[must_use]
+    pub fn metrics_addr(&self) -> String {
+        let dd_agent_host = match self {
+            Self::Production | Self::Staging => {
+                env::var("DD_AGENT_HOST").expect("DD_AGENT_HOST environment variable is not set")
+            }
+            Self::Development => "localhost".to_string(),
+        };
+
+        format!("{dd_agent_host}:8125")
+    }
 }

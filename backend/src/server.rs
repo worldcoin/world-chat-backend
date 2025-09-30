@@ -36,9 +36,9 @@ pub async fn start(
         .layer(Extension(push_subscription_storage))
         .layer(Extension(enclave_worker_api))
         // Include trace context as header into the response
-        .layer(OtelInResponseLayer)
+        .route_layer(OtelInResponseLayer)
         // Start OpenTelemetry trace on incoming request
-        .layer(OtelAxumLayer::default())
+        .route_layer(OtelAxumLayer::default())
         .layer(tower_http::timeout::TimeoutLayer::new(
             std::time::Duration::from_secs(5),
         ));
