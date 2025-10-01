@@ -1,4 +1,6 @@
+use axum::Extension;
 use axum_jsonschema::Json;
+use enclave_types::EnclaveHealthCheckRequest;
 use schemars::JsonSchema;
 use serde::Serialize;
 
@@ -17,8 +19,15 @@ pub struct HealthResponse {
 ///
 /// Returns the current status and version information of the service.
 /// This endpoint can be used for monitoring and deployment verification.
-pub async fn handler() -> Result<Json<HealthResponse>, AppError> {
-    // TODO: Check enclave health, push storage, notification queue
+pub async fn handler(
+    Extension(pontifex_connection_details): Extension<pontifex::client::ConnectionDetails>,
+) -> Result<Json<HealthResponse>, AppError> {
+    // Verify we can reach the enclave and it's healthy
+    pontifex::client::send::<EnclaveHealthCheckRequest>(
+        pontifex_connection_details,
+        &EnclaveHealthCheckRequest,
+    )
+    .await??;
 
     Ok(Json(HealthResponse {
         status: "ok".to_string(),
