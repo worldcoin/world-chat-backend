@@ -1,21 +1,9 @@
 use axum::Extension;
 use axum_jsonschema::Json;
+use common_types::{PushIdChallengeRequest, PushIdChallengeResponse};
 use enclave_types::EnclavePushIdChallengeRequest;
-use schemars::JsonSchema;
-use serde::{Deserialize, Serialize};
 
 use crate::types::AppError;
-
-#[derive(Debug, Deserialize, JsonSchema)]
-pub struct PushIdChallengeRequest {
-    pub encrypted_push_id_1: String,
-    pub encrypted_push_id_2: String,
-}
-
-#[derive(Debug, Serialize, JsonSchema)]
-pub struct PushIdChallengeResponse {
-    pub is_match: bool,
-}
 
 pub async fn handler(
     Extension(pontifex_connection_details): Extension<pontifex::client::ConnectionDetails>,
@@ -32,5 +20,7 @@ pub async fn handler(
     )
     .await??;
 
-    Ok(Json(PushIdChallengeResponse { is_match: response }))
+    Ok(Json(PushIdChallengeResponse {
+        push_ids_match: response,
+    }))
 }
