@@ -78,3 +78,16 @@ impl Request for EnclaveNotificationRequest {
     const ROUTE_ID: &'static str = "/v1/notification";
     type Response = Result<(), EnclaveError>;
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EnclaveInfoRequest;
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EnclaveInfoResponse {
+    pub enclave_instance_id: String,
+}
+
+impl Request for EnclaveInfoRequest {
+    const ROUTE_ID: &'static str = "/v1/info";
+    type Response = Result<EnclaveInfoResponse, EnclaveError>;
+}

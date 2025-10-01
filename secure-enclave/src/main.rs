@@ -33,8 +33,9 @@ async fn main() -> Result<()> {
 
     tracing::info!("🔑 Generated encryption keys");
 
-    // TODO: Explore retrying on failure and compatibility with pod restart
-    let state = Arc::new(RwLock::new(EnclaveState::new(keys)));
+    // Id for the enclave's lifecycle
+    let enclave_instance_id = uuid::Uuid::new_v4().to_string().to_lowercase();
+    let state = Arc::new(RwLock::new(EnclaveState::new(keys, enclave_instance_id)));
     if let Err(e) = start_pontifex_server(state, PONTIFEX_PORT).await {
         error!("Failed to start pontifex server: {e}");
         return Err(e);
