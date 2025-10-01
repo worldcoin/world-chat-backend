@@ -252,17 +252,8 @@ impl Environment {
     #[must_use]
     pub fn enclave_worker_url(&self) -> String {
         match self {
-            Self::Production | Self::Staging => {
-                let url = env::var("ENCLAVE_WORKER_URL")
-                    .expect("ENCLAVE_WORKER_URL environment variable is not set");
-
-                assert!(
-                    url.starts_with("https://"),
-                    "Enclave Worker URL in Production/Staging must use https"
-                );
-
-                url
-            }
+            Self::Production | Self::Staging => env::var("ENCLAVE_WORKER_URL")
+                .expect("ENCLAVE_WORKER_URL environment variable is not set"),
             Self::Development { .. } => "http://localhost:8002".to_string(),
         }
     }
