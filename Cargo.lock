@@ -5333,6 +5333,7 @@ dependencies = [
  "hex",
  "hyper 0.14.32",
  "pontifex",
+ "serde",
  "serde_json",
  "tokio",
  "tracing",

@@ -29,6 +29,8 @@ enclave-types = { workspace = true }
 
 serde_json = { workspace = true }
 
+serde = { workspace = true }
+
 hyper = { workspace = true }
 
 uuid = { workspace = true }
