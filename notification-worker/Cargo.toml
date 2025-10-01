@@ -35,7 +35,7 @@ tower = { workspace = true }
 
 # For future XMTP integration
 tonic = { version = "0.12", features = ["transport", "tls", "tls-webpki-roots"] }
-prost = "0.13"
+prost = "0.14"
 prost-types = "0.14"
 rustls = { version = "0.23", features = ["ring"] }
 
