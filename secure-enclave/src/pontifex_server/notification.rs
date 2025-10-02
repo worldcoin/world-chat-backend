@@ -103,6 +103,7 @@ async fn send_braze_notification(
             }
         }
     });
+    println!("body: {:?}", body);
     let body = Body::from(body.to_string());
 
     let req = Request::builder()
