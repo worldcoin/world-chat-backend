@@ -3,7 +3,7 @@ use std::sync::Arc;
 use anyhow::Context;
 use enclave_types::{
     EnclaveAttestationDocRequest, EnclaveHealthCheckRequest, EnclaveInfoRequest,
-    EnclaveInitializeRequest, EnclaveNotificationRequest,
+    EnclaveInitializeRequest, EnclaveNotificationRequest, EnclavePushIdChallengeRequest,
 };
 use pontifex::Router;
 use tokio::sync::RwLock;
@@ -13,6 +13,7 @@ mod health;
 mod info;
 mod initialize;
 mod notification;
+mod push_id_challenge;
 
 use crate::state::EnclaveState;
 
@@ -25,6 +26,7 @@ pub async fn start_pontifex_server(
         .route::<EnclaveInitializeRequest, _, _>(initialize::handler)
         .route::<EnclaveHealthCheckRequest, _, _>(health::handler)
         .route::<EnclaveAttestationDocRequest, _, _>(attestation_doc::handler)
+        .route::<EnclavePushIdChallengeRequest, _, _>(push_id_challenge::handler)
         .route::<EnclaveNotificationRequest, _, _>(notification::handler)
         .route::<EnclaveInfoRequest, _, _>(info::handler);
 

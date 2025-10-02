@@ -65,6 +65,11 @@ impl AppError {
             false,
         )
     }
+
+    #[must_use]
+    pub const fn bad_request(code: &'static str, msg: &'static str) -> Self {
+        Self::new(StatusCode::BAD_REQUEST, code, msg, false)
+    }
 }
 
 impl IntoResponse for AppError {
@@ -162,7 +167,8 @@ impl From<enclave_types::EnclaveError> for AppError {
     #[allow(clippy::cognitive_complexity)]
     fn from(err: enclave_types::EnclaveError) -> Self {
         use enclave_types::EnclaveError::{
-            AttestationFailed, BrazeRequestFailed, NotInitialized, SecureModuleNotInitialized,
+            AttestationFailed, BrazeRequestFailed, DecryptPushIdFailed, NotInitialized,
+            SecureModuleNotInitialized,
         };
 
         match &err {
@@ -195,6 +201,15 @@ impl From<enclave_types::EnclaveError> for AppError {
             }
             BrazeRequestFailed(msg) => {
                 tracing::error!("Braze request failed: {msg}");
+                Self::new(
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "internal_error",
+                    "Internal server error",
+                    false,
+                )
+            }
+            DecryptPushIdFailed(msg) => {
+                tracing::error!("Decrypt push ID failed: {msg}");
                 Self::new(
                     StatusCode::INTERNAL_SERVER_ERROR,
                     "internal_error",

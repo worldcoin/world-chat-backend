@@ -13,6 +13,8 @@ pub enum EnclaveError {
     AttestationFailed(),
     #[error("Failed to send request to Braze: {0}")]
     BrazeRequestFailed(String),
+    #[error("Failed to decrypt push ID: {0}")]
+    DecryptPushIdFailed(String),
 }
 
 /// Braze API configuration
@@ -55,8 +57,8 @@ pub struct EnclaveAttestationDocResponse {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EnclavePushIdChallengeRequest {
-    pub encrypted_push_id_1: String,
-    pub encrypted_push_id_2: String,
+    pub encrypted_push_id_1: Vec<u8>,
+    pub encrypted_push_id_2: Vec<u8>,
 }
 
 impl Request for EnclavePushIdChallengeRequest {

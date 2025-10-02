@@ -78,7 +78,7 @@ impl MessageProcessor {
     /// # Errors
     ///
     /// Returns an error if the message cannot be processed.
-    #[instrument(skip(self, envelope), fields(content_topic = %envelope.content_topic, message_id = tracing::field::Empty, request_id = %Uuid::new_v4()))]
+    #[instrument(skip(self, envelope), fields(worker_id = self.worker_id, content_topic = %envelope.content_topic, message_id = tracing::field::Empty, request_id = %Uuid::new_v4()))]
     pub async fn process_message(&self, envelope: &Envelope) -> anyhow::Result<()> {
         // Step 1: Filter out messages that are not V3, following example from XMTP
         if !is_v3_topic(&envelope.content_topic) {
