@@ -2329,6 +2329,7 @@ dependencies = [
  "datadog-tracing",
  "dotenvy",
  "enclave-types",
+ "hex",
  "metrics",
  "metrics-exporter-dogstatsd",
  "pontifex",
