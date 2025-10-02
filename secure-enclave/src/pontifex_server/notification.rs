@@ -8,6 +8,7 @@ use pontifex::http::HttpClient;
 use serde::Serialize;
 use serde_json::json;
 use tokio::sync::RwLock;
+use tracing::info;
 
 pub async fn handler(
     state: Arc<RwLock<EnclaveState>>,
@@ -103,7 +104,7 @@ async fn send_braze_notification(
             }
         }
     });
-    println!("body: {:?}", body);
+    info!("body: {:?}", body);
     let body = Body::from(body.to_string());
 
     let req = Request::builder()
