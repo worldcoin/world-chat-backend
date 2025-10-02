@@ -54,7 +54,7 @@ async fn send_braze_notification(
                 },
                 "badge": 1,
                 "sound": "default",
-                "mutable-content": 1,
+                "mutable_content": true,
                 "extra": {
                     "topic": topic,
                     "encryptedMessageBase64": encrypted_message_base64,
