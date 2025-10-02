@@ -54,7 +54,7 @@ fn decrypt_push_id(
 
     encryption_key
         .unseal(&encrypted_push_id)
-        .map(|decrypted| String::from_utf8(decrypted).unwrap())
+        .map(|decrypted| hex::encode(decrypted))
         .map_err(|e| EnclaveError::BrazeRequestFailed(format!("{e:?}")))
 }
 
