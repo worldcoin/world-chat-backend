@@ -1,5 +1,4 @@
-use axum::Extension;
-use axum_jsonschema::Json;
+use axum::{Extension, Json};
 use common_types::{PushIdChallengeRequest, PushIdChallengeResponse};
 use enclave_types::EnclavePushIdChallengeRequest;
 

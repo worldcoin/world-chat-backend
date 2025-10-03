@@ -1,7 +1,6 @@
 use std::sync::Arc;
 
-use axum::{http::StatusCode, Extension};
-use axum_jsonschema::Json;
+use axum::{http::StatusCode, Extension, Json};
 use backend_storage::auth_proof::{AuthProofInsertRequest, AuthProofStorage};
 use chrono::Utc;
 use schemars::JsonSchema;
