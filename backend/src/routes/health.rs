@@ -1,5 +1,5 @@
 use aide::axum::IntoApiResponse;
-use axum_jsonschema::Json;
+use axum::Json;
 use schemars::JsonSchema;
 use serde::Serialize;
 

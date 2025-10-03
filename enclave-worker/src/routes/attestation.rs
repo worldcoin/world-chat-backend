@@ -1,6 +1,5 @@
 use anyhow::Context;
-use axum::Extension;
-use axum_jsonschema::Json;
+use axum::{Extension, Json};
 use base64::engine::general_purpose::STANDARD;
 use base64::Engine;
 use common_types::AttestationDocumentResponse;

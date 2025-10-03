@@ -12,7 +12,6 @@ path = "src/main.rs"
 # Web framework
 aide = { workspace = true }
 axum = { workspace = true }
-axum-jsonschema = { workspace = true }
 tower = { workspace = true }
 tower-http = { workspace = true }
 

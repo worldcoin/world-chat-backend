@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
 use aide::OperationIo;
+use axum::Json;
 use axum::{http::StatusCode, response::IntoResponse, Extension};
-use axum_jsonschema::Json;
 use mime::Mime;
 use schemars::JsonSchema;
 use serde::{Deserialize, Deserializer, Serialize};

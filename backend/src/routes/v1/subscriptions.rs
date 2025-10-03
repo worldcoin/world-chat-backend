@@ -1,7 +1,6 @@
 use std::sync::Arc;
 
-use axum::{http::StatusCode, Extension};
-use axum_jsonschema::Json;
+use axum::{http::StatusCode, Extension, Json};
 use futures::future::join_all;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
