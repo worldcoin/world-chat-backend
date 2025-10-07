@@ -29,8 +29,6 @@ async fn main() -> Result<()> {
         std::process::exit(EXIT_RNG_MISCONFIG);
     }
 
-    tracing::info!("🔑 Generated encryption keys");
-
     let state = Arc::new(RwLock::new(EnclaveState::default()));
     if let Err(e) = start_pontifex_server(state, PONTIFEX_PORT).await {
         error!("Failed to start pontifex server: {e}");
