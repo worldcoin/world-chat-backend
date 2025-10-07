@@ -35,7 +35,7 @@ pub struct EnclaveInitializeRequest {
     /// This secret key can be shared **safely** using cryptographic attestation between trusted enclaves.
     ///
     /// This flag is used to determine if the enclave should generate a key pair on initialization.
-    pub generate_key_pair: bool,
+    pub can_generate_key_pair: bool,
     /// Enclave cluster proxy port
     ///
     /// This port is used to proxy pontifex requests to other enclaves in the same cluster.

@@ -16,7 +16,11 @@ pub async fn handler(
         config.braze_http_proxy_port,
         &pontifex::http::Http2ClientConfig::default(),
     );
-    let key_pair = retrieve_key_pair(config.enclave_cluster_proxy_port).await;
+    let key_pair = try_retrieve_key_pair(
+        config.enclave_cluster_proxy_port,
+        config.can_generate_key_pair,
+    )
+    .await?;
 
     let mut state = state.write().await;
     state.http_proxy_client = Some(client);
@@ -33,13 +37,23 @@ pub async fn handler(
     Ok(())
 }
 
-async fn retrieve_key_pair(enclave_cluster_proxy_port: u32) -> KeyPair {
+async fn try_retrieve_key_pair(
+    enclave_cluster_proxy_port: u32,
+    can_generate_key_pair: bool,
+) -> Result<KeyPair, EnclaveError> {
     match request_key_pair_from_enclaves_cluster(enclave_cluster_proxy_port).await {
-        Ok(key_pair) => key_pair,
+        Ok(key_pair) => Ok(key_pair),
         Err(e) => {
             tracing::error!("Error retrieving key pair from enclaves cluster: {e:?}");
 
-            KeyPair::generate()
+            if can_generate_key_pair {
+                tracing::info!("Generating new key pair");
+
+                Ok(KeyPair::generate())
+            } else {
+                tracing::error!("Cannot generate key pair");
+                Err(e)
+            }
         }
     }
 }
