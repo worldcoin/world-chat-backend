@@ -18,18 +18,18 @@ async fn main() -> Result<()> {
         .context("NITRO_CID environment variable not set")?
         .parse()
         .context("Invalid NITRO_CID value")?;
-        
+
     let enclave_port: u32 = env::var("NITRO_PORT")
         .context("NITRO_PORT environment variable not set")?
         .parse()
         .context("Invalid NITRO_PORT value")?;
-        
-    let braze_api_key = env::var("BRAZE_API_KEY")
-        .context("BRAZE_API_KEY environment variable not set")?;
-        
-    let braze_api_region = env::var("BRAZE_API_REGION")
-        .context("BRAZE_API_REGION environment variable not set")?;
-        
+
+    let braze_api_key =
+        env::var("BRAZE_API_KEY").context("BRAZE_API_KEY environment variable not set")?;
+
+    let braze_api_region =
+        env::var("BRAZE_API_REGION").context("BRAZE_API_REGION environment variable not set")?;
+
     let braze_http_proxy_port: u32 = env::var("BRAZE_HTTP_PROXY_PORT")
         .context("BRAZE_HTTP_PROXY_PORT environment variable not set")?
         .parse()
@@ -37,7 +37,7 @@ async fn main() -> Result<()> {
 
     // Create connection details for pontifex
     let connection_details = pontifex::client::ConnectionDetails::new(enclave_cid, enclave_port);
-    
+
     // Create initialization request
     let init_request = EnclaveInitializeRequest {
         braze_api_key,
@@ -48,25 +48,32 @@ async fn main() -> Result<()> {
     // Retry loop for initialization
     for attempt in 1..=MAX_RETRIES {
         info!("Initialization attempt {}/{}", attempt, MAX_RETRIES);
-        
-        match pontifex::client::send::<EnclaveInitializeRequest>(
-            connection_details,
-            &init_request,
-        )
-        .await
-        {
+
+        // Flatten the double Result and convert to a single error type
+        let result =
+            pontifex::client::send::<EnclaveInitializeRequest>(connection_details, &init_request)
+                .await
+                .map_err(|e| anyhow::anyhow!("Transport error: {}", e))
+                .and_then(|inner| inner.map_err(|e| anyhow::anyhow!("Enclave error: {:?}", e)));
+
+        match result {
             Ok(_) => {
                 info!("✅ Enclave initialized successfully");
                 return Ok(());
             }
             Err(e) => {
                 if attempt < MAX_RETRIES {
-                    error!("Initialization attempt {} failed: {}. Retrying in {} seconds...", 
-                           attempt, e, RETRY_DELAY_SECS);
+                    error!(
+                        "Initialization attempt {} failed: {}. Retrying in {} seconds...",
+                        attempt, e, RETRY_DELAY_SECS
+                    );
                     tokio::time::sleep(Duration::from_secs(RETRY_DELAY_SECS)).await;
                 } else {
-                    return Err(anyhow::anyhow!("Failed to initialize enclave after {} attempts: {}", 
-                                                MAX_RETRIES, e));
+                    error!(
+                        "FATAL: Failed to initialize enclave after {} attempts: {}",
+                        MAX_RETRIES, e
+                    );
+                    std::process::exit(1);
                 }
             }
         }
