@@ -49,20 +49,9 @@ async fn main() -> Result<()> {
     ));
     info!("✅ Initialized push subscription storage");
 
-    // Initialize Enclave
+    // Initialize Enclave Connection Details
     let enclave_connection_details =
         pontifex::client::ConnectionDetails::new(env.enclave_cid(), env.enclave_port());
-    pontifex::client::send::<EnclaveInitializeRequest>(
-        enclave_connection_details,
-        &EnclaveInitializeRequest {
-            braze_api_key: env.braze_api_key(),
-            braze_api_region: env.braze_api_region(),
-            braze_http_proxy_port: env.braze_http_proxy_port(),
-        },
-    )
-    .await
-    .expect("Failed to initialize Enclave");
-    info!("✅ Enclave initialized successfully");
 
     // Initialize Redis client
     let redis_client = RedisClient::new(&env.redis_url()).await?;

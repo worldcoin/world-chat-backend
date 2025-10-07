@@ -1,0 +1,13 @@
+[package]
+name = "enclave-init"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+tokio = { workspace = true }
+anyhow = { workspace = true }
+tracing = { workspace = true }
+serde = { workspace = true }
+pontifex = { workspace = true, features = ["client"] }
+enclave-types = { workspace = true }
+datadog-tracing = { workspace = true }

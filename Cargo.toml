@@ -3,6 +3,7 @@ members = [
     "backend",
     "enclave-worker",
     "secure-enclave",
+    "secure-enclave-init",
     "shared/backend_storage",
     "notification-worker",
      # TODO remove this and move types to common-types
