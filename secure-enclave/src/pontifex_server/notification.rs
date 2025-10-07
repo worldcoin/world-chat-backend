@@ -14,11 +14,16 @@ pub async fn handler(
     request: EnclaveNotificationRequest,
 ) -> Result<(), EnclaveError> {
     let state = state.read().await;
-    let encryption_key = state.keys.private_key.clone();
-
     if !state.initialized {
         return Err(EnclaveError::NotInitialized);
     }
+
+    let encryption_key = state
+        .keys
+        .as_ref()
+        .ok_or(EnclaveError::NotInitialized)?
+        .private_key
+        .clone();
 
     let client = state.http_proxy_client.as_ref().unwrap();
     let braze_api_key = state.braze_api_key.clone().unwrap();

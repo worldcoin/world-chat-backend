@@ -1,13 +1,13 @@
 use anyhow::Result;
 use secure_enclave::{
-    encryption::{verify_nsm_hwrng_current, KeyPair},
-    pontifex_server::start_pontifex_server,
+    encryption::verify_nsm_hwrng_current, pontifex_server::start_pontifex_server,
     state::EnclaveState,
 };
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use tracing::{error, info};
 
+/// Port for the pontifex server
 const PONTIFEX_PORT: u32 = 1000;
 /// EX_CONFIG exit code
 const EXIT_RNG_MISCONFIG: i32 = 78;
@@ -29,12 +29,9 @@ async fn main() -> Result<()> {
         std::process::exit(EXIT_RNG_MISCONFIG);
     }
 
-    let keys = KeyPair::generate();
-
     tracing::info!("🔑 Generated encryption keys");
 
-    // TODO: Explore retrying on failure and compatibility with pod restart
-    let state = Arc::new(RwLock::new(EnclaveState::new(keys)));
+    let state = Arc::new(RwLock::new(EnclaveState::default()));
     if let Err(e) = start_pontifex_server(state, PONTIFEX_PORT).await {
         error!("Failed to start pontifex server: {e}");
         return Err(e);
