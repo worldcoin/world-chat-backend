@@ -1,7 +1,12 @@
 [package]
-name = "enclave-init"
-version = "0.1.0"
-edition = "2021"
+name = "secure-enclave-init"
+version = { workspace = true }
+edition = { workspace = true }
+license = { workspace = true }
+
+[[bin]]
+name = "secure-enclave-init"
+path = "src/main.rs"
 
 [dependencies]
 tokio = { workspace = true }

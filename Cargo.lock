@@ -2304,19 +2304,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "edd0f118536f44f5ccd48bcb8b111bdc3de888b58c74639dfb034a357d0f206d"
 
 [[package]]
-name = "enclave-init"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "datadog-tracing",
- "enclave-types",
- "pontifex",
- "serde",
- "tokio",
- "tracing",
-]
-
-[[package]]
 name = "enclave-types"
 version = "0.1.0"
 dependencies = [
@@ -5352,6 +5339,19 @@ dependencies = [
  "tokio",
  "tracing",
  "tracing-subscriber 0.3.20",
+]
+
+[[package]]
+name = "secure-enclave-init"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "datadog-tracing",
+ "enclave-types",
+ "pontifex",
+ "serde",
+ "tokio",
+ "tracing",
 ]
 
 [[package]]
