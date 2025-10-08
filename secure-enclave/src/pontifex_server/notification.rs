@@ -104,7 +104,7 @@ async fn send_braze_notification(
             "android_push": {
                 "title": "world_chat_notification",
                 "alert": "world_chat_notification",
-                "priority": "2",
+                "priority": 2,
                 "android_priority": "high",
                 "extra": {
                     "topic": topic,
