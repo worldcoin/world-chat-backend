@@ -104,7 +104,8 @@ async fn send_braze_notification(
             "android_push": {
                 "title": "world_chat_notification",
                 "alert": "world_chat_notification",
-                "priority": "high",
+                "priority": "2",
+                "android_priority": "high",
                 "extra": {
                     "topic": topic,
                     "encryptedMessageBase64": encrypted_message_base64,
