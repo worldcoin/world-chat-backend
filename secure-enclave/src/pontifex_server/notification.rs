@@ -6,7 +6,6 @@ use enclave_types::{EnclaveError, EnclaveNotificationRequest};
 use hyper::{Body, Method, Request, Version};
 use pontifex::http::HttpClient;
 use serde::Serialize;
-use serde::Serialize;
 use serde_json::json;
 use tokio::sync::RwLock;
 use tracing::info;
@@ -85,13 +84,6 @@ async fn send_braze_notification(
     user_aliases: Vec<UserAlias>,
     encrypted_message_base64: String,
 ) -> Result<(), EnclaveError> {
-    let user_aliases = decrypted_push_ids
-        .iter()
-        .map(|id| UserAlias {
-            alias_name: id.clone(),
-            alias_label: "push_id".to_string(),
-        })
-        .collect::<Vec<UserAlias>>();
     let body = json!({
         "user_aliases": user_aliases,
         "messages": {

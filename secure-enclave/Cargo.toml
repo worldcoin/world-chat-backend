@@ -31,10 +31,6 @@ serde_json = { workspace = true }
 serde = { workspace = true }
 hex = { workspace = true }
 
-serde = { workspace = true }
-
 hyper = { workspace = true }
 
 uuid = { workspace = true }
-
-hex = { workspace = true }
