@@ -3,7 +3,6 @@ use std::sync::Arc;
 use anyhow::Result;
 use backend_storage::{push_subscription::PushSubscriptionStorage, queue::NotificationQueue};
 use datadog_tracing::axum::shutdown_signal;
-use enclave_types::EnclaveInitializeRequest;
 use enclave_worker::{
     cache::CacheManager, notification_processor::NotificationProcessor, redis::RedisClient, server,
     types::Environment,
@@ -49,7 +48,7 @@ async fn main() -> Result<()> {
     ));
     info!("✅ Initialized push subscription storage");
 
-    // Initialize Enclave connection details
+    // Initialize Enclave Connection Details
     let enclave_connection_details =
         pontifex::client::ConnectionDetails::new(env.enclave_cid(), env.enclave_port());
 

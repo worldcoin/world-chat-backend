@@ -5342,6 +5342,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "secure-enclave-init"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "datadog-tracing",
+ "enclave-types",
+ "pontifex",
+ "serde",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "security-framework"
 version = "2.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
