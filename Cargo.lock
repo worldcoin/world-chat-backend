@@ -2329,6 +2329,7 @@ dependencies = [
  "datadog-tracing",
  "dotenvy",
  "enclave-types",
+ "hex",
  "metrics",
  "metrics-exporter-dogstatsd",
  "pontifex",
@@ -5330,12 +5331,27 @@ dependencies = [
  "anyhow",
  "crypto_box",
  "enclave-types",
+ "hex",
  "hyper 0.14.32",
  "pontifex",
+ "serde",
  "serde_json",
  "tokio",
  "tracing",
  "tracing-subscriber 0.3.20",
+]
+
+[[package]]
+name = "secure-enclave-init"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "datadog-tracing",
+ "enclave-types",
+ "pontifex",
+ "serde",
+ "tokio",
+ "tracing",
 ]
 
 [[package]]
