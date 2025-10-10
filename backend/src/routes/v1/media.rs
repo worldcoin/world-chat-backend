@@ -3,10 +3,14 @@ use std::sync::Arc;
 use aide::OperationIo;
 use axum::Json;
 use axum::{http::StatusCode, response::IntoResponse, Extension};
+use axum_valid::Valid;
 use mime::Mime;
+use regex::Regex;
 use schemars::JsonSchema;
 use serde::{Deserialize, Deserializer, Serialize};
+use std::sync::LazyLock;
 use tracing::instrument;
+use validator::Validate;
 
 use crate::{
     media_storage::MediaStorage,
@@ -19,15 +23,17 @@ const MAX_IMAGE_SIZE_BYTES: i64 = 5 * 1024 * 1024;
 const MAX_VIDEO_SIZE_BYTES: i64 = 15 * 1024 * 1024;
 /// Maximum count of assets per message
 const MAX_ASSETS_PER_MESSAGE: usize = 10;
+/// Regex for lowercase SHA-256 digest
+static DIGEST_REGEX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"[a-f0-9]{64}$").unwrap());
 
-#[derive(Debug, Deserialize, JsonSchema)]
-#[schemars(deny_unknown_fields)]
+#[derive(Debug, Deserialize, JsonSchema, Validate)]
+#[serde(deny_unknown_fields)]
 pub struct UploadRequest {
     /// 64-character lowercase hex string (SHA-256 of encrypted blob)
-    #[schemars(length(equal = 64), regex(pattern = r"^[a-f0-9]{64}$"))]
+    #[validate(regex(path = *DIGEST_REGEX))]
     pub content_digest_sha256: String,
     /// Size in bytes - max 15 MiB
-    #[schemars(range(min = 1, max = 15_728_640))]
+    #[validate(range(min = 1, max = 15_728_640))]
     pub content_length: i64,
     /// Only Image and Video MIME types are allowed
     #[serde(deserialize_with = "deserialize_allowed_mime")]
@@ -119,7 +125,7 @@ impl IntoResponse for MediaUploadResponse {
 pub async fn create_presigned_upload_url(
     Extension(media_storage): Extension<Arc<MediaStorage>>,
     Extension(environment): Extension<Environment>,
-    Json(payload): Json<UploadRequest>,
+    Valid(Json(payload)): Valid<Json<UploadRequest>>,
 ) -> Result<MediaUploadResponse, AppError> {
     let s3_key = MediaStorage::map_sha256_to_s3_key(&payload.content_digest_sha256);
     validate_asset_size(&payload.content_type, payload.content_length)?;

@@ -48,6 +48,11 @@ chrono = { workspace = true }
 # Schema generation for OpenAPI
 schemars = { workspace = true }
 
+# Validation
+axum-valid = { workspace = true }
+validator = { workspace = true }
+regex = { workspace = true }
+
 # Encoding
 base64 = { workspace = true }
 hex = { workspace = true }

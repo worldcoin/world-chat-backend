@@ -82,18 +82,22 @@ impl IntoResponse for AppError {
     }
 }
 
-// /// Convert JSON schema validation errors to application errors
-// impl From<axum_jsonschema::JsonSchemaRejection> for AppError {
-//     fn from(err: axum_jsonschema::JsonSchemaRejection) -> Self {
-//         tracing::warn!("JSON schema validation error: {:?}", err);
-//         Self::new(
-//             StatusCode::BAD_REQUEST,
-//             "validation_error",
-//             "Request validation failed",
-//             false,
-//         )
-//     }
-// }
+/// Convert axum-valid validation errors to application errors
+impl<V, E> From<axum_valid::ValidationRejection<V, E>> for AppError
+where
+    V: std::fmt::Debug,
+    E: std::fmt::Debug,
+{
+    fn from(err: axum_valid::ValidationRejection<V, E>) -> Self {
+        tracing::warn!("Request validation error: {:?}", err);
+        Self::new(
+            StatusCode::BAD_REQUEST,
+            "validation_error",
+            "Request validation failed",
+            false,
+        )
+    }
+}
 
 /// Convert bucket errors to application errors
 impl From<BucketError> for AppError {

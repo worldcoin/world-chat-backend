@@ -98,8 +98,8 @@ async fn test_unsubscribe_missing_required_fields() {
 
         assert_eq!(
             response.status(),
-            StatusCode::BAD_REQUEST,
-            "Request with {} should return 400",
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "Request with {} should return 422",
             case_name
         );
     }
@@ -143,8 +143,8 @@ async fn test_unsubscribe_invalid_field_types() {
 
         assert_eq!(
             response.status(),
-            StatusCode::BAD_REQUEST,
-            "Request with {} should return 400",
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "Request with {} should return 422",
             case_name
         );
     }
@@ -213,7 +213,7 @@ async fn test_unsubscribe_extra_fields_rejected() {
         .expect("Failed to send request");
 
     // Should return 400 due to deny_unknown_fields
-    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    assert_eq!(response.status(), StatusCode::UNPROCESSABLE_ENTITY);
 }
 
 #[tokio::test]

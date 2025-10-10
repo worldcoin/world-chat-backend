@@ -64,7 +64,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_qs",
- "thiserror 2.0.12",
+ "thiserror 2.0.17",
  "tower-layer",
  "tower-service",
  "tracing",
@@ -1240,6 +1240,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "axum-valid"
+version = "0.24.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3881b4b05ede123ff3c82f41c63e47425443556365b47b2ba4d05098a5bd2645"
+dependencies = [
+ "aide",
+ "axum 0.8.4",
+ "validator",
+]
+
+[[package]]
 name = "backend"
 version = "0.1.0"
 dependencies = [
@@ -1253,6 +1264,7 @@ dependencies = [
  "aws-sdk-s3",
  "aws-sdk-sqs",
  "axum 0.8.4",
+ "axum-valid",
  "backend",
  "backend_storage",
  "base64 0.22.1",
@@ -1267,6 +1279,7 @@ dependencies = [
  "mime",
  "p256 0.13.2",
  "rand 0.8.5",
+ "regex",
  "reqwest 0.12.23",
  "schemars 0.9.0",
  "semaphore-rs",
@@ -1284,6 +1297,7 @@ dependencies = [
  "tracing-subscriber 0.3.20",
  "url",
  "uuid",
+ "validator",
  "walletkit-core",
 ]
 
@@ -5554,7 +5568,7 @@ dependencies = [
  "futures",
  "percent-encoding",
  "serde",
- "thiserror 2.0.12",
+ "thiserror 2.0.17",
 ]
 
 [[package]]
@@ -6623,6 +6637,36 @@ dependencies = [
 ]
 
 [[package]]
+name = "validator"
+version = "0.20.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "43fb22e1a008ece370ce08a3e9e4447a910e92621bb49b85d6e48a45397e7cfa"
+dependencies = [
+ "idna",
+ "once_cell",
+ "regex",
+ "serde",
+ "serde_derive",
+ "serde_json",
+ "url",
+ "validator_derive",
+]
+
+[[package]]
+name = "validator_derive"
+version = "0.20.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b7df16e474ef958526d1205f6dda359fdfab79d9aa6d54bafcb92dcd07673dca"
+dependencies = [
+ "darling",
+ "once_cell",
+ "proc-macro-error2",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.104",
+]
+
+[[package]]
 name = "valuable"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6881,7 +6925,7 @@ version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cf221c93e13a30d793f7645a0e7762c55d169dbb0a49671918a2319d289b10bb"
 dependencies = [
- "windows-sys 0.59.0",
+ "windows-sys 0.48.0",
 ]
 
 [[package]]

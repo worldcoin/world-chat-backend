@@ -75,6 +75,11 @@ serde_dynamo = { version = "4", features = ["aws-sdk-dynamodb+1"] }
 # Strum
 strum = { version = "0.26.3", features = ["derive"] }
 
+# Validation
+axum-valid = { version = "0.24.0", features = ["aide", "validator"] }
+validator = { version = "0.20", features = ["derive"] }
+regex = "1.11"
+
 # Internal workspace dependencies
 backend_storage = { path = "shared/backend_storage" }
 
