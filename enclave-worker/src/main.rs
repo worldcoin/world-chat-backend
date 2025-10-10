@@ -3,7 +3,6 @@ use std::sync::Arc;
 use anyhow::Result;
 use backend_storage::{push_subscription::PushSubscriptionStorage, queue::NotificationQueue};
 use datadog_tracing::axum::shutdown_signal;
-use enclave_types::EnclaveInitializeRequest;
 use enclave_worker::{
     cache::CacheManager, notification_processor::NotificationProcessor, redis::RedisClient, server,
     types::Environment,
@@ -49,20 +48,9 @@ async fn main() -> Result<()> {
     ));
     info!("✅ Initialized push subscription storage");
 
-    // Initialize Enclave
+    // Initialize Enclave Connection Details
     let enclave_connection_details =
         pontifex::client::ConnectionDetails::new(env.enclave_cid(), env.enclave_port());
-    pontifex::client::send::<EnclaveInitializeRequest>(
-        enclave_connection_details,
-        &EnclaveInitializeRequest {
-            braze_api_key: env.braze_api_key(),
-            braze_api_region: env.braze_api_region(),
-            braze_http_proxy_port: env.braze_http_proxy_port(),
-        },
-    )
-    .await
-    .expect("Failed to initialize Enclave");
-    info!("✅ Enclave initialized successfully");
 
     // Initialize Redis client
     let redis_client = RedisClient::new(&env.redis_url()).await?;

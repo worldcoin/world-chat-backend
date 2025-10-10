@@ -30,7 +30,7 @@ pub struct EnclaveInitializeRequest {
 
 impl Request for EnclaveInitializeRequest {
     const ROUTE_ID: &'static str = "/v1/initialize";
-    type Response = ();
+    type Response = Result<(), EnclaveError>;
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
