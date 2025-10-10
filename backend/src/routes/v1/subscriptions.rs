@@ -5,7 +5,7 @@ use axum_jsonschema::Json;
 use futures::future::join_all;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use tracing::{instrument, warn};
+use tracing::warn;
 
 use crate::{middleware::AuthenticatedUser, types::AppError};
 use backend_storage::push_subscription::{
@@ -79,7 +79,6 @@ pub struct UnsubscribeRequest {
 /// - `401 UNAUTHORIZED` - Invalid or missing authentication
 /// - `503 SERVICE_UNAVAILABLE` - Database connectivity issues
 /// - `500 INTERNAL_SERVER_ERROR` - Other unexpected errors during storage operations
-#[instrument(skip_all, fields(encrypted_push_id = user.encrypted_push_id))]
 pub async fn subscribe(
     user: AuthenticatedUser,
     Extension(push_storage): Extension<Arc<PushSubscriptionStorage>>,
@@ -151,7 +150,6 @@ pub async fn subscribe(
 /// - `404 NOT_FOUND` - Subscription with the given topic and HMAC key does not exist
 /// - `401 UNAUTHORIZED` - Invalid or missing authentication
 /// - `500 INTERNAL_SERVER_ERROR` - Other unexpected errors during storage operations
-#[instrument(skip(push_storage, payload))]
 pub async fn unsubscribe(
     user: AuthenticatedUser,
     Extension(push_storage): Extension<Arc<PushSubscriptionStorage>>,
