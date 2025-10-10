@@ -130,8 +130,6 @@ async fn test_unsubscribe_empty_string_fields() {
             .await
             .expect("Failed to send request");
 
-        // Note: With query parameters, validation behavior might differ
-        // Empty strings might be accepted differently than with JSON body
         assert_eq!(response.status(), StatusCode::BAD_REQUEST);
     }
 }
