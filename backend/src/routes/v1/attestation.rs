@@ -1,7 +1,6 @@
 use std::sync::Arc;
 
-use axum::Extension;
-use axum_jsonschema::Json;
+use axum::{Extension, Json};
 use schemars::JsonSchema;
 use serde::Serialize;
 

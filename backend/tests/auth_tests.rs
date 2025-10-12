@@ -166,8 +166,8 @@ async fn test_authorize_missing_fields() {
 
         assert_eq!(
             response.status(),
-            StatusCode::BAD_REQUEST,
-            "Request with {} should return 400",
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "Request with {} should return 422",
             case_name
         );
     }

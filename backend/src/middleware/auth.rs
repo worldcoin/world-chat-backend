@@ -41,7 +41,6 @@ impl From<JwsPayload> for AuthenticatedUser {
 ///     Ok("Protected content")
 /// }
 /// ```
-#[axum::async_trait]
 impl<S> FromRequestParts<S> for AuthenticatedUser
 where
     S: Send + Sync,

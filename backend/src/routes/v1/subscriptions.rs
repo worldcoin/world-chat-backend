@@ -1,11 +1,12 @@
 use std::sync::Arc;
 
-use axum::{extract::Query, http::StatusCode, Extension};
-use axum_jsonschema::Json;
+use axum::{extract::Query, http::StatusCode, Extension, Json};
+use axum_valid::Valid;
 use futures::future::join_all;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use tracing::{instrument, warn};
+use validator::Validate;
 
 use crate::{middleware::AuthenticatedUser, types::AppError};
 use backend_storage::push_subscription::{
@@ -16,31 +17,53 @@ use backend_storage::push_subscription::{
 /// We set a maximum of 40 days to prevent bad actors subscribing to a topic for a longer period of time
 const MAX_TTL_SECS: i64 = 40 * 24 * 60 * 60; // 40 days
 
-#[derive(Debug, Deserialize, Serialize, JsonSchema)]
-#[schemars(deny_unknown_fields)]
+#[derive(Debug, Deserialize, Serialize, JsonSchema, Validate)]
+#[serde(deny_unknown_fields)]
 pub struct CreateSubscriptionRequest {
     /// Topic for the subscription
-    #[schemars(length(min = 1))]
+    #[validate(length(min = 1))]
     pub topic: String,
     /// HMAC key for subscription validation (42 bytes or 84 hex characters)
-    #[schemars(length(equal = 84))]
+    #[validate(length(equal = 84))]
     pub hmac_key: String,
     /// TTL as unix timestamp
-    #[schemars(
-        title = "Expiry (Unix seconds)",
-        description = "Must be > now+1s and < now+30d"
-    )]
+    #[validate(custom(function = "validate_ttl"))]
     pub ttl: i64,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct UnsubscribeQuery {
     /// HMAC key for subscription validation (42 bytes or 84 hex characters)
-    #[schemars(length(equal = 84))]
+    #[validate(length(equal = 84))]
     pub hmac_key: String,
     /// Topic to unsubscribe from
-    #[schemars(length(min = 1))]
+    #[validate(length(min = 1))]
     pub topic: String,
+}
+
+// Custom validator for TTL
+fn validate_ttl(ttl: i64) -> Result<(), validator::ValidationError> {
+    let now = chrono::Utc::now().timestamp();
+
+    // strictly > now + 1 second
+    if ttl <= now + 1 {
+        let mut error = validator::ValidationError::new("invalid_ttl");
+        error.message = Some(std::borrow::Cow::Borrowed(
+            "TTL must be greater than now + 1 second",
+        ));
+        return Err(error);
+    }
+
+    // strictly < now + 40 days
+    if ttl >= now + MAX_TTL_SECS {
+        let mut error = validator::ValidationError::new("invalid_ttl");
+        error.message = Some(std::borrow::Cow::Borrowed(
+            "TTL must be less than 40 days in the future",
+        ));
+        return Err(error);
+    }
+
+    Ok(())
 }
 
 /// Subscribe to push notifications for multiple topics
@@ -82,10 +105,17 @@ pub struct UnsubscribeQuery {
 pub async fn subscribe(
     user: AuthenticatedUser,
     Extension(push_storage): Extension<Arc<PushSubscriptionStorage>>,
-    Json(payload): Json<Vec<CreateSubscriptionRequest>>,
+    Valid(Json(payload)): Valid<Json<Vec<CreateSubscriptionRequest>>>,
 ) -> Result<StatusCode, AppError> {
-    // Validate payload
-    validate_subscribe_payload(&payload)?;
+    // Validate that the payload is not empty
+    if payload.is_empty() {
+        return Err(AppError::new(
+            StatusCode::BAD_REQUEST,
+            "empty_payload",
+            "Empty payload",
+            false,
+        ));
+    }
 
     let push_subscriptions = payload
         .into_iter()
@@ -200,37 +230,5 @@ pub async fn unsubscribe(
     Ok(StatusCode::NO_CONTENT)
 }
 
-fn validate_subscribe_payload(payload: &[CreateSubscriptionRequest]) -> Result<(), AppError> {
-    if payload.is_empty() {
-        return Err(AppError::new(
-            StatusCode::BAD_REQUEST,
-            "empty_payload",
-            "Empty payload",
-            false,
-        ));
-    }
-
-    let now = chrono::Utc::now().timestamp();
-    for subscription in payload {
-        // strictly > now + 1 second
-        if subscription.ttl <= now + 1 {
-            return Err(AppError::new(
-                StatusCode::BAD_REQUEST,
-                "invalid_ttl",
-                "TTL must be greater than 0",
-                false,
-            ));
-        }
-        // strictly < now + 40 days
-        if subscription.ttl >= now + MAX_TTL_SECS {
-            return Err(AppError::new(
-                StatusCode::BAD_REQUEST,
-                "invalid_ttl",
-                "TTL must be less than 40 days in the future",
-                false,
-            ));
-        }
-    }
-
-    Ok(())
-}
+// The validate_subscribe_payload function has been removed since validation is now
+// handled by the validator crate and axum-valid extractor
