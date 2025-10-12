@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use axum::{http::StatusCode, Extension, Json};
+use axum::{extract::Query, http::StatusCode, Extension, Json};
 use axum_valid::Valid;
 use futures::future::join_all;
 use schemars::JsonSchema;
@@ -31,9 +31,8 @@ pub struct CreateSubscriptionRequest {
     pub ttl: i64,
 }
 
-#[derive(Debug, Deserialize, Serialize, JsonSchema, Validate)]
-#[serde(deny_unknown_fields)]
-pub struct UnsubscribeRequest {
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct UnsubscribeQuery {
     /// HMAC key for subscription validation (42 bytes or 84 hex characters)
     #[validate(length(equal = 84))]
     pub hmac_key: String,
@@ -169,7 +168,7 @@ pub async fn subscribe(
 ///
 /// * `user` - The authenticated user making the unsubscribe request
 /// * `push_storage` - DynamoDB storage handler for push subscriptions
-/// * `payload` - Unsubscribe request containing topic and HMAC key
+/// * `query` - Query parameters containing topic and HMAC key
 ///
 /// # Returns
 ///
@@ -180,15 +179,35 @@ pub async fn subscribe(
 /// Returns an error if:
 /// - `404 NOT_FOUND` - Subscription with the given topic and HMAC key does not exist
 /// - `401 UNAUTHORIZED` - Invalid or missing authentication
+/// - `400 BAD_REQUEST` - Missing or invalid query parameters
 /// - `500 INTERNAL_SERVER_ERROR` - Other unexpected errors during storage operations
-#[instrument(skip(push_storage, payload))]
+#[instrument(skip(push_storage, query))]
 pub async fn unsubscribe(
     user: AuthenticatedUser,
     Extension(push_storage): Extension<Arc<PushSubscriptionStorage>>,
-    Valid(Json(payload)): Valid<Json<UnsubscribeRequest>>,
+    Query(query): Query<UnsubscribeQuery>,
 ) -> Result<StatusCode, AppError> {
+    // Validate that fields are not empty
+    if query.topic.is_empty() {
+        return Err(AppError::new(
+            StatusCode::BAD_REQUEST,
+            "empty_topic",
+            "Topic cannot be empty",
+            false,
+        ));
+    }
+
+    if query.hmac_key.is_empty() || query.hmac_key.len() != 84 {
+        return Err(AppError::new(
+            StatusCode::BAD_REQUEST,
+            "invalid_hmac_key",
+            "HMAC key must be exactly 84 characters",
+            false,
+        ));
+    }
+
     let push_subscription = push_storage
-        .get_one(&payload.topic, &payload.hmac_key)
+        .get_one(&query.topic, &query.hmac_key)
         .await?
         .ok_or_else(|| {
             AppError::new(
@@ -200,13 +219,11 @@ pub async fn unsubscribe(
         })?;
 
     if push_subscription.encrypted_push_id == user.encrypted_push_id {
-        push_storage
-            .delete(&payload.topic, &payload.hmac_key)
-            .await?;
+        push_storage.delete(&query.topic, &query.hmac_key).await?;
     } else {
         // Add the user's encrypted push id to the deletion request using native DynamoDB string set ADD
         push_storage
-            .append_delete_request(&payload.topic, &payload.hmac_key, &user.encrypted_push_id)
+            .append_delete_request(&query.topic, &query.hmac_key, &user.encrypted_push_id)
             .await?;
     }
 

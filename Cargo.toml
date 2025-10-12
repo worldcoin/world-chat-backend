@@ -25,6 +25,7 @@ aide = { version = "0.15.1", features = [
     "scalar",
     "macros",
     "axum-json",
+    "axum-query",
     "axum-matched-path"
 ] }
 axum = "0.8"
