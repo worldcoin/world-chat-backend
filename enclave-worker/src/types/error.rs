@@ -1,11 +1,11 @@
 //! Universal error handling for the API
 
 use aide::OperationOutput;
+use axum::Json;
 use axum::{
     http::StatusCode,
     response::{IntoResponse, Response},
 };
-use axum_jsonschema::Json;
 use backend_storage::push_subscription::PushSubscriptionStorageError;
 use schemars::JsonSchema;
 use serde::Serialize;
@@ -97,7 +97,7 @@ impl OperationOutput for AppError {
     type Inner = ApiErrorResponse;
 
     fn operation_response(
-        ctx: &mut aide::gen::GenContext,
+        ctx: &mut aide::generate::GenContext,
         operation: &mut aide::openapi::Operation,
     ) -> Option<aide::openapi::Response> {
         Json::<ApiErrorResponse>::operation_response(ctx, operation)

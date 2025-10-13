@@ -1,11 +1,11 @@
 //! Universal error handling for the API
 
 use aide::OperationOutput;
+use axum::Json;
 use axum::{
     http::StatusCode,
     response::{IntoResponse, Response},
 };
-use axum_jsonschema::Json;
 use backend_storage::auth_proof::AuthProofStorageError;
 use backend_storage::push_subscription::PushSubscriptionStorageError;
 use schemars::JsonSchema;
@@ -82,10 +82,14 @@ impl IntoResponse for AppError {
     }
 }
 
-/// Convert JSON schema validation errors to application errors
-impl From<axum_jsonschema::JsonSchemaRejection> for AppError {
-    fn from(err: axum_jsonschema::JsonSchemaRejection) -> Self {
-        tracing::warn!("JSON schema validation error: {:?}", err);
+/// Convert axum-valid validation errors to application errors
+impl<V, E> From<axum_valid::ValidationRejection<V, E>> for AppError
+where
+    V: std::fmt::Debug,
+    E: std::fmt::Debug,
+{
+    fn from(err: axum_valid::ValidationRejection<V, E>) -> Self {
+        tracing::warn!("Request validation error: {:?}", err);
         Self::new(
             StatusCode::BAD_REQUEST,
             "validation_error",
@@ -157,7 +161,7 @@ impl OperationOutput for AppError {
     type Inner = ApiErrorResponse;
 
     fn operation_response(
-        ctx: &mut aide::gen::GenContext,
+        ctx: &mut aide::generate::GenContext,
         operation: &mut aide::openapi::Operation,
     ) -> Option<aide::openapi::Response> {
         Json::<ApiErrorResponse>::operation_response(ctx, operation)

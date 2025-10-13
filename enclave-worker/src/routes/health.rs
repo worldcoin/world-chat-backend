@@ -1,5 +1,4 @@
-use axum::Extension;
-use axum_jsonschema::Json;
+use axum::{Extension, Json};
 use enclave_types::EnclaveHealthCheckRequest;
 use schemars::JsonSchema;
 use serde::Serialize;

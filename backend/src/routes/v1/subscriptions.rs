@@ -1,11 +1,12 @@
 use std::sync::Arc;
 
-use axum::{http::StatusCode, Extension};
-use axum_jsonschema::Json;
+use axum::{extract::Query, http::StatusCode, Extension, Json};
+use axum_valid::Valid;
 use futures::future::join_all;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use tracing::{instrument, warn};
+use validator::Validate;
 
 use crate::{middleware::AuthenticatedUser, types::AppError};
 use backend_storage::push_subscription::{
@@ -16,32 +17,53 @@ use backend_storage::push_subscription::{
 /// We set a maximum of 40 days to prevent bad actors subscribing to a topic for a longer period of time
 const MAX_TTL_SECS: i64 = 40 * 24 * 60 * 60; // 40 days
 
-#[derive(Debug, Deserialize, Serialize, JsonSchema)]
-#[schemars(deny_unknown_fields)]
+#[derive(Debug, Deserialize, Serialize, JsonSchema, Validate)]
+#[serde(deny_unknown_fields)]
 pub struct CreateSubscriptionRequest {
     /// Topic for the subscription
-    #[schemars(length(min = 1))]
+    #[validate(length(min = 1))]
     pub topic: String,
     /// HMAC key for subscription validation (42 bytes or 84 hex characters)
-    #[schemars(length(equal = 84))]
+    #[validate(length(equal = 84))]
     pub hmac_key: String,
     /// TTL as unix timestamp
-    #[schemars(
-        title = "Expiry (Unix seconds)",
-        description = "Must be > now+1s and < now+30d"
-    )]
+    #[validate(custom(function = "validate_ttl"))]
     pub ttl: i64,
 }
 
-#[derive(Debug, Deserialize, Serialize, JsonSchema)]
-#[schemars(deny_unknown_fields)]
-pub struct UnsubscribeRequest {
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct UnsubscribeQuery {
     /// HMAC key for subscription validation (42 bytes or 84 hex characters)
-    #[schemars(length(equal = 84))]
+    #[validate(length(equal = 84))]
     pub hmac_key: String,
     /// Topic to unsubscribe from
-    #[schemars(length(min = 1))]
+    #[validate(length(min = 1))]
     pub topic: String,
+}
+
+// Custom validator for TTL
+fn validate_ttl(ttl: i64) -> Result<(), validator::ValidationError> {
+    let now = chrono::Utc::now().timestamp();
+
+    // strictly > now + 1 second
+    if ttl <= now + 1 {
+        let mut error = validator::ValidationError::new("invalid_ttl");
+        error.message = Some(std::borrow::Cow::Borrowed(
+            "TTL must be greater than now + 1 second",
+        ));
+        return Err(error);
+    }
+
+    // strictly < now + 40 days
+    if ttl >= now + MAX_TTL_SECS {
+        let mut error = validator::ValidationError::new("invalid_ttl");
+        error.message = Some(std::borrow::Cow::Borrowed(
+            "TTL must be less than 40 days in the future",
+        ));
+        return Err(error);
+    }
+
+    Ok(())
 }
 
 /// Subscribe to push notifications for multiple topics
@@ -83,10 +105,17 @@ pub struct UnsubscribeRequest {
 pub async fn subscribe(
     user: AuthenticatedUser,
     Extension(push_storage): Extension<Arc<PushSubscriptionStorage>>,
-    Json(payload): Json<Vec<CreateSubscriptionRequest>>,
+    Valid(Json(payload)): Valid<Json<Vec<CreateSubscriptionRequest>>>,
 ) -> Result<StatusCode, AppError> {
-    // Validate payload
-    validate_subscribe_payload(&payload)?;
+    // Validate that the payload is not empty
+    if payload.is_empty() {
+        return Err(AppError::new(
+            StatusCode::BAD_REQUEST,
+            "empty_payload",
+            "Empty payload",
+            false,
+        ));
+    }
 
     let push_subscriptions = payload
         .into_iter()
@@ -139,7 +168,7 @@ pub async fn subscribe(
 ///
 /// * `user` - The authenticated user making the unsubscribe request
 /// * `push_storage` - DynamoDB storage handler for push subscriptions
-/// * `payload` - Unsubscribe request containing topic and HMAC key
+/// * `query` - Query parameters containing topic and HMAC key
 ///
 /// # Returns
 ///
@@ -150,15 +179,35 @@ pub async fn subscribe(
 /// Returns an error if:
 /// - `404 NOT_FOUND` - Subscription with the given topic and HMAC key does not exist
 /// - `401 UNAUTHORIZED` - Invalid or missing authentication
+/// - `400 BAD_REQUEST` - Missing or invalid query parameters
 /// - `500 INTERNAL_SERVER_ERROR` - Other unexpected errors during storage operations
-#[instrument(skip(push_storage, payload))]
+#[instrument(skip(push_storage, query))]
 pub async fn unsubscribe(
     user: AuthenticatedUser,
     Extension(push_storage): Extension<Arc<PushSubscriptionStorage>>,
-    Json(payload): Json<UnsubscribeRequest>,
+    Query(query): Query<UnsubscribeQuery>,
 ) -> Result<StatusCode, AppError> {
+    // Validate that fields are not empty
+    if query.topic.is_empty() {
+        return Err(AppError::new(
+            StatusCode::BAD_REQUEST,
+            "empty_topic",
+            "Topic cannot be empty",
+            false,
+        ));
+    }
+
+    if query.hmac_key.is_empty() || query.hmac_key.len() != 84 {
+        return Err(AppError::new(
+            StatusCode::BAD_REQUEST,
+            "invalid_hmac_key",
+            "HMAC key must be exactly 84 characters",
+            false,
+        ));
+    }
+
     let push_subscription = push_storage
-        .get_one(&payload.topic, &payload.hmac_key)
+        .get_one(&query.topic, &query.hmac_key)
         .await?
         .ok_or_else(|| {
             AppError::new(
@@ -170,50 +219,16 @@ pub async fn unsubscribe(
         })?;
 
     if push_subscription.encrypted_push_id == user.encrypted_push_id {
-        push_storage
-            .delete(&payload.topic, &payload.hmac_key)
-            .await?;
+        push_storage.delete(&query.topic, &query.hmac_key).await?;
     } else {
         // Add the user's encrypted push id to the deletion request using native DynamoDB string set ADD
         push_storage
-            .append_delete_request(&payload.topic, &payload.hmac_key, &user.encrypted_push_id)
+            .append_delete_request(&query.topic, &query.hmac_key, &user.encrypted_push_id)
             .await?;
     }
 
     Ok(StatusCode::NO_CONTENT)
 }
 
-fn validate_subscribe_payload(payload: &[CreateSubscriptionRequest]) -> Result<(), AppError> {
-    if payload.is_empty() {
-        return Err(AppError::new(
-            StatusCode::BAD_REQUEST,
-            "empty_payload",
-            "Empty payload",
-            false,
-        ));
-    }
-
-    let now = chrono::Utc::now().timestamp();
-    for subscription in payload {
-        // strictly > now + 1 second
-        if subscription.ttl <= now + 1 {
-            return Err(AppError::new(
-                StatusCode::BAD_REQUEST,
-                "invalid_ttl",
-                "TTL must be greater than 0",
-                false,
-            ));
-        }
-        // strictly < now + 40 days
-        if subscription.ttl >= now + MAX_TTL_SECS {
-            return Err(AppError::new(
-                StatusCode::BAD_REQUEST,
-                "invalid_ttl",
-                "TTL must be less than 40 days in the future",
-                false,
-            ));
-        }
-    }
-
-    Ok(())
-}
+// The validate_subscribe_payload function has been removed since validation is now
+// handled by the validator crate and axum-valid extractor
