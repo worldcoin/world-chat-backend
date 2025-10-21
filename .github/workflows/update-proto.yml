@@ -3,26 +3,10 @@ name: Update Proto Files
 on:
   # Allow manual trigger
   workflow_dispatch:
-    inputs:
-      create_pr:
-        description: "Create a PR with changes (true) or commit directly (false)"
-        required: false
-        default: "true"
-        type: choice
-        options:
-          - "true"
-          - "false"
 
   # Run on a schedule (e.g., weekly on Monday at 9 AM UTC)
   schedule:
     - cron: "0 9 * * 1"
-
-  # Can also be triggered by push to main if you want automatic updates
-  # push:
-  #   branches:
-  #     - main
-  #   paths:
-  #     - 'notification-worker/buf.yaml'
 
 jobs:
   update-proto:
@@ -85,10 +69,11 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
       - name: Create PR with changes
-        if: steps.buf_export.outputs.changed == 'true' && (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.event.inputs.create_pr == 'true'))
+        if: steps.buf_export.outputs.changed == 'true'
         uses: peter-evans/create-pull-request@v5
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
+          base: main
           commit-message: |
             chore: update proto files from buf.build/xmtp/proto
 
@@ -122,19 +107,6 @@ jobs:
             automated
             proto
 
-      - name: Commit directly to branch
-        if: steps.buf_export.outputs.changed == 'true' && github.event_name == 'workflow_dispatch' && github.event.inputs.create_pr == 'false'
-        run: |
-          git add notification-worker/proto/
-          git commit -m "chore: update proto files from buf.build/xmtp/proto
-
-          Automated update of proto files from upstream XMTP repository.
-
-          Changed files:
-          ${{ steps.buf_export.outputs.changed_files }}"
-
-          git push origin HEAD
-
       - name: Summary
         run: |
           if [ "${{ steps.buf_export.outputs.changed }}" == "true" ]; then
@@ -144,14 +116,8 @@ jobs:
             echo '```' >> $GITHUB_STEP_SUMMARY
             echo "${{ steps.buf_export.outputs.changed_files }}" >> $GITHUB_STEP_SUMMARY
             echo '```' >> $GITHUB_STEP_SUMMARY
-            
-            if [ "${{ github.event_name }}" == "schedule" ] || [ "${{ github.event.inputs.create_pr }}" == "true" ]; then
-              echo "" >> $GITHUB_STEP_SUMMARY
-              echo "A pull request has been created with the changes." >> $GITHUB_STEP_SUMMARY
-            else
-              echo "" >> $GITHUB_STEP_SUMMARY
-              echo "Changes have been committed directly to the branch." >> $GITHUB_STEP_SUMMARY
-            fi
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "A pull request has been created with the changes to the main branch." >> $GITHUB_STEP_SUMMARY
           else
             echo "## ℹ️ No updates needed" >> $GITHUB_STEP_SUMMARY
             echo "Proto files are already up-to-date with buf.build/xmtp/proto" >> $GITHUB_STEP_SUMMARY
