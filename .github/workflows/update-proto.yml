@@ -19,6 +19,9 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Use PAT if available to allow PR to trigger CI
+          token: ${{ secrets.BOT_PAT || secrets.GITHUB_TOKEN }}
 
       - name: Install buf
         uses: bufbuild/buf-setup-action@v1
@@ -69,7 +72,9 @@ jobs:
         if: steps.buf_export.outputs.changed == 'true'
         uses: peter-evans/create-pull-request@v5
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          # Use a PAT to allow triggering CI workflows
+          # Create a PAT with 'repo' scope and add it as a secret named 'BOT_PAT'
+          token: ${{ secrets.BOT_PAT || secrets.GITHUB_TOKEN }}
           base: main
           commit-message: |
             chore: update proto files from buf.build/xmtp/proto
@@ -78,7 +83,7 @@ jobs:
 
             Changed files:
             ${{ steps.buf_export.outputs.changed_files }}
-          title: "[Automated] Update Proto Files from XMTP"
+          title: "chore: Update Proto Files from XMTP"
           body: |
             ## 🤖 Automated Proto Update
 
