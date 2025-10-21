@@ -135,8 +135,6 @@ impl MessageProcessor {
             .await
             .context("Failed to send message to notification queue")?;
 
-        debug!("Message sent to notification queue: {message_id}");
-
         Span::current().record("message_id", message_id);
         counter!("notification_queued").increment(1);
 
