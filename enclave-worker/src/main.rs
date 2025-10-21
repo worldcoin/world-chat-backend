@@ -9,7 +9,7 @@ use enclave_worker::{
 };
 use metrics_exporter_dogstatsd::DogStatsDBuilder;
 use tokio_util::sync::CancellationToken;
-use tracing::info;
+use tracing::{info, Instrument};
 
 use aws_sdk_dynamodb::Client as DynamoDbClient;
 use aws_sdk_sqs::Client as SqsClient;
@@ -72,10 +72,17 @@ async fn main() -> Result<()> {
         let storage = subscription_storage.clone();
         let token = shutdown_token.clone();
 
+        // Spawn notification processor in a separate task with proper tracing context.
+        // The .instrument() wrapper ensures all spans created within the processor
+        // are connected to the main application trace, making them visible in Datadog.
         tokio::spawn(async move {
-            NotificationProcessor::new(queue, storage, token, enclave_connection_details)
-                .start()
-                .await;
+            async move {
+                NotificationProcessor::new(queue, storage, token, enclave_connection_details)
+                    .start()
+                    .await;
+            }
+            .instrument(tracing::info_span!("notification_processor_task"))
+            .await;
         })
     };
 
