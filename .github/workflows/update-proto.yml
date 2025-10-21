@@ -2,6 +2,7 @@ name: Update Proto Files
 
 on:
   # Allow manual trigger
+  pull_request:
   workflow_dispatch:
 
   # Run on a schedule (e.g., weekly on Monday at 9 AM UTC)
