@@ -1,0 +1,126 @@
+name: Update Proto Files
+
+on:
+  # Allow manual trigger
+  pull_request:
+  workflow_dispatch:
+
+  # Run on a schedule (e.g., weekly on Monday at 9 AM UTC)
+  schedule:
+    - cron: "0 9 * * 1"
+
+jobs:
+  update-proto:
+    name: Update Proto Files
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Use PAT if available to allow PR to trigger CI
+          token: ${{ secrets.BOT_PAT || secrets.GITHUB_TOKEN }}
+
+      - name: Install buf
+        uses: bufbuild/buf-setup-action@v1
+
+      - name: Export proto files from buf.build
+        id: buf_export
+        working-directory: ./notification-worker
+        run: |
+          # Store the current state
+          git status --porcelain > /tmp/before_export.txt
+
+          # Run buf export to update proto files
+          buf export buf.build/xmtp/proto --output proto/ --path .
+
+          # Check if there are any changes
+          git status --porcelain > /tmp/after_export.txt
+
+          # Compare before and after to detect changes
+          if diff -q /tmp/before_export.txt /tmp/after_export.txt > /dev/null; then
+            echo "changed=false" >> $GITHUB_OUTPUT
+            echo "No changes detected in proto files"
+          else
+            echo "changed=true" >> $GITHUB_OUTPUT
+            echo "Changes detected in proto files"
+            
+            # Get list of changed files for the commit message
+            CHANGED_FILES=$(git diff --name-only | head -20)
+            echo "changed_files<<EOF" >> $GITHUB_OUTPUT
+            echo "$CHANGED_FILES" >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Check for breaking changes
+        if: steps.buf_export.outputs.changed == 'true'
+        working-directory: ./notification-worker
+        continue-on-error: true
+        run: |
+          # Check for breaking changes against the current state
+          buf breaking --against '.git#branch=main'
+
+      - name: Configure Git
+        if: steps.buf_export.outputs.changed == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Create PR with changes
+        if: steps.buf_export.outputs.changed == 'true'
+        uses: peter-evans/create-pull-request@v5
+        with:
+          # Use a PAT to allow triggering CI workflows
+          # Create a PAT with 'repo' scope and add it as a secret named 'BOT_PAT'
+          token: ${{ secrets.BOT_PAT || secrets.GITHUB_TOKEN }}
+          base: main
+          commit-message: |
+            chore: update proto files from buf.build/xmtp/proto
+
+            Automated update of proto files from upstream XMTP repository.
+
+            Changed files:
+            ${{ steps.buf_export.outputs.changed_files }}
+          title: "chore: Update Proto Files from XMTP"
+          body: |
+            ## 🤖 Automated Proto Update
+
+            This PR updates the proto files from `buf.build/xmtp/proto` to their latest version.
+
+            ### Changed Files
+            ```
+            ${{ steps.buf_export.outputs.changed_files }}
+            ```
+
+            ### What to check
+            - [ ] Review the changed proto files for any breaking changes
+            - [ ] Ensure the build still passes
+            - [ ] Check that tests are still passing
+            - [ ] Verify that the generated code compiles correctly
+
+            ---
+            *This PR was automatically created by the update-proto workflow.*
+          branch: update-proto-files
+          delete-branch: true
+          labels: |
+            dependencies
+            automated
+            proto
+
+      - name: Summary
+        run: |
+          if [ "${{ steps.buf_export.outputs.changed }}" == "true" ]; then
+            echo "## ✅ Proto files updated successfully" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### Changed files:" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            echo "${{ steps.buf_export.outputs.changed_files }}" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "A pull request has been created with the changes to the main branch." >> $GITHUB_STEP_SUMMARY
+          else
+            echo "## ℹ️ No updates needed" >> $GITHUB_STEP_SUMMARY
+            echo "Proto files are already up-to-date with buf.build/xmtp/proto" >> $GITHUB_STEP_SUMMARY
+          fi
