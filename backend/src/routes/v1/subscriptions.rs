@@ -86,7 +86,7 @@ fn validate_ttl(ttl: i64) -> Result<(), validator::ValidationError> {
 /// # Arguments
 ///
 /// * `user` - The authenticated user making the subscription request
-/// * `push_storage` - DynamoDB storage handler for push subscriptions
+/// * `push_storage` - `DynamoDB` storage handler for push subscriptions
 /// * `payload` - Array of subscription requests, each containing topic, HMAC key, and TTL
 ///
 /// # Returns
@@ -160,13 +160,13 @@ pub async fn subscribe(
 /// whether the requesting user is the original subscriber:
 ///
 /// - **If the user is the original subscriber**: The subscription is immediately deleted
-/// - **If the user is not the original subscriber**: The user's encrypted push ID is added to the deletion_request set,
+/// - **If the user is not the original subscriber**: The user's encrypted push ID is added to the `deletion_request` set,
 ///   this acts as a tombstone for the subscription, and if the plaintext push ids are the same it's lazily deleted.
 ///
 /// # Arguments
 ///
 /// * `user` - The authenticated user making the unsubscribe request
-/// * `push_storage` - DynamoDB storage handler for push subscriptions
+/// * `push_storage` - `DynamoDB` storage handler for push subscriptions
 /// * `query` - Query parameters containing topic and HMAC key
 ///
 /// # Returns
