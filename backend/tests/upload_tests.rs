@@ -177,7 +177,7 @@ async fn test_upload_media_missing_sha256() {
         .await
         .expect("Failed to send request");
 
-    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    assert_eq!(response.status(), StatusCode::UNPROCESSABLE_ENTITY);
 }
 
 #[tokio::test]
@@ -195,7 +195,7 @@ async fn test_upload_media_missing_content_length() {
         .await
         .expect("Failed to send request");
 
-    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    assert_eq!(response.status(), StatusCode::UNPROCESSABLE_ENTITY);
 }
 
 #[tokio::test]
@@ -209,7 +209,7 @@ async fn test_upload_media_empty_json() {
         .await
         .expect("Failed to send request");
 
-    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    assert_eq!(response.status(), StatusCode::UNPROCESSABLE_ENTITY);
 }
 
 #[tokio::test]
@@ -227,7 +227,7 @@ async fn test_upload_media_invalid_json_types() {
         .await
         .expect("Failed to send request");
 
-    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    assert_eq!(response.status(), StatusCode::UNPROCESSABLE_ENTITY);
 }
 
 // MIME type validation tests
@@ -248,7 +248,7 @@ async fn test_upload_media_invalid_content_type_text() {
         .await
         .expect("Failed to send request");
 
-    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    assert_eq!(response.status(), StatusCode::UNPROCESSABLE_ENTITY);
 }
 
 #[tokio::test]
@@ -436,7 +436,7 @@ async fn test_upload_media_extra_fields() {
         .await
         .expect("Failed to send request");
 
-    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    assert_eq!(response.status(), StatusCode::UNPROCESSABLE_ENTITY);
 }
 
 // Testing e2e upload flows

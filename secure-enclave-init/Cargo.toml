@@ -16,3 +16,4 @@ serde = { workspace = true }
 pontifex = { workspace = true, features = ["client"] }
 enclave-types = { workspace = true }
 datadog-tracing = { workspace = true }
+redis = { workspace = true, features = ["tokio-comp", "aio", "connection-manager"]}
