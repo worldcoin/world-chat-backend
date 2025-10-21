@@ -10,7 +10,12 @@ pub async fn handler(
     request: EnclavePushIdChallengeRequest,
 ) -> Result<bool, EnclaveError> {
     let state = state.read().await;
-    let encryption_key = state.keys.private_key.clone();
+    let encryption_key = state
+        .keys
+        .as_ref()
+        .ok_or(EnclaveError::NotInitialized)?
+        .private_key
+        .clone();
 
     let decrypted_push_id_1 = encryption_key
         .unseal(&request.encrypted_push_id_1)

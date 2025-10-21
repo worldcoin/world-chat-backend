@@ -1,6 +1,7 @@
 use std::{fs, path::Path};
 
 use crypto_box::{aead::OsRng, PublicKey, SecretKey};
+use enclave_types::EnclaveError;
 use hex::FromHex;
 
 /// An asymmetric key pair (X25519), used for end-to-end encrypted communications.
@@ -10,6 +11,17 @@ pub struct KeyPair {
 }
 
 impl KeyPair {
+    pub fn from_secret_key_bytes(secret_key_bytes: &[u8]) -> Result<Self, EnclaveError> {
+        let private_key = SecretKey::from_slice(secret_key_bytes)
+            .map_err(|_| EnclaveError::KeyPairCreationFailed)?;
+        let public_key = private_key.public_key();
+
+        Ok(Self {
+            public_key,
+            private_key,
+        })
+    }
+
     /// Generates a new key pair using the OS RNG.
     pub fn generate() -> Self {
         let secret_key = "aed04879a02e50c8f7b113776668bbf0aed04879a02e50c8f7b113776668bbf0";
