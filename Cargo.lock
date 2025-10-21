@@ -5182,6 +5182,7 @@ dependencies = [
  "datadog-tracing",
  "enclave-types",
  "pontifex",
+ "redis",
  "serde",
  "tokio",
  "tracing",

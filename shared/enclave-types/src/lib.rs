@@ -15,6 +15,10 @@ pub enum EnclaveError {
     BrazeRequestFailed(String),
     #[error("Failed to decrypt push ID: {0}")]
     DecryptPushIdFailed(String),
+    #[error("Failed to create key pair from secret key")]
+    KeyPairCreationFailed,
+    #[error("Pontifex client error: {0}")]
+    PontifexError(String),
 }
 
 /// Braze API configuration
@@ -26,6 +30,17 @@ pub struct EnclaveInitializeRequest {
     pub braze_api_region: String,
     /// Enclave HTTP proxy port
     pub braze_http_proxy_port: u32,
+    /// Context:
+    /// We're deploying enclaves in sets, we only want to the first enclave to generate a key pair.
+    /// This secret key can be shared **safely** using cryptographic attestation between trusted enclaves.
+    ///
+    /// This flag is used to determine if the enclave should generate a key pair on initialization.
+    pub can_generate_key_pair: bool,
+    /// Enclave cluster proxy port
+    ///
+    /// This port is used to proxy pontifex requests to other enclaves in the same cluster.
+    /// It's used to request a secret key from other live enclaves.
+    pub enclave_cluster_proxy_port: u32,
 }
 
 impl Request for EnclaveInitializeRequest {
@@ -79,4 +94,15 @@ pub struct EnclaveNotificationRequest {
 impl Request for EnclaveNotificationRequest {
     const ROUTE_ID: &'static str = "/v1/notification";
     type Response = Result<(), EnclaveError>;
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EnclaveSecretKeyRequest {
+    /// Attestation document
+    pub attestation_doc: Vec<u8>,
+}
+
+impl Request for EnclaveSecretKeyRequest {
+    const ROUTE_ID: &'static str = "/v1/secret-key";
+    type Response = Result<Vec<u8>, EnclaveError>;
 }
