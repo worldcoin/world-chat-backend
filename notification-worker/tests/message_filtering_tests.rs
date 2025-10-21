@@ -176,6 +176,7 @@ pub async fn create_group_message_envelope(
         data: content.to_vec(),
         sender_hmac,
         should_push,
+        is_commit: false,
     };
 
     let group_message = GroupMessage {
@@ -412,6 +413,7 @@ async fn test_message_encoding() -> Result<()> {
         data: test_content.to_vec(),
         sender_hmac: subs.hmac_external.clone(),
         should_push: true,
+        is_commit: false,
     };
 
     let group_message = GroupMessage {
