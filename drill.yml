@@ -1,0 +1,40 @@
+---
+# Drill load testing configuration for World Chat Backend Auth Endpoint
+#
+# Run with: drill --benchmark drill.yml --stats
+
+# Number of concurrent users
+concurrency: 1000
+
+# Base URL for the backend API
+base: 'https://chat-staging.toolsforhumanity.com'
+
+# Number of iterations (each user will make this many requests)
+iterations: 1000
+
+# Ramp-up time in seconds (time to reach full concurrency)
+ramp_up: 2
+
+plan:
+  - name: "Authenticate with World ID"
+    request:
+      url: /v1/authorize
+      method: POST
+      headers:
+        Content-Type: 'application/json'
+      body: |
+        {
+          "encrypted_push_id": "{{ item.encrypted_push_id }}",
+          "timestamp": {{ item.timestamp }},
+          "proof": "{{ item.proof }}",
+          "nullifier_hash": "{{ item.nullifier_hash }}",
+          "merkle_root": "{{ item.merkle_root }}",
+          "credential_type": "{{ item.credential_type }}"
+        }
+      # assign:
+      #   access_token:
+      #     json: '$.access_token'
+    with_items_from_csv: /Users/panagiotis.kakalis/Repos/world-chat-backend/user_data.csv
+    # Optional: Add assertions to validate responses
+    # assertions:
+    #   - status: 200

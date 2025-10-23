@@ -1,0 +1,21 @@
+[package]
+name = "e2e-tests"
+version = { workspace = true }
+edition = { workspace = true }
+license = { workspace = true }
+
+[[bin]]
+name = "generate-test-data"
+path = "src/bin/generate_test_data.rs"
+
+[dependencies]
+walletkit-core = { version = "0.1.4", features= ["semaphore"], default-features = false }
+schemars = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tokio = { workspace = true }
+anyhow = { workspace = true }
+chrono = { workspace = true }
+crypto_box = { workspace = true, features = ["seal"] }
+csv = "1.3"
+hex = { workspace = true }
