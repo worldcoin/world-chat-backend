@@ -9,7 +9,6 @@ use regex::Regex;
 use schemars::JsonSchema;
 use serde::{Deserialize, Deserializer, Serialize};
 use std::sync::LazyLock;
-use tracing::instrument;
 use validator::Validate;
 
 use crate::{
@@ -121,7 +120,6 @@ impl IntoResponse for MediaUploadResponse {
 /// - `BucketError::UpstreamError` - 5xx errors from S3 service during object existence check
 /// - `BucketError::ConfigError` - Failed to create presigning configuration
 /// - `BucketError::InvalidInput` - Invalid SHA-256 format (not 64-character hex string)
-#[instrument(skip(media_storage, payload))]
 pub async fn create_presigned_upload_url(
     Extension(media_storage): Extension<Arc<MediaStorage>>,
     Extension(environment): Extension<Environment>,
@@ -188,7 +186,6 @@ pub struct MediaConfigResponse {
     trusted_cdn_url: String,
 }
 
-#[instrument]
 pub async fn get_media_config(
     Extension(environment): Extension<Environment>,
 ) -> Json<MediaConfigResponse> {

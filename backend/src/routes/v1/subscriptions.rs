@@ -5,7 +5,7 @@ use axum_valid::Valid;
 use futures::future::join_all;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use tracing::{instrument, warn};
+use tracing::warn;
 use validator::Validate;
 
 use crate::{middleware::AuthenticatedUser, types::AppError};
@@ -86,7 +86,7 @@ fn validate_ttl(ttl: i64) -> Result<(), validator::ValidationError> {
 /// # Arguments
 ///
 /// * `user` - The authenticated user making the subscription request
-/// * `push_storage` - DynamoDB storage handler for push subscriptions
+/// * `push_storage` - `DynamoDB` storage handler for push subscriptions
 /// * `payload` - Array of subscription requests, each containing topic, HMAC key, and TTL
 ///
 /// # Returns
@@ -101,7 +101,6 @@ fn validate_ttl(ttl: i64) -> Result<(), validator::ValidationError> {
 /// - `401 UNAUTHORIZED` - Invalid or missing authentication
 /// - `503 SERVICE_UNAVAILABLE` - Database connectivity issues
 /// - `500 INTERNAL_SERVER_ERROR` - Other unexpected errors during storage operations
-#[instrument(skip_all, fields(encrypted_push_id = user.encrypted_push_id))]
 pub async fn subscribe(
     user: AuthenticatedUser,
     Extension(push_storage): Extension<Arc<PushSubscriptionStorage>>,
@@ -161,13 +160,13 @@ pub async fn subscribe(
 /// whether the requesting user is the original subscriber:
 ///
 /// - **If the user is the original subscriber**: The subscription is immediately deleted
-/// - **If the user is not the original subscriber**: The user's encrypted push ID is added to the deletion_request set,
+/// - **If the user is not the original subscriber**: The user's encrypted push ID is added to the `deletion_request` set,
 ///   this acts as a tombstone for the subscription, and if the plaintext push ids are the same it's lazily deleted.
 ///
 /// # Arguments
 ///
 /// * `user` - The authenticated user making the unsubscribe request
-/// * `push_storage` - DynamoDB storage handler for push subscriptions
+/// * `push_storage` - `DynamoDB` storage handler for push subscriptions
 /// * `query` - Query parameters containing topic and HMAC key
 ///
 /// # Returns
@@ -181,7 +180,6 @@ pub async fn subscribe(
 /// - `401 UNAUTHORIZED` - Invalid or missing authentication
 /// - `400 BAD_REQUEST` - Missing or invalid query parameters
 /// - `500 INTERNAL_SERVER_ERROR` - Other unexpected errors during storage operations
-#[instrument(skip(push_storage, query))]
 pub async fn unsubscribe(
     user: AuthenticatedUser,
     Extension(push_storage): Extension<Arc<PushSubscriptionStorage>>,
