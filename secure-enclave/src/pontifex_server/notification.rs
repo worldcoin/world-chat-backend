@@ -93,8 +93,8 @@ async fn send_braze_notification(
         "messages": {
             "apple_push": {
                 "alert": {
-                    "title": "world_chat_notification",
-                    "body": "world_chat_notification"
+                    "title": "New Activity",
+                    "body": "This content is temporarily unavailable."
                 },
                 "badge": 1,
                 "sound": "default",
