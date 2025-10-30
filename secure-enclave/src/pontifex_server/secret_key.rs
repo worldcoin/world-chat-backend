@@ -6,17 +6,26 @@ use tokio::sync::RwLock;
 
 pub async fn handler(
     state: Arc<RwLock<EnclaveState>>,
-    _request: EnclaveSecretKeyRequest,
+    request: EnclaveSecretKeyRequest,
 ) -> Result<Vec<u8>, EnclaveError> {
-    // TODO: Validate incoming attestation document and encapsulate key only if it matches current bytecode
-    let state = state.read().await;
-    let secret_key = state
-        .encryption_keys
+    let attestation_verifier = &state.read().await.attestation_verifier;
+
+    let encryption_keys = state.read().await.encryption_keys.clone();
+    let secret_key = encryption_keys
         .as_ref()
         .ok_or(EnclaveError::NotInitialized)?
         .private_key
-        .to_bytes()
-        .to_vec();
+        .to_bytes();
 
-    Ok(secret_key)
+    let response = attestation_verifier
+        .verify_attestation_document_and_encrypt(&request.attestation_doc, &secret_key)
+        .map_err(|e| {
+            EnclaveError::AttestationVerificationFailed(format!(
+                "Failed to verify attestation document: {}",
+                e
+            ))
+        })?;
+    let sealed_key = response.ciphertext;
+
+    Ok(sealed_key)
 }
