@@ -25,7 +25,7 @@ pub enum EnclaveAttestationError {
     #[error("PCR{pcr_index} value not trusted: {actual}")]
     CodeUntrusted {
         /// The index of the PCR value that failed validation
-        pcr_index: u32,
+        pcr_index: usize,
         /// The actual value of the PCR that failed validation
         actual: String,
     },
