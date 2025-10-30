@@ -57,6 +57,40 @@ impl EnclaveAttestationVerifier {
         }
     }
 
+    pub fn from_attestation_doc(attestation_doc: AttestationDoc) -> EnclaveAttestationResult<Self> {
+        let pcr0 =
+            attestation_doc
+                .pcrs
+                .get(&0)
+                .ok_or_else(|| EnclaveAttestationError::CodeUntrusted {
+                    pcr_index: 0,
+                    actual: "missing".to_string(),
+                })?;
+
+        let pcr1 =
+            attestation_doc
+                .pcrs
+                .get(&1)
+                .ok_or_else(|| EnclaveAttestationError::CodeUntrusted {
+                    pcr_index: 1,
+                    actual: "missing".to_string(),
+                })?;
+
+        let pcr2 =
+            attestation_doc
+                .pcrs
+                .get(&2)
+                .ok_or_else(|| EnclaveAttestationError::CodeUntrusted {
+                    pcr_index: 2,
+                    actual: "missing".to_string(),
+                })?;
+
+        let allowed_pcr_measurements =
+            vec![(0, pcr0.to_vec()), (1, pcr1.to_vec()), (2, pcr2.to_vec())];
+
+        Ok(Self::new(allowed_pcr_measurements))
+    }
+
     /// Verifies a base64-encoded attestation document
     ///
     /// This is a convenience method that handles base64 decoding and then verifies the document
