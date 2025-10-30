@@ -477,8 +477,7 @@ impl EnclaveAttestationVerifier {
         }
 
         // Get the expected PCR length depending on the hashing algorithm used
-        let expected_pcr_length_1 = get_expected_pcr_length(attestation_1.digest);
-        let expected_pcr_length_2 = get_expected_pcr_length(attestation_2.digest);
+        let expected_pcr_length = get_expected_pcr_length(attestation_2.digest);
 
         // Ensure both use the same digest algorithm
         if attestation_1.digest != attestation_2.digest {
@@ -512,26 +511,15 @@ impl EnclaveAttestationVerifier {
             })?;
 
             // Validate PCR value lengths
-            if pcr_value_1.len() != expected_pcr_length_1 {
+            if pcr_value_1.len() != expected_pcr_length || pcr_value_2.len() != expected_pcr_length
+            {
                 return Err(EnclaveAttestationError::CodeUntrusted {
                     pcr_index,
                     actual: format!(
-                        "Invalid PCR{} length in first attestation: {}, expected: {}",
+                        "Invalid PCR{} length: {}, expected: {}",
                         pcr_index,
                         pcr_value_1.len(),
-                        expected_pcr_length_1
-                    ),
-                });
-            }
-
-            if pcr_value_2.len() != expected_pcr_length_2 {
-                return Err(EnclaveAttestationError::CodeUntrusted {
-                    pcr_index,
-                    actual: format!(
-                        "Invalid PCR{} length in second attestation: {}, expected: {}",
-                        pcr_index,
-                        pcr_value_2.len(),
-                        expected_pcr_length_2
+                        expected_pcr_length
                     ),
                 });
             }
