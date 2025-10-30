@@ -11,7 +11,7 @@ pub async fn handler(
     // TODO: Validate incoming attestation document and encapsulate key only if it matches current bytecode
     let state = state.read().await;
     let secret_key = state
-        .keys
+        .encryption_keys
         .as_ref()
         .ok_or(EnclaveError::NotInitialized)?
         .private_key

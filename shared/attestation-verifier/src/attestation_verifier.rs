@@ -57,36 +57,21 @@ impl EnclaveAttestationVerifier {
         }
     }
 
-    pub fn from_attestation_doc(attestation_doc: AttestationDoc) -> EnclaveAttestationResult<Self> {
-        let pcr0 =
-            attestation_doc
-                .pcrs
-                .get(&0)
-                .ok_or_else(|| EnclaveAttestationError::CodeUntrusted {
-                    pcr_index: 0,
-                    actual: "missing".to_string(),
-                })?;
+    /// Create a new instance from an attestation document using its PCR values as the allowed measurements (PCR0, PCR1, PCR2)
+    ///
+    /// This ensures that only attestation documents from enclaves running the same bytecode will be accepted.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the attestation document is missing required PCR values
+    pub fn from_attestation_doc(
+        attestation_doc: &AttestationDoc,
+    ) -> EnclaveAttestationResult<Self> {
+        let pcr0 = Self::get_pcr_value(attestation_doc, 0)?;
+        let pcr1 = Self::get_pcr_value(attestation_doc, 1)?;
+        let pcr2 = Self::get_pcr_value(attestation_doc, 2)?;
 
-        let pcr1 =
-            attestation_doc
-                .pcrs
-                .get(&1)
-                .ok_or_else(|| EnclaveAttestationError::CodeUntrusted {
-                    pcr_index: 1,
-                    actual: "missing".to_string(),
-                })?;
-
-        let pcr2 =
-            attestation_doc
-                .pcrs
-                .get(&2)
-                .ok_or_else(|| EnclaveAttestationError::CodeUntrusted {
-                    pcr_index: 2,
-                    actual: "missing".to_string(),
-                })?;
-
-        let allowed_pcr_measurements =
-            vec![(0, pcr0.to_vec()), (1, pcr1.to_vec()), (2, pcr2.to_vec())];
+        let allowed_pcr_measurements = vec![(0, pcr0), (1, pcr1), (2, pcr2)];
 
         Ok(Self::new(allowed_pcr_measurements))
     }
@@ -405,12 +390,7 @@ impl EnclaveAttestationVerifier {
 
         for (pcr_index, pcr_expected_value) in &self.allowed_pcr_measurements {
             // Get the PCR value from the attestation
-            let attestation_pcr_value = attestation.pcrs.get(pcr_index).ok_or_else(|| {
-                EnclaveAttestationError::CodeUntrusted {
-                    pcr_index: *pcr_index,
-                    actual: "missing".to_string(),
-                }
-            })?;
+            let attestation_pcr_value = Self::get_pcr_value(attestation, *pcr_index)?;
 
             // Validate the PCR value length
             if attestation_pcr_value.len() != expected_pcr_length {
@@ -482,6 +462,21 @@ impl EnclaveAttestationVerifier {
                 ))
             },
             |key| Ok(key.into_vec()),
+        )
+    }
+
+    fn get_pcr_value(
+        attestation_doc: &AttestationDoc,
+        pcr_index: usize,
+    ) -> EnclaveAttestationResult<Vec<u8>> {
+        attestation_doc.pcrs.get(&pcr_index).map_or_else(
+            || {
+                Err(EnclaveAttestationError::CodeUntrusted {
+                    pcr_index,
+                    actual: "missing".to_string(),
+                })
+            },
+            |value| Ok(value.to_vec()),
         )
     }
 }
