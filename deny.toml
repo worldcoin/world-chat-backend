@@ -48,6 +48,15 @@ exceptions = [
     { allow = ["MPL-2.0"], name = "webpki-roots", version = "0.25.4" },
 ]
 
+[[licenses.clarify]]
+# webpki doesn't specify its license in Cargo.toml but is actually ISC licensed
+name = "webpki"
+version = "0.22.4"
+expression = "ISC"
+license-files = [
+    { path = "LICENSE", hash = 0x001c7e6c }
+]
+
 # Ignore unmaintained required crates warning
 [advisories]
 ignore = [
