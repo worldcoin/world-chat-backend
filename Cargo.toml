@@ -106,7 +106,8 @@ common-types = { path = "shared/common-types" }
 attestation-verifier = { path = "shared/attestation-verifier" }
 
 # Pontifex
-pontifex = { version = "1.1.1" }
+# TODO: update this when we publish 1.2.0
+pontifex = { git ="https://github.com/worldcoin/pontifex", rev = "0ef1dd634fc751c065d326acf6a81f2ea41f5460" }
 
 # Datadog tracing
 datadog-tracing = { version = "0.3.0", features = ["axum"] }
