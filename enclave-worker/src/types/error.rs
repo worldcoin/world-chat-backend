@@ -167,8 +167,9 @@ impl From<enclave_types::EnclaveError> for AppError {
     #[allow(clippy::cognitive_complexity)]
     fn from(err: enclave_types::EnclaveError) -> Self {
         use enclave_types::EnclaveError::{
-            AttestationFailed, BrazeRequestFailed, DecryptPushIdFailed, KeyPairCreationFailed,
-            NotInitialized, PontifexError, SecureModuleNotInitialized,
+            AttestationFailed, AttestationVerificationFailed, BrazeRequestFailed,
+            DecryptPushIdFailed, KeyPairCreationFailed, NotInitialized, PontifexError,
+            SecureModuleNotInitialized,
         };
 
         match &err {
@@ -228,6 +229,15 @@ impl From<enclave_types::EnclaveError> for AppError {
             }
             KeyPairCreationFailed => {
                 tracing::error!("Key pair creation failed");
+                Self::new(
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "internal_error",
+                    "Internal server error",
+                    false,
+                )
+            }
+            AttestationVerificationFailed(msg) => {
+                tracing::error!("Attestation verification failed: {msg}");
                 Self::new(
                     StatusCode::INTERNAL_SERVER_ERROR,
                     "internal_error",

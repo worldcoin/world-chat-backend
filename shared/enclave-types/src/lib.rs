@@ -19,6 +19,8 @@ pub enum EnclaveError {
     KeyPairCreationFailed,
     #[error("Pontifex client error: {0}")]
     PontifexError(String),
+    #[error("Attestation verification failed: {0}")]
+    AttestationVerificationFailed(String),
 }
 
 /// Braze API configuration

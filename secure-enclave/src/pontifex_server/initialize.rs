@@ -30,7 +30,7 @@ pub async fn handler(
         "https://rest.{}.braze.com",
         config.braze_api_region
     ));
-    state.keys = Some(key_pair);
+    state.encryption_keys = Some(key_pair);
     state.initialized = true;
 
     info!("✅ Enclave initialized successfully");
