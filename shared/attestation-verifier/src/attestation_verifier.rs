@@ -76,35 +76,7 @@ impl EnclaveAttestationVerifier {
         Ok(Self::new(allowed_pcr_measurements))
     }
 
-    /// Verifies a base64-encoded attestation document
-    ///
-    /// This is a convenience method that handles base64 decoding and then verifies the document
-    ///
-    /// # Arguments
-    /// * `attestation_doc_base64` - The base64-encoded attestation document
-    ///
-    /// # Returns
-    /// A verified attestation containing the enclave's public key and PCR values
-    ///
-    /// # Errors
-    /// Returns an error if the base64 decoding fails or the attestation document verification fails
-    pub fn verify_attestation_document_base64(
-        &self,
-        attestation_doc_base64: &str,
-    ) -> EnclaveAttestationResult<VerifiedAttestation> {
-        let attestation_doc_bytes = STANDARD.decode(attestation_doc_base64).map_err(|e| {
-            EnclaveAttestationError::AttestationDocumentParseError(format!(
-                "Failed to decode base64 attestation document: {e}"
-            ))
-        })?;
-
-        self.verify_attestation_document(&attestation_doc_bytes)
-    }
-
-    /// Verifies a base64-encoded attestation document and encrypts the given plaintext
-    ///
-    /// This is a convenience method that handles base64 decoding, verifying the attestation document,
-    /// and encrypting the given plaintext using the enclave's public key using `crypto_box` sealed box.
+    /// Verifies a attestation document and encrypts the given plaintext using the enclave's public key using `crypto_box` sealed box.
     ///
     /// Learn about seal box [here](https://libsodium.gitbook.io/doc/public-key_cryptography/sealed_boxes)
     ///
@@ -113,17 +85,16 @@ impl EnclaveAttestationVerifier {
     /// * `plaintext` - The plaintext to encrypt
     ///
     /// # Returns
-    /// A verified attestation containing the enclave's public key and the encrypted plaintext in base64 format.
+    /// A verified attestation containing the enclave's public key and the ciphertext.
     ///
     /// # Errors
-    /// Returns an error if the base64 decoding fails or the attestation document verification fails
+    /// Returns an error if the attestation document verification fails
     pub fn verify_attestation_document_and_encrypt(
         &self,
-        attestation_doc_base64: &str,
+        attestation_doc: &[u8],
         plaintext: &[u8],
     ) -> EnclaveAttestationResult<VerifiedAttestationWithCiphertext> {
-        let verified_attestation =
-            self.verify_attestation_document_base64(attestation_doc_base64)?;
+        let verified_attestation = self.verify_attestation_document(attestation_doc)?;
 
         let public_key = {
             let pk_bytes = STANDARD
