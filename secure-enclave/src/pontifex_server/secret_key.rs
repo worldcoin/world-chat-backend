@@ -12,16 +12,17 @@ pub async fn handler(
     state: Arc<RwLock<EnclaveState>>,
     request: EnclaveSecretKeyRequest,
 ) -> Result<Vec<u8>, EnclaveError> {
-    let attestation_verifier = &state.read().await.attestation_verifier;
+    let state = state.read().await;
 
-    let encryption_keys = state.read().await.encryption_keys.clone();
-    let secret_key = encryption_keys
-        .as_ref()
+    let secret_key = state
+        .encryption_keys
+        .clone()
         .ok_or(EnclaveError::NotInitialized)?
         .private_key
         .to_bytes();
 
-    let response = attestation_verifier
+    let response = state
+        .attestation_verifier
         .verify_attestation_document_and_encrypt(&request.attestation_doc, &secret_key)
         .map_err(|e| {
             EnclaveError::AttestationVerificationFailed(format!(

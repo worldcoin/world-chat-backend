@@ -18,14 +18,12 @@ pub async fn handler(
         &pontifex::http::Http2ClientConfig::default(),
     );
 
-    let ephemeral_key_pair = state.read().await.ephemeral_key_pair.clone();
-    let attestation_doc_with_ephemeral_pk =
-        state.read().await.attestation_doc_with_ephemeral_pk.clone();
+    let state_snapshot = state.read().await;
     let key_pair = try_retrieve_key_pair(
         config.enclave_cluster_proxy_port,
         config.can_generate_key_pair,
-        ephemeral_key_pair,
-        attestation_doc_with_ephemeral_pk,
+        state_snapshot.ephemeral_key_pair.clone(),
+        state_snapshot.attestation_doc_with_ephemeral_pk.clone(),
     )
     .await?;
 
@@ -106,7 +104,7 @@ async fn request_key_pair_from_enclaves_cluster(
     let ephemeral_sk = ephemeral_key_pair.private_key;
     let secret_key = ephemeral_sk
         .unseal(&sealed_key)
-        .map_err(|e| EnclaveError::BrazeRequestFailed(format!("Unseal failed: {e:?}")))?;
+        .map_err(|e| EnclaveError::DecryptSecretKeyFailed(format!("Unseal failed: {e:?}")))?;
 
     let key_pair = KeyPair::from_secret_key_bytes(&secret_key)?;
 
