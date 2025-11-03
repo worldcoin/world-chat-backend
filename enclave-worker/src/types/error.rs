@@ -168,8 +168,8 @@ impl From<enclave_types::EnclaveError> for AppError {
     fn from(err: enclave_types::EnclaveError) -> Self {
         use enclave_types::EnclaveError::{
             AttestationFailed, AttestationVerificationFailed, BrazeRequestFailed,
-            DecryptPushIdFailed, KeyPairCreationFailed, NotInitialized, PontifexError,
-            SecureModuleNotInitialized,
+            DecryptPushIdFailed, DecryptSecretKeyFailed, KeyPairCreationFailed, NotInitialized,
+            PontifexError, SecureModuleNotInitialized,
         };
 
         match &err {
@@ -236,8 +236,9 @@ impl From<enclave_types::EnclaveError> for AppError {
                     false,
                 )
             }
-            AttestationVerificationFailed(msg) => {
-                tracing::error!("Attestation verification failed: {msg}");
+            // These error are not relevant to enclave-worker, we handle them to avoid compile errors
+            AttestationVerificationFailed(msg) | DecryptSecretKeyFailed(msg) => {
+                tracing::error!("Enclave initialize error: {msg}");
                 Self::new(
                     StatusCode::INTERNAL_SERVER_ERROR,
                     "internal_error",
