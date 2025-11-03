@@ -4,6 +4,7 @@ use crypto_box::{aead::OsRng, PublicKey, SecretKey};
 use enclave_types::EnclaveError;
 
 /// An asymmetric key pair (X25519), used for end-to-end encrypted communications.
+#[derive(Clone)]
 pub struct KeyPair {
     pub public_key: PublicKey,
     pub private_key: SecretKey,

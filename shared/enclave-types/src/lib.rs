@@ -21,6 +21,8 @@ pub enum EnclaveError {
     PontifexError(String),
     #[error("Attestation verification failed: {0}")]
     AttestationVerificationFailed(String),
+    #[error("Failed to unseal secret key: {0}")]
+    DecryptSecretKeyFailed(String),
 }
 
 /// Braze API configuration
