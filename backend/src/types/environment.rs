@@ -244,6 +244,36 @@ impl Environment {
         }
     }
 
+    /// Returns the Dynamo DB table name for group join requests
+    ///
+    /// # Panics
+    ///
+    /// Panics if the `DYNAMODB_GROUP_JOIN_REQUESTS_TABLE_NAME` environment variable is not set in production/staging
+    #[must_use]
+    pub fn dynamodb_group_join_requests_table_name(&self) -> String {
+        match self {
+            Self::Production | Self::Staging => env::var("DYNAMODB_GROUP_JOIN_REQUESTS_TABLE_NAME")
+                .expect("DYNAMODB_GROUP_JOIN_REQUESTS_TABLE_NAME environment variable is not set"),
+            Self::Development { .. } => "world-chat-group-join-requests".to_string(),
+        }
+    }
+
+    /// Returns the Dynamo DB GSI name for group join requests group invite index
+    ///
+    /// # Panics
+    ///
+    /// Panics if the `DYNAMODB_GROUP_JOIN_REQUESTS_GROUP_INVITE_INDEX_NAME` environment variable is not set in production/staging
+    #[must_use]
+    pub fn dynamodb_group_join_requests_group_invite_index_name(&self) -> String {
+        match self {
+            Self::Production | Self::Staging => {
+                env::var("DYNAMODB_GROUP_JOIN_REQUESTS_GROUP_INVITE_INDEX_NAME")
+                    .expect("DYNAMODB_GROUP_JOIN_REQUESTS_GROUP_INVITE_INDEX_NAME environment variable is not set")
+            }
+            Self::Development { .. } => "group-invite-index".to_string(),
+        }
+    }
+
     /// Returns the Enclave Worker HTTP URL that is used to challenge push IDs
     ///
     /// # Panics

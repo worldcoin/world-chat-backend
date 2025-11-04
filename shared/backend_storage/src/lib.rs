@@ -12,5 +12,6 @@
 )]
 
 pub mod auth_proof;
+pub mod group_join_request;
 pub mod push_subscription;
 pub mod queue;
