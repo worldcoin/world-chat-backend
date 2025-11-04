@@ -14,16 +14,15 @@ use crate::middleware::auth::auth_middleware;
 /// Creates the v1 API router with all v1 handler routes
 pub fn handler() -> ApiRouter {
     let public_routes = ApiRouter::new()
-        // TODO: TEMPORARY: Remove this once we finish mobile dev testing
+        .api_route("/attestation-document", get(attestation::handler))
+        .api_route("/authorize", post(auth::authorize_handler));
+
+    let protected_routes = ApiRouter::new()
         .api_route(
             "/media/presigned-urls",
             post(media::create_presigned_upload_url),
         )
-        .api_route("/attestation-document", get(attestation::handler))
         .api_route("/media/config", get(media::get_media_config))
-        .api_route("/authorize", post(auth::authorize_handler));
-
-    let protected_routes = ApiRouter::new()
         .api_route(
             "/subscriptions",
             post(subscriptions::subscribe).delete(subscriptions::unsubscribe),
