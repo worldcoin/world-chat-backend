@@ -64,7 +64,7 @@ http = "1.1"
 
 # AWS SDK
 aws-config = "1.8"
-aws-sdk-sqs = "1.64"
+aws-sdk-sqs = "1.82"
 aws-sdk-dynamodb = "1.82"
 aws-sdk-s3 = "1.82"
 aws-sdk-kms = "1.82"
