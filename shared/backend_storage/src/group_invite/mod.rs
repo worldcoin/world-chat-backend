@@ -1,4 +1,4 @@
-//! Group invites storage module for DynamoDB operations
+//! Group invites storage module for `DynamoDB` operations
 
 mod error;
 
@@ -10,7 +10,7 @@ use serde_dynamo::{from_items, to_item};
 use std::sync::Arc;
 use strum::Display;
 
-/// DynamoDB table for group invites
+/// `DynamoDB` table for group invites
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GroupInvite {
     /// Primary key - unique invite ID (UUID v4)
@@ -24,7 +24,7 @@ pub struct GroupInvite {
     /// Optional max uses of the invite
     #[serde(skip_serializing_if = "Option::is_none")]
     pub max_uses: Option<i64>,
-    /// Optional timestamp expires_at of the invite
+    /// Optional timestamp expiration of the invite
     #[serde(skip_serializing_if = "Option::is_none")]
     pub expires_at: Option<i64>,
 }
@@ -38,15 +38,15 @@ pub struct GroupInviteCreateRequest {
     pub group_name: String,
     /// Encrypted push of the inviter used to send silent push notification
     pub creator_encrypted_push_id: String,
-    /// Optional max uses of the invite
+    /// Optional `max_uses` of the invite
     #[serde(skip_serializing_if = "Option::is_none")]
     pub max_uses: Option<i64>,
-    /// Optional timestamp expires_at of the invite
+    /// Optional timestamp `expires_at` of the invite
     #[serde(skip_serializing_if = "Option::is_none")]
     pub expires_at: Option<i64>,
 }
 
-/// DynamoDB attribute names for the group invite table
+/// `DynamoDB` attribute names for the group invite table
 #[derive(Debug, Display)]
 #[strum(serialize_all = "snake_case")]
 pub enum GroupInviteAttribute {
@@ -76,8 +76,8 @@ impl GroupInviteStorage {
     ///
     /// # Arguments
     ///
-    /// * `dynamodb_client` - Pre-configured DynamoDB client
-    /// * `table_name` - DynamoDB table name for group invites
+    /// * `dynamodb_client` - Pre-configured `DynamoDB` client
+    /// * `table_name` - `DynamoDB` table name for group invites
     /// * `topic_index_name` - Name of the GSI for topic queries
     #[must_use]
     pub const fn new(
@@ -93,6 +93,10 @@ impl GroupInviteStorage {
     }
 
     /// Get all group invites for a given topic using GSI
+    ///
+    /// # Errors
+    ///
+    /// Returns `GroupInviteStorageError` if the `DynamoDB` query operation fails
     pub async fn get_by_topic(&self, topic: &str) -> GroupInviteStorageResult<Vec<GroupInvite>> {
         let response = self
             .dynamodb_client
@@ -116,6 +120,10 @@ impl GroupInviteStorage {
     }
 
     /// Get a single group invite by ID
+    ///
+    /// # Errors
+    ///
+    /// Returns `GroupInviteStorageError` if the `DynamoDB` get operation fails
     pub async fn get_one(&self, id: &str) -> GroupInviteStorageResult<Option<GroupInvite>> {
         let response = self
             .dynamodb_client
@@ -138,6 +146,10 @@ impl GroupInviteStorage {
     }
 
     /// Create a new group invite with generated UUID
+    ///
+    /// # Errors
+    ///
+    /// Returns `GroupInviteStorageError` if the `DynamoDB` put operation fails
     pub async fn create(
         &self,
         request: GroupInviteCreateRequest,
@@ -167,6 +179,10 @@ impl GroupInviteStorage {
     }
 
     /// Delete a group invite by ID
+    ///
+    /// # Errors
+    ///
+    /// Returns `GroupInviteStorageError` if the `DynamoDB` delete operation fails
     pub async fn delete(&self, id: &str) -> GroupInviteStorageResult<()> {
         self.dynamodb_client
             .delete_item()
@@ -194,7 +210,7 @@ mod tests {
             group_name: "Test Group".to_string(),
             creator_encrypted_push_id: "encrypted-push-id".to_string(),
             max_uses: Some(10),
-            expires_at: Some(1234567890),
+            expires_at: Some(1_234_567_890),
         };
 
         let serialized = serde_json::to_string(&invite).unwrap();
@@ -225,7 +241,7 @@ mod tests {
         let serialized = serde_json::to_string(&invite).unwrap();
         let json: serde_json::Value = serde_json::from_str(&serialized).unwrap();
 
-        assert!(!json.get("max_uses").is_some());
-        assert!(!json.get("expires_at").is_some());
+        assert!(json.get("max_uses").is_none());
+        assert!(json.get("expires_at").is_none());
     }
 }

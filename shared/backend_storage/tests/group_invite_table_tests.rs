@@ -136,7 +136,7 @@ fn create_test_invite_request(topic: &str) -> GroupInviteCreateRequest {
         group_name: format!("Test Group for {}", topic),
         creator_encrypted_push_id: format!("encrypted_push_{}", Uuid::new_v4()),
         max_uses: Some(10),
-        expires_at: Some(1234567890),
+        expires_at: Some(1_234_567_890),
     }
 }
 
@@ -158,7 +158,10 @@ async fn test_create_group_invite() {
     let request = create_test_invite_request(&topic);
 
     // Create the invite
-    let invite = ctx.storage.create(request.clone()).await
+    let invite = ctx
+        .storage
+        .create(request.clone())
+        .await
         .expect("Failed to create group invite");
 
     // Verify the created invite has all expected fields
@@ -180,7 +183,10 @@ async fn test_create_group_invite_without_optional_fields() {
     let request = create_test_invite_request_minimal(&topic);
 
     // Create the invite
-    let invite = ctx.storage.create(request.clone()).await
+    let invite = ctx
+        .storage
+        .create(request.clone())
+        .await
         .expect("Failed to create group invite");
 
     // Verify the created invite
@@ -202,11 +208,17 @@ async fn test_get_one_existing_invite() {
     let request = create_test_invite_request(&topic);
 
     // Create the invite
-    let created_invite = ctx.storage.create(request.clone()).await
+    let created_invite = ctx
+        .storage
+        .create(request.clone())
+        .await
         .expect("Failed to create group invite");
 
     // Get the invite by ID
-    let retrieved_invite = ctx.storage.get_one(&created_invite.id).await
+    let retrieved_invite = ctx
+        .storage
+        .get_one(&created_invite.id)
+        .await
         .expect("Failed to get group invite");
 
     // Verify we got the invite
@@ -230,7 +242,10 @@ async fn test_get_one_non_existing_invite() {
 
     // Try to get a non-existing invite
     let non_existing_id = Uuid::new_v4().to_string();
-    let result = ctx.storage.get_one(&non_existing_id).await
+    let result = ctx
+        .storage
+        .get_one(&non_existing_id)
+        .await
         .expect("Failed to query non-existing invite");
 
     // Should return None
@@ -244,14 +259,20 @@ async fn test_get_by_topic_single_invite() {
     let request = create_test_invite_request(&topic);
 
     // Create the invite
-    let created_invite = ctx.storage.create(request).await
+    let created_invite = ctx
+        .storage
+        .create(request)
+        .await
         .expect("Failed to create group invite");
 
     // Wait a bit for GSI to be updated
     sleep(Duration::from_millis(100)).await;
 
     // Get invites by topic
-    let invites = ctx.storage.get_by_topic(&topic).await
+    let invites = ctx
+        .storage
+        .get_by_topic(&topic)
+        .await
         .expect("Failed to get invites by topic");
 
     // Should have exactly one invite
@@ -270,7 +291,10 @@ async fn test_get_by_topic_multiple_invites() {
     for i in 0..3 {
         let mut request = create_test_invite_request(&topic);
         request.group_name = format!("Group {}", i);
-        let invite = ctx.storage.create(request).await
+        let invite = ctx
+            .storage
+            .create(request)
+            .await
             .expect("Failed to create group invite");
         created_ids.push(invite.id);
     }
@@ -279,7 +303,10 @@ async fn test_get_by_topic_multiple_invites() {
     sleep(Duration::from_millis(200)).await;
 
     // Get invites by topic
-    let invites = ctx.storage.get_by_topic(&topic).await
+    let invites = ctx
+        .storage
+        .get_by_topic(&topic)
+        .await
         .expect("Failed to get invites by topic");
 
     // Should have all three invites
@@ -298,7 +325,10 @@ async fn test_get_by_topic_no_invites() {
     let topic = format!("topic-{}", Uuid::new_v4());
 
     // Get invites for a topic with no invites
-    let invites = ctx.storage.get_by_topic(&topic).await
+    let invites = ctx
+        .storage
+        .get_by_topic(&topic)
+        .await
         .expect("Failed to get invites by topic");
 
     // Should return empty vector
@@ -312,15 +342,23 @@ async fn test_delete_existing_invite() {
     let request = create_test_invite_request(&topic);
 
     // Create the invite
-    let created_invite = ctx.storage.create(request).await
+    let created_invite = ctx
+        .storage
+        .create(request)
+        .await
         .expect("Failed to create group invite");
 
     // Delete the invite
-    ctx.storage.delete(&created_invite.id).await
+    ctx.storage
+        .delete(&created_invite.id)
+        .await
         .expect("Failed to delete group invite");
 
     // Try to get the deleted invite
-    let result = ctx.storage.get_one(&created_invite.id).await
+    let result = ctx
+        .storage
+        .get_one(&created_invite.id)
+        .await
         .expect("Failed to query deleted invite");
 
     // Should be gone
@@ -335,7 +373,9 @@ async fn test_delete_non_existing_invite() {
     let non_existing_id = Uuid::new_v4().to_string();
 
     // Delete should succeed even if item doesn't exist (DynamoDB behavior)
-    ctx.storage.delete(&non_existing_id).await
+    ctx.storage
+        .delete(&non_existing_id)
+        .await
         .expect("Failed to delete non-existing invite");
 }
 
@@ -349,22 +389,34 @@ async fn test_multiple_topics_isolation() {
     let request1 = create_test_invite_request(&topic1);
     let request2 = create_test_invite_request(&topic2);
 
-    let invite1 = ctx.storage.create(request1).await
+    let invite1 = ctx
+        .storage
+        .create(request1)
+        .await
         .expect("Failed to create invite for topic1");
-    let invite2 = ctx.storage.create(request2).await
+    let invite2 = ctx
+        .storage
+        .create(request2)
+        .await
         .expect("Failed to create invite for topic2");
 
     // Wait for GSI updates
     sleep(Duration::from_millis(100)).await;
 
     // Get invites for topic1
-    let invites_topic1 = ctx.storage.get_by_topic(&topic1).await
+    let invites_topic1 = ctx
+        .storage
+        .get_by_topic(&topic1)
+        .await
         .expect("Failed to get invites for topic1");
     assert_eq!(invites_topic1.len(), 1);
     assert_eq!(invites_topic1[0].id, invite1.id);
 
     // Get invites for topic2
-    let invites_topic2 = ctx.storage.get_by_topic(&topic2).await
+    let invites_topic2 = ctx
+        .storage
+        .get_by_topic(&topic2)
+        .await
         .expect("Failed to get invites for topic2");
     assert_eq!(invites_topic2.len(), 1);
     assert_eq!(invites_topic2[0].id, invite2.id);

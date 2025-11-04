@@ -266,10 +266,8 @@ impl Environment {
     #[must_use]
     pub fn dynamodb_group_invites_topic_index_name(&self) -> String {
         match self {
-            Self::Production | Self::Staging => {
-                env::var("DYNAMODB_GROUP_INVITES_TOPIC_INDEX_NAME")
-                    .expect("DYNAMODB_GROUP_INVITES_TOPIC_INDEX_NAME environment variable is not set")
-            }
+            Self::Production | Self::Staging => env::var("DYNAMODB_GROUP_INVITES_TOPIC_INDEX_NAME")
+                .expect("DYNAMODB_GROUP_INVITES_TOPIC_INDEX_NAME environment variable is not set"),
             Self::Development { .. } => "topic-index".to_string(),
         }
     }
