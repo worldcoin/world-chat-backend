@@ -19,10 +19,16 @@ pub async fn handler(
     );
 
     let state_snapshot = state.read().await;
-    let key_pair = try_retrieve_key_pair(
+    if state_snapshot.initialized {
+        return Err(EnclaveError::AlreadyInitialized);
+    }
+
+    // Panic if ephemeral_key_pair is None, this is not a valid path
+    let ephemeral_key_pair = state_snapshot.ephemeral_key_pair.clone().unwrap();
+    let encryption_keys = try_retrieve_key_pair(
         config.enclave_cluster_proxy_port,
         config.can_generate_key_pair,
-        state_snapshot.ephemeral_key_pair.clone(),
+        ephemeral_key_pair,
         state_snapshot.attestation_doc_with_ephemeral_pk.clone(),
     )
     .await?;
@@ -34,7 +40,8 @@ pub async fn handler(
         "https://rest.{}.braze.com",
         config.braze_api_region
     ));
-    state_guard.encryption_keys = Some(key_pair);
+    state_guard.encryption_keys = Some(encryption_keys);
+    state_guard.ephemeral_key_pair = None; // Drop the ephemeral key pair after initialization
     state_guard.initialized = true;
 
     info!("✅ Enclave initialized successfully");
@@ -88,6 +95,8 @@ async fn request_key_pair_from_enclaves_cluster(
     // Add timeout to the Pontifex call
     let timeout_duration = Duration::from_secs(5);
 
+    // Throw error instead of panic, the initalize handle is called with retries `in secure-enclave-init`
+    // We want to retry here in case the request failed from a network error, if the initalize is not successful after retries, we shutdown the enclave pod
     let sealed_key = tokio::time::timeout(
         timeout_duration,
         pontifex::client::send::<EnclaveSecretKeyRequest>(

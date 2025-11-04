@@ -12,12 +12,12 @@ pub struct EnclaveState {
     pub braze_api_url: Option<String>,
     /// HTTP client configured to use the HTTP proxy for Braze
     pub http_proxy_client: Option<HttpClient>,
-    /// Initialization flag
+    /// Whether the enclave has been initialized by creating a private key or receiving a key from another enclave
     pub initialized: bool,
     /// Encryption key pair used for encrypting/decrypting push IDs
     pub encryption_keys: Option<KeyPair>,
-    /// Ephemeral key pair used for exchanging keys
-    pub ephemeral_key_pair: KeyPair,
+    /// Ephemeral key pair used for exchanging keys, destroyed after initialization
+    pub ephemeral_key_pair: Option<KeyPair>,
     /// Attestation document generated with the enclave's ephemeral public key.
     pub attestation_doc_with_ephemeral_pk: Vec<u8>,
     /// Attestation verifier initialized with the enclave's attestation document.
@@ -50,7 +50,7 @@ impl EnclaveState {
             braze_api_url: None,
             http_proxy_client: None,
             initialized: false,
-            ephemeral_key_pair,
+            ephemeral_key_pair: Some(ephemeral_key_pair),
             attestation_doc_with_ephemeral_pk: raw_attestation_doc,
             attestation_verifier,
         })

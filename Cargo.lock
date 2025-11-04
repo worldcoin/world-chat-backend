@@ -4126,8 +4126,9 @@ dependencies = [
 
 [[package]]
 name = "pontifex"
-version = "1.1.1"
-source = "git+https://github.com/worldcoin/pontifex?rev=0ef1dd634fc751c065d326acf6a81f2ea41f5460#0ef1dd634fc751c065d326acf6a81f2ea41f5460"
+version = "1.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c03233fbb7d1172ac30d6dd4035c87d11244dc538fd6cf51cd9f5f2143776745"
 dependencies = [
  "aws-nitro-enclaves-cose",
  "aws-nitro-enclaves-nsm-api",

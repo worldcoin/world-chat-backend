@@ -6,6 +6,8 @@ use thiserror::Error;
 pub enum EnclaveError {
     #[error("Enclave not initialized. Call Initialize first.")]
     NotInitialized,
+    #[error("Enclave already initialized. Re-deploy the enclave to set new config.")]
+    AlreadyInitialized,
     #[error("Secure module not initialized")]
     SecureModuleNotInitialized,
     // TODO: Add source pontifex attestation error (it's missing serialization decorator now)
