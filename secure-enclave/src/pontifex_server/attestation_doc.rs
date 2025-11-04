@@ -11,7 +11,7 @@ pub async fn handler(
 ) -> Result<EnclaveAttestationDocResponse, EnclaveError> {
     let state = state.read().await;
     let public_key = state
-        .keys
+        .encryption_keys
         .as_ref()
         .ok_or(EnclaveError::NotInitialized)?
         .public_key

@@ -3,3 +3,6 @@
 pub mod attestation_verifier;
 pub mod constants;
 pub mod types;
+
+pub use attestation_verifier::EnclaveAttestationVerifier;
+pub use types::*;

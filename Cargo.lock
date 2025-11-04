@@ -4117,9 +4117,9 @@ dependencies = [
 
 [[package]]
 name = "pontifex"
-version = "1.1.1"
+version = "1.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4b58b6db4b599ffda7db40926746250d9d3948291bbf7d8400c41f30ab286319"
+checksum = "c03233fbb7d1172ac30d6dd4035c87d11244dc538fd6cf51cd9f5f2143776745"
 dependencies = [
  "aws-nitro-enclaves-cose",
  "aws-nitro-enclaves-nsm-api",
@@ -5260,6 +5260,7 @@ name = "secure-enclave"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "attestation-verifier",
  "crypto_box",
  "enclave-types",
  "hex",
