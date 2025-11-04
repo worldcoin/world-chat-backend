@@ -9,7 +9,13 @@ pub async fn handler(
     state: Arc<RwLock<EnclaveState>>,
     _: EnclaveAttestationDocRequest,
 ) -> Result<EnclaveAttestationDocResponse, EnclaveError> {
-    let public_key = state.read().await.keys.public_key.to_bytes().to_vec();
+    let state = state.read().await;
+    let public_key = state
+        .keys
+        .as_ref()
+        .ok_or(EnclaveError::NotInitialized)?
+        .public_key
+        .to_bytes();
     let nsm = SecureModule::try_global().ok_or(EnclaveError::SecureModuleNotInitialized)?;
 
     let attestation = nsm

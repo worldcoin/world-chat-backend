@@ -9,6 +9,7 @@ members = [
      # TODO remove this and move types to common-types
     "shared/enclave-types",
     "shared/common-types",
+    "shared/attestation-verifier",
 ]
 resolver = "2"
 
@@ -100,6 +101,9 @@ enclave-types = { path = "shared/enclave-types" }
 
 # Common types 
 common-types = { path = "shared/common-types" }
+
+# Attestation verifier
+attestation-verifier = { path = "shared/attestation-verifier" }
 
 # Pontifex
 pontifex = { version = "1.1.1" }

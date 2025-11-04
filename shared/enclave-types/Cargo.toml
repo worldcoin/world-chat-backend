@@ -11,4 +11,4 @@ thiserror = { workspace = true }
 # Serialization
 serde = { workspace = true }
 
-pontifex = { workspace = true, features = ["nsm"] }
+pontifex = { workspace = true, features = ["nsm", "client"] }
