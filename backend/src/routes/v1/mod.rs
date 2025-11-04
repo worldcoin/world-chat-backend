@@ -1,5 +1,6 @@
 pub mod attestation;
 pub mod auth;
+pub mod group_invites;
 pub mod media;
 pub mod subscriptions;
 
@@ -27,6 +28,14 @@ pub fn handler() -> ApiRouter {
         .api_route(
             "/subscriptions",
             post(subscriptions::subscribe).delete(subscriptions::unsubscribe),
+        )
+        .api_route(
+            "/group-invites",
+            post(group_invites::create_group_invite).get(group_invites::get_group_invites_by_topic),
+        )
+        .api_route(
+            "/group-invites/:id",
+            get(group_invites::get_group_invite).delete(group_invites::delete_group_invite),
         )
         .layer(middleware::from_fn(auth_middleware));
 
