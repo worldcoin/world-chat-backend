@@ -1,10 +1,11 @@
 pub mod attestation;
 pub mod auth;
+pub mod group_join_requests;
 pub mod media;
 pub mod subscriptions;
 
 use aide::axum::{
-    routing::{get, post},
+    routing::{get, post, put},
     ApiRouter,
 };
 use axum::middleware;
@@ -27,6 +28,18 @@ pub fn handler() -> ApiRouter {
         .api_route(
             "/subscriptions",
             post(subscriptions::subscribe).delete(subscriptions::unsubscribe),
+        )
+        .api_route(
+            "/group-join-requests",
+            post(group_join_requests::create_join_request),
+        )
+        .api_route(
+            "/group-join-requests/{id}",
+            get(group_join_requests::get_join_request),
+        )
+        .api_route(
+            "/group-join-requests/{id}/approve",
+            put(group_join_requests::approve_join_request),
         )
         .layer(middleware::from_fn(auth_middleware));
 
