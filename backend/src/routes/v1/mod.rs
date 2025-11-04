@@ -34,7 +34,7 @@ pub fn handler() -> ApiRouter {
             post(group_invites::create_group_invite).get(group_invites::get_group_invites_by_topic),
         )
         .api_route(
-            "/group-invites/:id",
+            "/group-invites/{id}",
             get(group_invites::get_group_invite).delete(group_invites::delete_group_invite),
         )
         .layer(middleware::from_fn(auth_middleware));
