@@ -136,13 +136,13 @@ impl GroupInviteStorage {
             .send()
             .await?;
 
-        match response.item {
-            Some(item) => {
-                let invite: GroupInvite = serde_dynamo::from_item(item)?;
-                Ok(Some(invite))
-            }
-            None => Ok(None),
-        }
+        response
+            .item()
+            .map(|item| {
+                serde_dynamo::from_item(item.clone())
+                    .map_err(|e| GroupInviteStorageError::SerializationError(e.to_string()))
+            })
+            .transpose()
     }
 
     /// Create a new group invite with generated UUID
