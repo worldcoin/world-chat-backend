@@ -74,7 +74,7 @@ fn validate_expires_at(expires_at: i64) -> Result<(), validator::ValidationError
     if expires_at > now + MAX_TTL_SECS {
         let mut error = validator::ValidationError::new("invalid_expires_at");
         error.message = Some(std::borrow::Cow::Borrowed(
-            "Expiration time must be less than 30 days in the future",
+            "Expiration time must be less than 10 years in the future",
         ));
         return Err(error);
     }
@@ -171,7 +171,6 @@ pub async fn get_group_invite(
 /// # Arguments
 ///
 /// * `user` - The authenticated user attempting to delete the invite
-/// * `group_invite_storage` - Storage handler for group invites
 /// * `id` - Path parameter containing the invite ID to delete
 ///
 /// # Returns
@@ -181,6 +180,7 @@ pub async fn get_group_invite(
 /// # Errors
 ///
 /// Returns an error if:
+/// - `404 NOT_FOUND` - Invite with the given ID does not exist
 /// - `403 FORBIDDEN` - User is not the creator of the invite
 /// - `401 UNAUTHORIZED` - Invalid or missing authentication
 /// - `500 INTERNAL_SERVER_ERROR` - Storage operation fails
@@ -218,7 +218,6 @@ pub async fn delete_group_invite(
 /// # Arguments
 ///
 /// * `user` - The authenticated user requesting the invites
-/// * `group_invite_storage` - Storage handler for group invites
 /// * `query` - Query parameters containing the topic
 ///
 /// # Returns
