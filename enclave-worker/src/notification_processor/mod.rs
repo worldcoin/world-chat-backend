@@ -81,13 +81,39 @@ impl NotificationProcessor {
         let notification = message.body;
         let receipt_handle = message.receipt_handle;
 
+        let notification_request = EnclaveNotificationRequest {
+            encrypted_push_ids: notification.subscribed_encrypted_push_ids,
+            apple_push: serde_json::json!({
+                // Use fallback copy, until we get Apple entitlement
+                "alert": {
+                    "title": "New Activity",
+                    "body": "This content is temporarily unavailable."
+                },
+                "badge": 1,
+                "sound": "default",
+                "mutable_content": true,
+                "extra": {
+                    "topic": notification.topic,
+                    "encryptedMessageBase64": notification.encrypted_message_base64,
+                    "messageKind": "v3-conversation"
+                }
+            }),
+            android_push: serde_json::json!({
+                // Title and alert are required fields, Android client decryptes message and shows correct content
+                "title": "world_chat_notification",
+                "alert": "world_chat_notification",
+                "priority": "high",
+                "extra": {
+                    "topic": notification.topic,
+                    "encryptedMessageBase64": notification.encrypted_message_base64,
+                    "messageKind": "v3-conversation"
+                }
+            }),
+        };
+
         pontifex::client::send::<EnclaveNotificationRequest>(
             self.pontifex_connection_details,
-            &EnclaveNotificationRequest {
-                topic: notification.topic,
-                subscribed_encrypted_push_ids: notification.subscribed_encrypted_push_ids,
-                encrypted_message_base64: notification.encrypted_message_base64,
-            },
+            &notification_request,
         )
         .await??;
 

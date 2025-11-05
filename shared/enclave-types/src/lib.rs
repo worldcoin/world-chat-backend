@@ -89,12 +89,16 @@ impl Request for EnclavePushIdChallengeRequest {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EnclaveNotificationRequest {
-    /// Topic for the notification
-    pub topic: String,
-    /// Encrypted Push IDs of the subscribers
-    pub subscribed_encrypted_push_ids: Vec<String>,
-    /// Encrypted Message Base64 encoded
-    pub encrypted_message_base64: String,
+    /// Encrypted push ids, to be decrypted inside the enclave and converted to Braze user aliases'
+    pub encrypted_push_ids: Vec<String>,
+    /// Apple push notification payload sent to Braze
+    ///
+    /// Docs: <https://www.braze.com/docs/api/objects_filters/messaging/apple_object>
+    pub apple_push: serde_json::Value,
+    /// Android push notification payload sent to Braze
+    ///
+    /// Docs: <https://www.braze.com/docs/api/objects_filters/messaging/android_object>
+    pub android_push: serde_json::Value,
 }
 
 impl Request for EnclaveNotificationRequest {
