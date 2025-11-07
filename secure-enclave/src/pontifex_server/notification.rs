@@ -19,7 +19,7 @@ pub async fn handler(
     }
 
     let encryption_key = state
-        .keys
+        .encryption_keys
         .as_ref()
         .ok_or(EnclaveError::NotInitialized)?
         .private_key

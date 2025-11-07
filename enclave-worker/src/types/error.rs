@@ -167,7 +167,8 @@ impl From<enclave_types::EnclaveError> for AppError {
     #[allow(clippy::cognitive_complexity)]
     fn from(err: enclave_types::EnclaveError) -> Self {
         use enclave_types::EnclaveError::{
-            AttestationFailed, BrazeRequestFailed, DecryptPushIdFailed, KeyPairCreationFailed,
+            AlreadyInitialized, AttestationFailed, AttestationVerificationFailed,
+            BrazeRequestFailed, DecryptPushIdFailed, DecryptSecretKeyFailed, KeyPairCreationFailed,
             NotInitialized, PontifexError, SecureModuleNotInitialized,
         };
 
@@ -228,6 +229,25 @@ impl From<enclave_types::EnclaveError> for AppError {
             }
             KeyPairCreationFailed => {
                 tracing::error!("Key pair creation failed");
+                Self::new(
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "internal_error",
+                    "Internal server error",
+                    false,
+                )
+            }
+            // These error are not relevant to enclave-worker, we handle them to avoid compile errors
+            AlreadyInitialized => {
+                tracing::error!("Enclave already initialized");
+                Self::new(
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "internal_error",
+                    "Internal server error",
+                    false,
+                )
+            }
+            AttestationVerificationFailed(msg) | DecryptSecretKeyFailed(msg) => {
+                tracing::error!("Enclave initialize error: {msg}");
                 Self::new(
                     StatusCode::INTERNAL_SERVER_ERROR,
                     "internal_error",

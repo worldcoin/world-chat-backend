@@ -29,7 +29,8 @@ async fn main() -> Result<()> {
         std::process::exit(EXIT_RNG_MISCONFIG);
     }
 
-    let state = Arc::new(RwLock::new(EnclaveState::default()));
+    let state = EnclaveState::new().await?;
+    let state = Arc::new(RwLock::new(state));
     if let Err(e) = start_pontifex_server(state, PONTIFEX_PORT).await {
         error!("Failed to start pontifex server: {e}");
         return Err(e);

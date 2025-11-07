@@ -37,6 +37,18 @@ awslocal dynamodb update-time-to-live \
     --table-name world-chat-auth-proofs \
     --time-to-live-specification "Enabled=true,AttributeName=ttl"
 
+# Create DynamoDB table for group invites
+awslocal dynamodb create-table \
+    --table-name world-chat-group-invites \
+    --attribute-definitions \
+        AttributeName=id,AttributeType=S \
+        AttributeName=topic,AttributeType=S \
+    --key-schema \
+        AttributeName=id,KeyType=HASH \
+    --global-secondary-indexes \
+        "IndexName=topic-index,Keys=[{AttributeName=topic,KeyType=HASH}],Projection={ProjectionType=ALL},ProvisionedThroughput={ReadCapacityUnits=1,WriteCapacityUnits=1}" \
+    --billing-mode PAY_PER_REQUEST
+
 # Create DynamoDB table for group join requests
 awslocal dynamodb create-table \
     --table-name world-chat-group-join-requests \
