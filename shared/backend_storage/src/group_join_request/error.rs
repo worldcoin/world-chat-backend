@@ -3,7 +3,7 @@
 use aws_sdk_dynamodb::error::SdkError;
 use aws_sdk_dynamodb::operation::{
     batch_write_item::BatchWriteItemError, delete_item::DeleteItemError, get_item::GetItemError,
-    put_item::PutItemError, query::QueryError, scan::ScanError,
+    put_item::PutItemError, query::QueryError,
 };
 use thiserror::Error;
 
