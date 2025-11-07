@@ -47,7 +47,7 @@ pub struct GroupJoinRequest {
 
 /// Request to create a new group join request
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct GroupJoinRequestCreateRequest {
+pub struct CreateGroupJoinRequest {
     /// Group Invite ID linked to `GroupInvites` table
     pub group_invite_id: String,
 
@@ -249,7 +249,7 @@ impl GroupJoinRequestStorage {
     /// Returns `GroupJoinRequestStorageError` if the `DynamoDB` put operation fails
     pub async fn create(
         &self,
-        request: GroupJoinRequestCreateRequest,
+        request: CreateGroupJoinRequest,
     ) -> GroupJoinRequestStorageResult<GroupJoinRequest> {
         // Generate UUID v4 for the join request ID
         let id = uuid::Uuid::new_v4().to_string();

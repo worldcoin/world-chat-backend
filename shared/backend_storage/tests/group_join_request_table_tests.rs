@@ -9,8 +9,7 @@ use aws_sdk_dynamodb::types::{
 };
 use aws_sdk_dynamodb::Client as DynamoDbClient;
 use backend_storage::group_join_request::{
-    GroupJoinRequestAttribute, GroupJoinRequestCreateRequest, GroupJoinRequestStorage,
-    JoinRequestStatus,
+    CreateGroupJoinRequest, GroupJoinRequestAttribute, GroupJoinRequestStorage, JoinRequestStatus,
 };
 use tokio::time::sleep;
 use uuid::Uuid;
@@ -131,8 +130,8 @@ async fn setup_test() -> TestContext {
 }
 
 /// Creates a test join request with all fields populated
-fn create_test_join_request(group_invite_id: &str) -> GroupJoinRequestCreateRequest {
-    GroupJoinRequestCreateRequest {
+fn create_test_join_request(group_invite_id: &str) -> CreateGroupJoinRequest {
+    CreateGroupJoinRequest {
         group_invite_id: group_invite_id.to_string(),
         encrypted_inbox_id: format!("encrypted_inbox_{}", Uuid::new_v4()),
         status: JoinRequestStatus::Pending,
@@ -141,8 +140,8 @@ fn create_test_join_request(group_invite_id: &str) -> GroupJoinRequestCreateRequ
 }
 
 /// Creates a test join request with minimal fields
-fn create_test_join_request_minimal(group_invite_id: &str) -> GroupJoinRequestCreateRequest {
-    GroupJoinRequestCreateRequest {
+fn create_test_join_request_minimal(group_invite_id: &str) -> CreateGroupJoinRequest {
+    CreateGroupJoinRequest {
         group_invite_id: group_invite_id.to_string(),
         encrypted_inbox_id: format!("encrypted_inbox_{}", Uuid::new_v4()),
         status: JoinRequestStatus::Pending,
