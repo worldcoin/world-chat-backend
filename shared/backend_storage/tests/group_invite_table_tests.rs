@@ -140,17 +140,6 @@ fn create_test_invite_request(topic: &str) -> GroupInviteCreateRequest {
     }
 }
 
-/// Creates a test invite request with minimal fields (no optional fields)
-fn create_test_invite_request_minimal(topic: &str) -> GroupInviteCreateRequest {
-    GroupInviteCreateRequest {
-        topic: topic.to_string(),
-        group_name: format!("Test Group for {}", topic),
-        creator_encrypted_push_id: format!("encrypted_push_{}", Uuid::new_v4()),
-        max_uses: None,
-        expires_at: None,
-    }
-}
-
 #[tokio::test]
 async fn test_create_group_invite() {
     let ctx = setup_test().await;
@@ -180,7 +169,13 @@ async fn test_create_group_invite() {
 async fn test_create_group_invite_without_optional_fields() {
     let ctx = setup_test().await;
     let topic = format!("topic-{}", Uuid::new_v4());
-    let request = create_test_invite_request_minimal(&topic);
+    let request = GroupInviteCreateRequest {
+        topic: topic.to_string(),
+        group_name: format!("Test Group for {topic}"),
+        creator_encrypted_push_id: format!("encrypted_push_{}", Uuid::new_v4()),
+        max_uses: None,
+        expires_at: None,
+    };
 
     // Create the invite
     let invite = ctx
@@ -233,6 +228,7 @@ async fn test_get_one_existing_invite() {
         created_invite.creator_encrypted_push_id
     );
     assert_eq!(retrieved_invite.max_uses, created_invite.max_uses);
+    assert_eq!(retrieved_invite.created_at, created_invite.created_at);
     assert_eq!(retrieved_invite.expires_at, created_invite.expires_at);
 }
 
@@ -294,4 +290,73 @@ async fn test_delete_non_existing_invite() {
         .delete(&non_existing_id)
         .await
         .expect("Failed to delete non-existing invite");
+}
+
+#[tokio::test]
+async fn test_get_latest_by_topic() {
+    let ctx = setup_test().await;
+    let topic = format!("topic-{}", Uuid::new_v4());
+    let push_id = format!("encrypted_push_{}", Uuid::new_v4());
+
+    // Create the invite for topic A and push ID A
+    let _ = ctx
+        .storage
+        .create(GroupInviteCreateRequest {
+            topic: topic.to_string(),
+            group_name: format!("Test Group for {}", topic),
+            creator_encrypted_push_id: push_id.clone(),
+            max_uses: None,
+            expires_at: None,
+        })
+        .await
+        .expect("Failed to create group invite");
+
+    // Create another invite for topic A and push ID A
+    let created_invite_user_a_topic_a_latest = ctx
+        .storage
+        .create(GroupInviteCreateRequest {
+            topic: topic.to_string(),
+            group_name: format!("Test Group for {}", topic),
+            creator_encrypted_push_id: push_id.clone(),
+            max_uses: None,
+            expires_at: None,
+        })
+        .await
+        .expect("Failed to create group invite");
+
+    // Create another invite for a different topic and push ID
+    let _ = ctx
+        .storage
+        .create(GroupInviteCreateRequest {
+            topic: Uuid::new_v4().to_string(),
+            group_name: "Test Group".to_string(),
+            creator_encrypted_push_id: Uuid::new_v4().to_string(),
+            max_uses: None,
+            expires_at: None,
+        })
+        .await
+        .expect("Failed to create group invite");
+
+    // Query the latest invite for topic A and push ID A
+    let latest_invite = ctx
+        .storage
+        .get_latest_by_topic(&push_id, &topic)
+        .await
+        .expect("Failed to get latest invite")
+        .expect("No invite found");
+
+    // Should be gone
+    assert_eq!(latest_invite.id, created_invite_user_a_topic_a_latest.id);
+    assert_eq!(
+        latest_invite.topic,
+        created_invite_user_a_topic_a_latest.topic
+    );
+    assert_eq!(
+        latest_invite.creator_encrypted_push_id,
+        created_invite_user_a_topic_a_latest.creator_encrypted_push_id
+    );
+    assert_eq!(
+        latest_invite.created_at,
+        created_invite_user_a_topic_a_latest.created_at
+    );
 }
