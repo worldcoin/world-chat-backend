@@ -5,6 +5,7 @@ mod error;
 use aws_sdk_dynamodb::types::{AttributeValue, DeleteRequest, WriteRequest};
 use aws_sdk_dynamodb::Client as DynamoDbClient;
 pub use error::{GroupJoinRequestStorageError, GroupJoinRequestStorageResult};
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_dynamo::{from_item, to_item};
 use std::collections::HashMap;
@@ -12,8 +13,8 @@ use std::sync::Arc;
 use strum::Display;
 
 /// Status of a group join request
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "PascalCase")]
+#[derive(Debug, Clone, Display, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[strum(serialize_all = "snake_case")]
 pub enum JoinRequestStatus {
     /// Request is pending
     Pending,
@@ -30,16 +31,14 @@ pub enum JoinRequestStatus {
 pub struct GroupJoinRequest {
     /// Primary key - unique join request ID (UUID v4)
     pub id: String,
-
     /// Group Invite ID linked to `GroupInvites` table
     pub group_invite_id: String,
-
     /// Encrypted inbox id of the invitee with enclave's public key
     pub encrypted_inbox_id: String,
-
     /// Status of the join request
     pub status: JoinRequestStatus,
-
+    /// Creation timestamp
+    pub created_at: i64,
     /// Optional timestamp when notification was sent
     #[serde(skip_serializing_if = "Option::is_none")]
     pub notification_sent_at: Option<i64>,
@@ -50,13 +49,10 @@ pub struct GroupJoinRequest {
 pub struct CreateGroupJoinRequest {
     /// Group Invite ID linked to `GroupInvites` table
     pub group_invite_id: String,
-
     /// Encrypted inbox id of the invitee with enclave's public key
     pub encrypted_inbox_id: String,
-
     /// Status of the join request
     pub status: JoinRequestStatus,
-
     /// Optional timestamp when notification was sent
     #[serde(skip_serializing_if = "Option::is_none")]
     pub notification_sent_at: Option<i64>,
@@ -76,6 +72,8 @@ pub enum GroupJoinRequestAttribute {
     Status,
     /// Notification sent timestamp
     NotificationSentAt,
+    /// Creation timestamp
+    CreatedAt,
 }
 
 /// Storage client for group join request operations
@@ -171,6 +169,41 @@ impl GroupJoinRequestStorage {
             .collect()
     }
 
+    /// Count approved join requests for a given group invite ID
+    ///
+    /// # Errors
+    ///
+    /// Returns `GroupJoinRequestStorageError` if the `DynamoDB` query operation fails
+    pub async fn count_approved_by_group_invite_id(
+        &self,
+        group_invite_id: &str,
+    ) -> GroupJoinRequestStorageResult<i32> {
+        let response = self
+            .dynamodb_client
+            .query()
+            .table_name(&self.table_name)
+            .index_name(&self.group_invite_index_name)
+            .key_condition_expression("#group_invite_id = :group_invite_id AND #status = :status")
+            .expression_attribute_names(
+                "#group_invite_id",
+                GroupJoinRequestAttribute::GroupInviteId.to_string(),
+            )
+            .expression_attribute_names("#status", GroupJoinRequestAttribute::Status.to_string())
+            .expression_attribute_values(
+                ":group_invite_id",
+                AttributeValue::S(group_invite_id.to_string()),
+            )
+            .expression_attribute_values(
+                ":status",
+                AttributeValue::S(JoinRequestStatus::Accepted.to_string()),
+            )
+            .select(aws_sdk_dynamodb::types::Select::Count)
+            .send()
+            .await?;
+
+        Ok(response.count())
+    }
+
     /// Delete all group join requests linked to a given group invite ID
     ///
     /// # Errors
@@ -260,6 +293,7 @@ impl GroupJoinRequestStorage {
             encrypted_inbox_id: request.encrypted_inbox_id,
             status: request.status,
             notification_sent_at: request.notification_sent_at,
+            created_at: chrono::Utc::now().timestamp(),
         };
 
         let item = to_item(&join_request)?;
@@ -287,6 +321,7 @@ mod tests {
             encrypted_inbox_id: "encrypted-inbox".to_string(),
             status: JoinRequestStatus::Pending,
             notification_sent_at: Some(1_234_567_890),
+            created_at: chrono::Utc::now().timestamp(),
         };
 
         let serialized = serde_json::to_string(&request).unwrap();
@@ -322,6 +357,7 @@ mod tests {
             encrypted_inbox_id: "encrypted-inbox".to_string(),
             status: JoinRequestStatus::Pending,
             notification_sent_at: None,
+            created_at: chrono::Utc::now().timestamp(),
         };
 
         let serialized = serde_json::to_string(&request).unwrap();

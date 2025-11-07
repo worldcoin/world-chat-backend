@@ -33,6 +33,9 @@ tracing = { workspace = true }
 # Strum
 strum = { workspace = true }
 
+# JSON schema
+schemars = { workspace = true }
+
 # Random number generation
 rand = { workspace = true }
 
