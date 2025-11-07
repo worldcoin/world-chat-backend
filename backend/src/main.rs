@@ -3,7 +3,10 @@ use std::sync::Arc;
 use aws_sdk_dynamodb::Client as DynamoDbClient;
 use aws_sdk_kms::Client as KmsClient;
 use aws_sdk_s3::Client as S3Client;
-use backend_storage::{auth_proof::AuthProofStorage, push_subscription::PushSubscriptionStorage};
+use backend_storage::{
+    auth_proof::AuthProofStorage, group_invite::GroupInviteStorage,
+    group_join_request::GroupJoinRequestStorage, push_subscription::PushSubscriptionStorage,
+};
 
 use backend::{
     enclave_worker_api::{EnclaveWorkerApi, EnclaveWorkerApiClient},
@@ -41,8 +44,18 @@ async fn main() -> anyhow::Result<()> {
         environment.dynamodb_auth_table_name(),
     ));
     let push_subscription_storage = Arc::new(PushSubscriptionStorage::new(
-        dynamodb_client,
+        dynamodb_client.clone(),
         environment.dynamodb_push_subscription_table_name(),
+    ));
+    let group_join_request_storage = Arc::new(GroupJoinRequestStorage::new(
+        dynamodb_client.clone(),
+        environment.dynamodb_group_join_requests_table_name(),
+        environment.dynamodb_group_join_requests_group_invite_index_name(),
+    ));
+    let group_invite_storage = Arc::new(GroupInviteStorage::new(
+        dynamodb_client.clone(),
+        environment.dynamodb_group_invites_table_name(),
+        environment.dynamodb_group_invites_topic_index_name(),
     ));
 
     // Initalize Enclave Worker API client
@@ -56,6 +69,8 @@ async fn main() -> anyhow::Result<()> {
         jwt_manager,
         auth_proof_storage,
         push_subscription_storage,
+        group_join_request_storage,
+        group_invite_storage,
         enclave_worker_api,
     )
     .await;
