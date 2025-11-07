@@ -7,6 +7,8 @@ use axum::{
     response::{IntoResponse, Response},
 };
 use backend_storage::auth_proof::AuthProofStorageError;
+use backend_storage::group_invite::GroupInviteStorageError;
+use backend_storage::group_join_request::GroupJoinRequestStorageError;
 use backend_storage::push_subscription::PushSubscriptionStorageError;
 use schemars::JsonSchema;
 use serde::Serialize;
@@ -395,5 +397,74 @@ impl From<reqwest::Error> for AppError {
             "Internal server error",
             false,
         )
+    }
+}
+
+impl From<GroupInviteStorageError> for AppError {
+    #[allow(clippy::cognitive_complexity)]
+    fn from(err: GroupInviteStorageError) -> Self {
+        use GroupInviteStorageError::{
+            DynamoDbDeleteError, DynamoDbGetError, DynamoDbPutError, DynamoDbQueryError,
+            SerializationError,
+        };
+
+        match &err {
+            DynamoDbPutError(_)
+            | DynamoDbDeleteError(_)
+            | DynamoDbGetError(_)
+            | DynamoDbQueryError(_) => {
+                tracing::error!("DynamoDB error: {err}");
+                Self::new(
+                    StatusCode::SERVICE_UNAVAILABLE,
+                    "database_error",
+                    "Database service temporarily unavailable",
+                    true,
+                )
+            }
+            SerializationError(msg) => {
+                tracing::error!("Serialization/Parse error: {msg}");
+                Self::new(
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "internal_error",
+                    "Internal server error",
+                    false,
+                )
+            }
+        }
+    }
+}
+
+impl From<GroupJoinRequestStorageError> for AppError {
+    #[allow(clippy::cognitive_complexity)]
+    fn from(err: GroupJoinRequestStorageError) -> Self {
+        use GroupJoinRequestStorageError::{
+            DynamoDbBatchWriteError, DynamoDbDeleteError, DynamoDbGetError, DynamoDbPutError,
+            DynamoDbQueryError, SerializationError,
+        };
+
+        match &err {
+            DynamoDbPutError(_)
+            | DynamoDbDeleteError(_)
+            | DynamoDbGetError(_)
+            | DynamoDbQueryError(_)
+            | DynamoDbBatchWriteError(_) => {
+                tracing::error!("DynamoDB error: {err}");
+                Self::new(
+                    StatusCode::SERVICE_UNAVAILABLE,
+                    "database_error",
+                    "Database service temporarily unavailable",
+                    true,
+                )
+            }
+            SerializationError(msg) => {
+                tracing::error!("Serialization/Parse error: {msg}");
+                Self::new(
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "internal_error",
+                    "Internal server error",
+                    false,
+                )
+            }
+        }
     }
 }

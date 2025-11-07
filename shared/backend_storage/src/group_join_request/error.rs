@@ -3,7 +3,7 @@
 use aws_sdk_dynamodb::error::SdkError;
 use aws_sdk_dynamodb::operation::{
     batch_write_item::BatchWriteItemError, delete_item::DeleteItemError, get_item::GetItemError,
-    put_item::PutItemError, query::QueryError, scan::ScanError,
+    put_item::PutItemError, query::QueryError,
 };
 use thiserror::Error;
 
@@ -25,10 +25,6 @@ pub enum GroupJoinRequestStorageError {
     #[error("Failed to query group join requests from DynamoDB: {0:?}")]
     DynamoDbQueryError(#[from] SdkError<QueryError>),
 
-    /// Failed to scan group join requests from `DynamoDB`
-    #[error("Failed to scan group join requests from DynamoDB: {0:?}")]
-    DynamoDbScanError(#[from] SdkError<ScanError>),
-
     /// Failed to delete group join request from `DynamoDB`
     #[error("Failed to delete group join request from DynamoDB: {0:?}")]
     DynamoDbDeleteError(#[from] SdkError<DeleteItemError>),
@@ -40,14 +36,6 @@ pub enum GroupJoinRequestStorageError {
     /// Failed to parse group join request from `DynamoDB` item
     #[error("Failed to parse group join request: {0}")]
     SerializationError(String),
-
-    /// Group join request with specified ID was not found
-    #[error("Group join request with id {0} not found")]
-    GroupJoinRequestNotFound(String),
-
-    /// Invalid group join request data encountered
-    #[error("Invalid group join request data")]
-    InvalidGroupJoinRequestData,
 }
 
 impl From<serde_dynamo::Error> for GroupJoinRequestStorageError {

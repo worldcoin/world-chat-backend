@@ -21,6 +21,8 @@ pub struct GroupInvite {
     pub group_name: String,
     /// Encrypted push of the inviter used to send silent push notification
     pub creator_encrypted_push_id: String,
+    /// Timestamp of invite creation
+    pub created_at: i64,
     /// Optional max uses of the invite
     #[serde(skip_serializing_if = "Option::is_none")]
     pub max_uses: Option<i64>,
@@ -58,6 +60,8 @@ pub enum GroupInviteAttribute {
     GroupName,
     /// Encrypted push ID of the creator
     CreatorEncryptedPushId,
+    /// Creation timestamp
+    CreatedAt,
     /// Maximum number of uses for the invite
     MaxUses,
     /// Expiration timestamp
@@ -92,12 +96,16 @@ impl GroupInviteStorage {
         }
     }
 
-    /// Get all group invites for a given topic using GSI
+    /// Get the most recent invite for a given (topic, `creator_encrypted_push_id`).
     ///
     /// # Errors
     ///
     /// Returns `GroupInviteStorageError` if the `DynamoDB` query operation fails
-    pub async fn get_by_topic(&self, topic: &str) -> GroupInviteStorageResult<Vec<GroupInvite>> {
+    pub async fn get_latest_by_topic(
+        &self,
+        creator_encrypted_push_id: &str,
+        topic: &str,
+    ) -> GroupInviteStorageResult<Option<GroupInvite>> {
         let response = self
             .dynamodb_client
             .query()
@@ -105,18 +113,25 @@ impl GroupInviteStorage {
             .index_name(&self.topic_index_name)
             .key_condition_expression("#topic = :topic")
             .expression_attribute_names("#topic", GroupInviteAttribute::Topic.to_string())
+            .expression_attribute_names(
+                "#creator",
+                GroupInviteAttribute::CreatorEncryptedPushId.to_string(),
+            )
             .expression_attribute_values(":topic", AttributeValue::S(topic.to_string()))
+            .expression_attribute_values(
+                ":creator",
+                AttributeValue::S(creator_encrypted_push_id.to_string()),
+            )
+            .filter_expression("#creator = :creator")
             .send()
             .await?;
 
         let items = response.items.unwrap_or_default();
+        let mut invites = from_items::<_, GroupInvite>(items)?;
+        invites.sort_by_key(|i| std::cmp::Reverse(i.created_at));
+        let latest_invite = invites.into_iter().next();
 
-        if items.is_empty() {
-            return Ok(vec![]);
-        }
-
-        let invites = from_items::<_, GroupInvite>(items)?;
-        Ok(invites)
+        Ok(latest_invite)
     }
 
     /// Get a single group invite by ID
@@ -164,6 +179,7 @@ impl GroupInviteStorage {
             creator_encrypted_push_id: request.creator_encrypted_push_id,
             max_uses: request.max_uses,
             expires_at: request.expires_at,
+            created_at: chrono::Utc::now().timestamp(),
         };
 
         let item = to_item(&invite)?;
@@ -211,6 +227,7 @@ mod tests {
             creator_encrypted_push_id: "encrypted-push-id".to_string(),
             max_uses: Some(10),
             expires_at: Some(1_234_567_890),
+            created_at: chrono::Utc::now().timestamp(),
         };
 
         let serialized = serde_json::to_string(&invite).unwrap();
@@ -236,6 +253,7 @@ mod tests {
             creator_encrypted_push_id: "encrypted-push-id".to_string(),
             max_uses: None,
             expires_at: None,
+            created_at: chrono::Utc::now().timestamp(),
         };
 
         let serialized = serde_json::to_string(&invite).unwrap();

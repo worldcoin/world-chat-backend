@@ -4,6 +4,7 @@ use std::env;
 use std::time::Duration;
 
 use aws_config::{retry::RetryConfig, timeout::TimeoutConfig, BehaviorVersion};
+use tracing::warn;
 
 /// Application environment configuration
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -299,6 +300,22 @@ impl Environment {
                     .expect("DYNAMODB_GROUP_JOIN_REQUESTS_GROUP_INVITE_INDEX_NAME environment variable is not set")
             }
             Self::Development { .. } => "group-invite-index".to_string(),
+        }
+    }
+
+    /// Returns the invite link base URL
+    #[must_use]
+    pub fn invite_link_base_url(&self) -> String {
+        match self {
+            // Don't panic in case the env var is not set, just log a warning and use a default value
+            // We don't want to crash the app just because of a missing env var here
+            Self::Production | Self::Staging => {
+                env::var("INVITE_LINK_BASE_URL").unwrap_or_else(|_| {
+                    warn!("INVITE_LINK_BASE_URL environment variable is not set, using default");
+                    "https://world.org/".to_string()
+                })
+            }
+            Self::Development { .. } => "http://localhost:3000".to_string(),
         }
     }
 
