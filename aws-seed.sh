@@ -49,6 +49,18 @@ awslocal dynamodb create-table \
         "IndexName=topic-index,Keys=[{AttributeName=topic,KeyType=HASH}],Projection={ProjectionType=ALL},ProvisionedThroughput={ReadCapacityUnits=1,WriteCapacityUnits=1}" \
     --billing-mode PAY_PER_REQUEST
 
+# Create DynamoDB table for group join requests
+awslocal dynamodb create-table \
+    --table-name world-chat-group-join-requests \
+    --attribute-definitions \
+        AttributeName=id,AttributeType=S \
+        AttributeName=group_invite_id,AttributeType=S \
+    --key-schema \
+        AttributeName=id,KeyType=HASH \
+    --global-secondary-indexes \
+        "IndexName=group-invite-index,Keys=[{AttributeName=group_invite_id,KeyType=HASH}],Projection={ProjectionType=ALL},ProvisionedThroughput={ReadCapacityUnits=1,WriteCapacityUnits=1}" \
+    --billing-mode PAY_PER_REQUEST
+
 awslocal sqs create-queue --queue-name notification-queue.fifo --attributes '{
   "FifoQueue": "true",
   "ContentBasedDeduplication": "true",

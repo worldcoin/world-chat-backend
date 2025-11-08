@@ -1332,6 +1332,7 @@ dependencies = [
  "futures",
  "pretty_assertions",
  "rand 0.8.5",
+ "schemars 0.9.0",
  "serde",
  "serde_dynamo",
  "serde_json",
