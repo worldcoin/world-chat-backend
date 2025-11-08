@@ -31,14 +31,6 @@ pub enum GroupInviteStorageError {
     /// Failed to parse group invite from `DynamoDB` item
     #[error("Failed to parse group invite: {0}")]
     SerializationError(String),
-
-    /// Group invite with specified ID was not found
-    #[error("Group invite with id {0} not found")]
-    GroupInviteNotFound(String),
-
-    /// Invalid group invite data encountered
-    #[error("Invalid group invite data")]
-    InvalidGroupInviteData,
 }
 
 impl From<serde_dynamo::Error> for GroupInviteStorageError {
