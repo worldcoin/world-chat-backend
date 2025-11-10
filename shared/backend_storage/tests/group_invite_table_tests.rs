@@ -311,6 +311,9 @@ async fn test_get_latest_by_topic() {
         .await
         .expect("Failed to create group invite");
 
+    // Wait 1 second so that created_at timestamps differ
+    tokio::time::sleep(Duration::from_secs(1)).await;
+
     // Create another invite for topic A and push ID A
     let created_invite_user_a_topic_a_latest = ctx
         .storage
