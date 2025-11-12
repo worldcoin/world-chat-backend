@@ -5,6 +5,8 @@ use enclave_types::EnclaveError;
 use hex::FromHex;
 
 /// An asymmetric key pair (X25519), used for end-to-end encrypted communications.
+/// Cloning is needed for passing ephemeral key pair in initialization flow.
+#[derive(Clone)]
 pub struct KeyPair {
     pub public_key: PublicKey,
     pub private_key: SecretKey,

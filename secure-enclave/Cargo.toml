@@ -25,6 +25,9 @@ anyhow = { workspace = true }
 # Pontifex server
 pontifex = { workspace = true, features = ["server", "http", "nsm", "client"] }
 
+# Nitro enclave attestation verifier
+attestation-verifier = { workspace = true }
+
 enclave-types = { workspace = true }
 
 serde_json = { workspace = true }

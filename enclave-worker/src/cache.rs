@@ -66,11 +66,11 @@ impl CacheManager {
         // We acquired the lock, so we can spawn the task.
         let cm = self.clone();
         tokio::spawn(async move {
-            tracing::info!("Background refresh starting for key: {}", cache_key);
+            tracing::info!("Background refresh starting for key: {cache_key}");
             match fetch_fn().await {
                 Ok(fresh) => match cm.set_with_ttl(&cache_key, &fresh, ttl_secs).await {
-                    Ok(()) => tracing::info!("Successfully refreshed key: {}", cache_key),
-                    Err(e) => tracing::warn!("Failed to update cache: {e}"),
+                    Ok(()) => tracing::info!("Successfully refreshed key: {cache_key}"),
+                    Err(e) => tracing::warn!("Failed to update cache key {cache_key}: {e}"),
                 },
                 Err(e) => tracing::warn!("Refresh failed for {cache_key}: {e}"),
             }
