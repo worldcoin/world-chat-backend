@@ -18,18 +18,20 @@ pub async fn handler(
         &pontifex::http::Http2ClientConfig::default(),
     );
 
-    let state_snapshot = state.read().await;
-    if state_snapshot.initialized {
+    let initialized = state.read().await.initialized.clone();
+    if initialized {
         return Err(EnclaveError::AlreadyInitialized);
     }
 
     // Panic if ephemeral_key_pair is None, this is not a valid path
-    let ephemeral_key_pair = state_snapshot.ephemeral_key_pair.clone().unwrap();
+    let ephemeral_key_pair = state.read().await.ephemeral_key_pair.clone().unwrap();
+    let attestation_doc_with_ephemeral_pk =
+        state.read().await.attestation_doc_with_ephemeral_pk.clone();
     let encryption_keys = try_retrieve_key_pair(
         config.enclave_cluster_proxy_port,
         config.can_generate_key_pair,
         ephemeral_key_pair,
-        state_snapshot.attestation_doc_with_ephemeral_pk.clone(),
+        attestation_doc_with_ephemeral_pk,
     )
     .await?;
 
