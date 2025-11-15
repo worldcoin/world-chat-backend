@@ -2,6 +2,7 @@ use common_types::{AttestationDocumentResponse, PushIdChallengeRequest, PushIdCh
 use std::time::Duration;
 
 use crate::types::AppError;
+use axum::http::StatusCode;
 use reqwest::Client;
 
 /// Default request timeout in seconds
@@ -75,11 +76,22 @@ impl EnclaveWorkerApi for EnclaveWorkerApiClient {
             .post(format!("{}/v1/push-id-challenge", self.enclave_worker_url))
             .json(&request)
             .send()
-            .await?
+            .await?;
+
+        if !response.status().is_success() {
+            return Err(AppError::new(
+                StatusCode::BAD_GATEWAY,
+                "enclave_error",
+                "Enclave worker service error",
+                false,
+            ));
+        }
+
+        let response_data = response
             .json::<PushIdChallengeResponse>()
             .await?;
 
-        Ok(response.push_ids_match)
+        Ok(response_data.push_ids_match)
     }
 
     async fn get_attestation_document(&self) -> Result<AttestationDocumentResponse, AppError> {
@@ -90,11 +102,22 @@ impl EnclaveWorkerApi for EnclaveWorkerApiClient {
                 self.enclave_worker_url
             ))
             .send()
-            .await?
+            .await?;
+
+        if !response.status().is_success() {
+            return Err(AppError::new(
+                StatusCode::BAD_GATEWAY,
+                "enclave_error",
+                "Enclave worker service error",
+                false,
+            ));
+        }
+
+        let response_data = response
             .json::<AttestationDocumentResponse>()
             .await?;
 
-        Ok(response)
+        Ok(response_data)
     }
 }
 
