@@ -64,6 +64,8 @@ backend_storage = { workspace = true }
 walletkit-core = { version = "0.1.4", features= ["semaphore"], default-features = false }
 semaphore-rs = { version = "0.5" }
 reqwest = { workspace = true }
+reqwest-middleware = "0.4"
+reqwest-tracing = { version = "0.5", features = ["opentelemetry_0_21"] }
 
 # Mime types
 mime = { workspace = true }
