@@ -17,11 +17,11 @@ use crate::{
 };
 
 /// 5 MB Image size limit
-const MAX_IMAGE_SIZE_BYTES: i64 = 5 * 1024 * 1024;
+pub const MAX_IMAGE_SIZE_BYTES: i64 = 5 * 1024 * 1024;
 /// 15 MB Video size limit
-const MAX_VIDEO_SIZE_BYTES: i64 = 15 * 1024 * 1024;
+pub const MAX_VIDEO_SIZE_BYTES: i64 = 15 * 1024 * 1024;
 /// Maximum count of assets per message
-const MAX_ASSETS_PER_MESSAGE: usize = 10;
+pub const MAX_ASSETS_PER_MESSAGE: usize = 10;
 /// Regex for lowercase SHA-256 digest
 static DIGEST_REGEX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"[a-f0-9]{64}$").unwrap());
 
