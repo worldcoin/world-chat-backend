@@ -397,3 +397,15 @@ impl From<reqwest::Error> for AppError {
         )
     }
 }
+
+impl From<reqwest_middleware::Error> for AppError {
+    fn from(err: reqwest_middleware::Error) -> Self {
+        tracing::error!("Reqwest middleware error: {err:?}");
+        Self::new(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "internal_error",
+            "Internal server error",
+            false,
+        )
+    }
+}
