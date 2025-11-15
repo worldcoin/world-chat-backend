@@ -3,7 +3,7 @@ use std::time::Duration;
 
 use crate::types::AppError;
 use axum::http::StatusCode;
-use reqwest::{Client, header};
+use reqwest::{header, Client};
 use reqwest_middleware::{ClientBuilder, ClientWithMiddleware};
 use reqwest_tracing::TracingMiddleware;
 use serde_json;
@@ -79,13 +79,14 @@ impl EnclaveWorkerApi for EnclaveWorkerApiClient {
         };
 
         let url = format!("{}/v1/push-id-challenge", self.enclave_worker_url);
-        let json_body = serde_json::to_string(&request)
-            .map_err(|_e| AppError::new(
+        let json_body = serde_json::to_string(&request).map_err(|_e| {
+            AppError::new(
                 StatusCode::BAD_REQUEST,
                 "invalid_request",
                 "Failed to serialize request",
                 false,
-            ))?;
+            )
+        })?;
 
         let response = self
             .http_client
@@ -104,20 +105,14 @@ impl EnclaveWorkerApi for EnclaveWorkerApiClient {
             ));
         }
 
-        let response_data = response
-            .json::<PushIdChallengeResponse>()
-            .await?;
+        let response_data = response.json::<PushIdChallengeResponse>().await?;
 
         Ok(response_data.push_ids_match)
     }
 
     async fn get_attestation_document(&self) -> Result<AttestationDocumentResponse, AppError> {
         let url = format!("{}/v1/attestation-document", self.enclave_worker_url);
-        let response = self
-            .http_client
-            .get(url)
-            .send()
-            .await?;
+        let response = self.http_client.get(url).send().await?;
 
         if !response.status().is_success() {
             return Err(AppError::new(
@@ -128,9 +123,7 @@ impl EnclaveWorkerApi for EnclaveWorkerApiClient {
             ));
         }
 
-        let response_data = response
-            .json::<AttestationDocumentResponse>()
-            .await?;
+        let response_data = response.json::<AttestationDocumentResponse>().await?;
 
         Ok(response_data)
     }
