@@ -2,7 +2,11 @@ use common_types::{AttestationDocumentResponse, PushIdChallengeRequest, PushIdCh
 use std::time::Duration;
 
 use crate::types::AppError;
-use reqwest::Client;
+use axum::http::StatusCode;
+use reqwest::{header, Client};
+use reqwest_middleware::{ClientBuilder, ClientWithMiddleware};
+use reqwest_tracing::TracingMiddleware;
+use serde_json;
 
 /// Default request timeout in seconds
 const DEFAULT_REQUEST_TIMEOUT_SECS: u64 = 30;
@@ -26,7 +30,7 @@ pub trait EnclaveWorkerApi: Send + Sync {
 
 pub struct EnclaveWorkerApiClient {
     enclave_worker_url: String,
-    http_client: Client,
+    http_client: ClientWithMiddleware,
 }
 
 /// Implements an HTTP client to the Enclave Worker API
@@ -40,11 +44,15 @@ impl EnclaveWorkerApiClient {
     /// If the HTTP client fails to be created
     #[must_use]
     pub fn new(enclave_worker_url: String) -> Self {
-        let http_client = Client::builder()
+        let reqwest_client = Client::builder()
             .timeout(Duration::from_secs(DEFAULT_REQUEST_TIMEOUT_SECS))
             .pool_max_idle_per_host(MAX_IDLE_CONNECTIONS_PER_HOST)
             .build()
             .expect("Failed to create HTTP client");
+
+        let http_client = ClientBuilder::new(reqwest_client)
+            .with(TracingMiddleware::default())
+            .build();
 
         Self {
             enclave_worker_url,
@@ -70,31 +78,54 @@ impl EnclaveWorkerApi for EnclaveWorkerApiClient {
             encrypted_push_id_2,
         };
 
+        let url = format!("{}/v1/push-id-challenge", self.enclave_worker_url);
+        let json_body = serde_json::to_string(&request).map_err(|_e| {
+            AppError::new(
+                StatusCode::BAD_REQUEST,
+                "invalid_request",
+                "Failed to serialize request",
+                false,
+            )
+        })?;
+
         let response = self
             .http_client
-            .post(format!("{}/v1/push-id-challenge", self.enclave_worker_url))
-            .json(&request)
+            .post(url)
+            .header(header::CONTENT_TYPE, "application/json")
+            .body(json_body)
             .send()
-            .await?
-            .json::<PushIdChallengeResponse>()
             .await?;
 
-        Ok(response.push_ids_match)
+        if !response.status().is_success() {
+            return Err(AppError::new(
+                StatusCode::BAD_GATEWAY,
+                "enclave_error",
+                "Enclave worker service error",
+                false,
+            ));
+        }
+
+        let response_data = response.json::<PushIdChallengeResponse>().await?;
+
+        Ok(response_data.push_ids_match)
     }
 
     async fn get_attestation_document(&self) -> Result<AttestationDocumentResponse, AppError> {
-        let response = self
-            .http_client
-            .get(format!(
-                "{}/v1/attestation-document",
-                self.enclave_worker_url
-            ))
-            .send()
-            .await?
-            .json::<AttestationDocumentResponse>()
-            .await?;
+        let url = format!("{}/v1/attestation-document", self.enclave_worker_url);
+        let response = self.http_client.get(url).send().await?;
 
-        Ok(response)
+        if !response.status().is_success() {
+            return Err(AppError::new(
+                StatusCode::BAD_GATEWAY,
+                "enclave_error",
+                "Enclave worker service error",
+                false,
+            ));
+        }
+
+        let response_data = response.json::<AttestationDocumentResponse>().await?;
+
+        Ok(response_data)
     }
 }
 
