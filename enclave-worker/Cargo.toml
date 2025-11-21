@@ -18,6 +18,7 @@ tower-http = { workspace = true }
 # Async runtime
 tokio = { workspace = true }
 tokio-util = { workspace = true }
+futures = { workspace = true }
 
 # Logging
 tracing = { workspace = true }
