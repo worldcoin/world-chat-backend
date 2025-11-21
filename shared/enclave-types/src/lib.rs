@@ -1,3 +1,5 @@
+use core::error;
+
 use pontifex::Request;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -25,6 +27,8 @@ pub enum EnclaveError {
     AttestationVerificationFailed(String),
     #[error("Failed to unseal secret key: {0}")]
     DecryptSecretKeyFailed(String),
+    #[error("Missing state field: {0}")]
+    MissingStateField(String),
 }
 
 /// Braze API configuration

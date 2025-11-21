@@ -18,22 +18,30 @@ pub async fn handler(
         return Err(EnclaveError::NotInitialized);
     }
 
-    let encryption_key = state
+    let encryption_key = &state
         .encryption_keys
         .as_ref()
         .ok_or(EnclaveError::NotInitialized)?
-        .private_key
-        .clone();
+        .private_key;
 
-    let client = state.http_proxy_client.as_ref().unwrap();
-    let braze_api_key = state.braze_api_key.clone().unwrap();
-    let braze_api_endpoint = state.braze_api_url.clone().unwrap();
+    let client = state
+        .http_proxy_client
+        .as_ref()
+        .ok_or(EnclaveError::MissingStateField("Http Client".to_string()))?;
+    let braze_api_key = state
+        .braze_api_key
+        .clone()
+        .ok_or(EnclaveError::MissingStateField("Http Client".to_string()))?;
+    let braze_api_endpoint = state
+        .braze_api_url
+        .clone()
+        .ok_or(EnclaveError::MissingStateField("Http Client".to_string()))?;
     let braze_api_endpoint = format!("{braze_api_endpoint}/messages/send");
 
     let user_aliases = request
         .subscribed_encrypted_push_ids
         .iter()
-        .map(|id| decrypt_push_id_and_create_alias(id.clone(), &encryption_key))
+        .map(|id| decrypt_push_id_and_create_alias(id.clone(), encryption_key))
         .collect::<Result<Vec<UserAlias>, EnclaveError>>()?;
 
     send_braze_notification(
