@@ -10,15 +10,14 @@ use std::sync::Arc;
 use tokio_util::sync::CancellationToken;
 use tracing::{error, info, instrument, warn};
 
-/// Maximum number of recipients per batch when sending to pontifex
-const BATCH_SIZE: usize = 50;
-
 pub struct NotificationProcessor {
     queue: Arc<NotificationQueue>,
     #[allow(dead_code)] // Will be used for nitro enclave integration to delete subscriptions
     storage: Arc<PushSubscriptionStorage>,
     pontifex_connection_details: pontifex::client::ConnectionDetails,
     shutdown: CancellationToken,
+    /// Maximum number of recipients per batch when sending to pontifex
+    recipients_per_batch: usize,
 }
 
 impl NotificationProcessor {
@@ -33,12 +32,14 @@ impl NotificationProcessor {
         storage: Arc<PushSubscriptionStorage>,
         shutdown: CancellationToken,
         pontifex_connection_details: pontifex::client::ConnectionDetails,
+        recipients_per_batch: usize,
     ) -> Self {
         Self {
             queue,
             storage,
             pontifex_connection_details,
             shutdown,
+            recipients_per_batch,
         }
     }
 
@@ -96,7 +97,7 @@ impl NotificationProcessor {
         // Split recipients into batches
         let batches = notification
             .subscribed_encrypted_push_ids
-            .chunks(BATCH_SIZE);
+            .chunks(self.recipients_per_batch);
 
         // Create futures for each batch
         let batch_futures = batches

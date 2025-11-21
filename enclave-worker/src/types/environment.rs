@@ -202,4 +202,15 @@ impl Environment {
 
         format!("{dd_agent_host}:8125")
     }
+
+    /// Returns the maximum number of recipients per batch when sending to pontifex
+    ///
+    /// Default is 50 per [Braze docs](https://www.braze.com/docs/api/endpoints/messaging/send_messages/post_send_messages)
+    #[must_use]
+    pub fn recipients_per_batch(&self) -> usize {
+        env::var("RECIPIENTS_PER_BATCH")
+            .ok()
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(50)
+    }
 }
