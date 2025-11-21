@@ -169,7 +169,7 @@ impl From<enclave_types::EnclaveError> for AppError {
         use enclave_types::EnclaveError::{
             AlreadyInitialized, AttestationFailed, AttestationVerificationFailed,
             BrazeRequestFailed, DecryptPushIdFailed, DecryptSecretKeyFailed, KeyPairCreationFailed,
-            NotInitialized, PontifexError, SecureModuleNotInitialized,
+            MissingStateField, NotInitialized, PontifexError, SecureModuleNotInitialized,
         };
 
         match &err {
@@ -248,6 +248,15 @@ impl From<enclave_types::EnclaveError> for AppError {
             }
             AttestationVerificationFailed(msg) | DecryptSecretKeyFailed(msg) => {
                 tracing::error!("Enclave initialize error: {msg}");
+                Self::new(
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "internal_error",
+                    "Internal server error",
+                    false,
+                )
+            }
+            MissingStateField(field) => {
+                tracing::error!("Enclave missing state field: {field}");
                 Self::new(
                     StatusCode::INTERNAL_SERVER_ERROR,
                     "internal_error",
