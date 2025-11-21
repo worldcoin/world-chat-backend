@@ -1,5 +1,3 @@
-use core::error;
-
 use pontifex::Request;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;

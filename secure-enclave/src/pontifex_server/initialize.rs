@@ -18,7 +18,7 @@ pub async fn handler(
         &pontifex::http::Http2ClientConfig::default(),
     );
 
-    let initialized = state.read().await.initialized.clone();
+    let initialized = state.read().await.initialized;
     if initialized {
         return Err(EnclaveError::AlreadyInitialized);
     }

@@ -66,7 +66,7 @@ fn decrypt_push_id_and_create_alias(
 
     let push_id = encryption_key
         .unseal(&encrypted_push_id)
-        .map(|decrypted| hex::encode(decrypted))
+        .map(hex::encode)
         .map_err(|e| EnclaveError::BrazeRequestFailed(format!("Unseal failed: {e:?}")))?;
 
     Ok(UserAlias::push_id_alias(push_id))
