@@ -71,11 +71,18 @@ async fn main() -> Result<()> {
         let queue = notification_queue.clone();
         let storage = subscription_storage.clone();
         let token = shutdown_token.clone();
+        let recipients_per_batch = env.recipients_per_batch();
 
         tokio::spawn(async move {
-            NotificationProcessor::new(queue, storage, token, enclave_connection_details)
-                .start()
-                .await;
+            NotificationProcessor::new(
+                queue,
+                storage,
+                token,
+                enclave_connection_details,
+                recipients_per_batch,
+            )
+            .start()
+            .await;
         })
     };
 
