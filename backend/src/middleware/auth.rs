@@ -14,6 +14,20 @@ use crate::{
     types::{AppError, Environment},
 };
 
+/// JWT cutoff date - reject tokens issued before this time.
+/// Set to `None` to disable cutoff, or `Some("YYYY-MM-DDTHH:MM:SSZ")` to enable.
+const JWT_ISSUED_AFTER_CUTOFF: Option<&str> = Some("2025-11-27T00:00:00Z");
+
+/// Parse ISO 8601 date string to Unix timestamp at compile time is not possible,
+/// so we parse at runtime on first use.
+fn parse_cutoff_timestamp() -> Option<i64> {
+    JWT_ISSUED_AFTER_CUTOFF.and_then(|date_str| {
+        chrono::DateTime::parse_from_rfc3339(date_str)
+            .ok()
+            .map(|dt| dt.timestamp())
+    })
+}
+
 /// Authenticated user information extracted from JWT
 #[derive(Debug, Clone, OperationIo)]
 pub struct AuthenticatedUser {
@@ -108,14 +122,16 @@ pub async fn auth_middleware(
     })?;
 
     // Validate JWT
-    let claims = jwt_manager.validate(token).map_err(|_| {
-        AppError::new(
-            StatusCode::UNAUTHORIZED,
-            "invalid_token",
-            "Invalid or expired token",
-            false,
-        )
-    })?;
+    let claims = jwt_manager
+        .validate(token, parse_cutoff_timestamp())
+        .map_err(|_| {
+            AppError::new(
+                StatusCode::UNAUTHORIZED,
+                "invalid_token",
+                "Invalid or expired token",
+                false,
+            )
+        })?;
 
     // Add authenticated user to request extensions
     let user = AuthenticatedUser::from(claims);
