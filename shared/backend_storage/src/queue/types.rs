@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use serde::{Deserialize, Serialize};
 
 /// Subscription request message types
@@ -57,6 +59,8 @@ pub struct QueueMessage<T> {
     pub receipt_handle: String,
     /// Message ID
     pub message_id: String,
+    /// W3C trace context (traceparent, tracestate) for distributed tracing
+    pub trace_context: HashMap<String, String>,
 }
 
 /// Configuration for queue operations

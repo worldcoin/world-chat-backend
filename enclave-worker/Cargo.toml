@@ -32,6 +32,11 @@ datadog-tracing = { version = "0.3.0", features = ["axum"] }
 metrics = { workspace = true }
 metrics-exporter-dogstatsd = { workspace = true }
 
+# OpenTelemetry for distributed tracing
+opentelemetry = { workspace = true }
+opentelemetry_sdk = { workspace = true }
+tracing-opentelemetry = { workspace = true }
+
 # AWS SDK
 aws-config = { workspace = true }
 aws-sdk-dynamodb = { workspace = true }

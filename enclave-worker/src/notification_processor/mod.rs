@@ -1,3 +1,6 @@
+use std::collections::HashMap;
+use std::sync::Arc;
+
 use anyhow::Context;
 use backend_storage::{
     push_subscription::PushSubscriptionStorage,
@@ -6,9 +9,26 @@ use backend_storage::{
 use enclave_types::EnclaveNotificationRequest;
 use futures::future::join_all;
 use metrics::counter;
-use std::sync::Arc;
+use opentelemetry::propagation::{Extractor, TextMapPropagator};
+use opentelemetry_sdk::propagation::TraceContextPropagator;
 use tokio_util::sync::CancellationToken;
 use tracing::{error, info, instrument, warn};
+use tracing_opentelemetry::OpenTelemetrySpanExt;
+
+/// Extractor for trace context from a HashMap
+struct HashMapExtractor<'a> {
+    map: &'a HashMap<String, String>,
+}
+
+impl Extractor for HashMapExtractor<'_> {
+    fn get(&self, key: &str) -> Option<&str> {
+        self.map.get(key).map(|s| s.as_str())
+    }
+
+    fn keys(&self) -> Vec<&str> {
+        self.map.keys().map(|s| s.as_str()).collect()
+    }
+}
 
 pub struct NotificationProcessor {
     queue: Arc<NotificationQueue>,
@@ -83,6 +103,16 @@ impl NotificationProcessor {
 
     #[instrument(skip(self, message), fields(message_id = %message.message_id))]
     async fn process_and_ack(&self, message: QueueMessage<Notification>) -> anyhow::Result<()> {
+        // Extract and set parent context from upstream trace for distributed tracing
+        if !message.trace_context.is_empty() {
+            let propagator = TraceContextPropagator::new();
+            let extractor = HashMapExtractor {
+                map: &message.trace_context,
+            };
+            let parent_context = propagator.extract(&extractor);
+            tracing::Span::current().set_parent(parent_context);
+        }
+
         let notification = message.body;
         let receipt_handle = message.receipt_handle;
 

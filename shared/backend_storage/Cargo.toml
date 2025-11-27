@@ -30,6 +30,11 @@ serde_dynamo = { workspace = true }
 # Logging
 tracing = { workspace = true }
 
+# OpenTelemetry for distributed tracing
+opentelemetry = { workspace = true }
+opentelemetry_sdk = { workspace = true }
+tracing-opentelemetry = { workspace = true }
+
 # Strum
 strum = { workspace = true }
 

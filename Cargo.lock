@@ -1332,6 +1332,8 @@ dependencies = [
  "aws-sdk-sqs",
  "chrono",
  "futures",
+ "opentelemetry 0.21.0",
+ "opentelemetry_sdk 0.21.2",
  "pretty_assertions",
  "rand 0.8.5",
  "schemars 0.9.0",
@@ -1343,6 +1345,7 @@ dependencies = [
  "tokio",
  "tokio-test",
  "tracing",
+ "tracing-opentelemetry 0.22.0",
  "uuid",
 ]
 
@@ -2366,6 +2369,8 @@ dependencies = [
  "hex",
  "metrics",
  "metrics-exporter-dogstatsd",
+ "opentelemetry 0.21.0",
+ "opentelemetry_sdk 0.21.2",
  "pontifex",
  "pretty_assertions",
  "redis",
@@ -2378,6 +2383,7 @@ dependencies = [
  "tower 0.5.2",
  "tower-http",
  "tracing",
+ "tracing-opentelemetry 0.22.0",
  "tracing-subscriber 0.3.20",
  "uuid",
 ]
