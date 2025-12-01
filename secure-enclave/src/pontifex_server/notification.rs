@@ -104,7 +104,6 @@ async fn send_braze_notification(
                     "title": "New Activity",
                     "body": "This content is temporarily unavailable."
                 },
-                "badge": 1,
                 "sound": "default",
                 "mutable_content": true,
                 "extra": {
