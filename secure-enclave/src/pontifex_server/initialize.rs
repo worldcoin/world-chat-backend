@@ -18,13 +18,21 @@ pub async fn handler(
         &pontifex::http::Http2ClientConfig::default(),
     );
 
-    let initialized = state.read().await.initialized.clone();
+    let initialized = state.read().await.initialized;
     if initialized {
         return Err(EnclaveError::AlreadyInitialized);
     }
 
     // Panic if ephemeral_key_pair is None, this is not a valid path
-    let ephemeral_key_pair = state.read().await.ephemeral_key_pair.clone().unwrap();
+    let ephemeral_key_pair =
+        state
+            .read()
+            .await
+            .ephemeral_key_pair
+            .clone()
+            .ok_or(EnclaveError::MissingStateField(
+                "Ephemeral Key Pair".to_string(),
+            ))?;
     let attestation_doc_with_ephemeral_pk =
         state.read().await.attestation_doc_with_ephemeral_pk.clone();
     let encryption_keys = try_retrieve_key_pair(
@@ -109,7 +117,7 @@ async fn request_key_pair_from_enclaves_cluster(
         ),
     )
     .await
-    .map_err(|_| EnclaveError::PontifexError("Request timed out after 10 seconds".to_string()))?
+    .map_err(|_| EnclaveError::PontifexError("Request timed out after 5 seconds".to_string()))?
     .map_err(|e| EnclaveError::PontifexError(e.to_string()))??;
 
     let ephemeral_sk = ephemeral_key_pair.private_key;

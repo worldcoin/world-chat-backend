@@ -14,9 +14,9 @@ const EXIT_RNG_MISCONFIG: i32 = 78;
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    // TODO: This is used for development, remove this before we go live
+    // We use tracing for logging, this is only useful when the enclave runs on DEBUG MODE
     tracing_subscriber::fmt()
-        .with_max_level(tracing::Level::DEBUG)
+        .with_max_level(tracing::Level::INFO)
         .with_level(true)
         .pretty()
         .init();
