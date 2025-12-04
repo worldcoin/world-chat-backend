@@ -28,6 +28,6 @@ pub async fn get_config(Extension(environment): Extension<Environment>) -> Json<
         max_image_size_bytes: MAX_IMAGE_SIZE_BYTES,
         max_video_size_bytes: MAX_VIDEO_SIZE_BYTES,
         trusted_cdn_url: environment.cdn_url(),
-        notification_server_version: "v1".to_string(),
+        notification_server_version: "v2".to_string(),
     })
 }
