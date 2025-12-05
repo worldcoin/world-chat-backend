@@ -1,6 +1,10 @@
-use axum::{Extension, Json};
+use axum::{
+    http::HeaderMap,
+    Extension, Json,
+};
 use schemars::JsonSchema;
 use serde::Serialize;
+use tracing::info;
 
 use crate::{
     routes::v1::media::{MAX_ASSETS_PER_MESSAGE, MAX_IMAGE_SIZE_BYTES, MAX_VIDEO_SIZE_BYTES},
@@ -22,7 +26,22 @@ pub struct ConfigResponse {
     notification_server_version: String,
 }
 
-pub async fn get_config(Extension(environment): Extension<Environment>) -> Json<ConfigResponse> {
+pub async fn get_config(
+    headers: HeaderMap,
+    Extension(environment): Extension<Environment>,
+) -> Json<ConfigResponse> {
+    let headers_formatted: Vec<String> = headers
+        .iter()
+        .map(|(name, value)| {
+            format!("{}: {}", name, value.to_str().unwrap_or("<binary>"))
+        })
+        .collect();
+
+    info!(
+        "GET /config request headers:\n{}",
+        headers_formatted.join("\n")
+    );
+
     Json(ConfigResponse {
         max_assets_per_message: MAX_ASSETS_PER_MESSAGE,
         max_image_size_bytes: MAX_IMAGE_SIZE_BYTES,
