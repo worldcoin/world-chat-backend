@@ -129,7 +129,7 @@ pub async fn subscribe(
 
     let db_operations = push_subscriptions
         .iter()
-        .map(|subscription| push_storage.insert(subscription));
+        .map(|subscription| push_storage.upsert(subscription));
 
     // Run all insertions concurrently
     let results = join_all(db_operations).await;
