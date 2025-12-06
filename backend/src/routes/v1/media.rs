@@ -46,6 +46,13 @@ where
 {
     let s = String::deserialize(d)?;
     let m: Mime = s.parse().map_err(serde::de::Error::custom)?;
+
+    if m == mime::IMAGE_SVG {
+        return Err(serde::de::Error::custom(
+            "mime type image/svg+xml is not allowed",
+        ));
+    }
+
     if matches!(m.type_(), mime::IMAGE | mime::VIDEO) {
         Ok(m)
     } else {
