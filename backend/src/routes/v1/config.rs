@@ -136,7 +136,7 @@ pub async fn get_config(
     // Example: Return different notification_server_version based on client version
     // Clients >= 4.0.0 get "v2", older clients get "v1"
     let notification_server_version = if client.version_is_at_least(4, 0, 0) {
-        "v2"
+        "v3"
     } else {
         "v1"
     }
