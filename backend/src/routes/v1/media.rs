@@ -46,7 +46,15 @@ where
 {
     let s = String::deserialize(d)?;
     let m: Mime = s.parse().map_err(serde::de::Error::custom)?;
-    if matches!(m.type_(), mime::IMAGE | mime::VIDEO) {
+
+    if m == mime::IMAGE_SVG {
+        return Err(serde::de::Error::custom(
+            "mime type image/svg+xml is not allowed",
+        ));
+    }
+
+    // Allow only image/* and video/* and application/octet-stream because images will be encrypted blobs
+    if matches!(m.type_(), mime::IMAGE | mime::VIDEO) || m == mime::APPLICATION_OCTET_STREAM {
         Ok(m)
     } else {
         Err(serde::de::Error::custom("mime must be image/* or video/*"))
