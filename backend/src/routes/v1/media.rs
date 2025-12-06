@@ -139,11 +139,7 @@ pub async fn create_presigned_upload_url(
 
     // Step 3: Generate Presigned URL
     let presigned_url = media_storage
-        .generate_presigned_put_url(
-            &payload.content_digest_sha256,
-            payload.content_length,
-            payload.content_type.to_string().as_str(),
-        )
+        .generate_presigned_put_url(&payload.content_digest_sha256, payload.content_length)
         .await?;
 
     let asset_url = format!("{}/{}", environment.cdn_url(), s3_key);
