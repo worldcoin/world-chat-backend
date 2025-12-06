@@ -86,12 +86,6 @@ where
         // Serialize the message
         let body = serde_json::to_string(message)?;
 
-        // Inject current trace context into message attributes
-        let propagator = TraceContextPropagator::new();
-        let mut injector = SqsMessageAttributeInjector::new();
-        let context = tracing::Span::current().context();
-        propagator.inject_context(&context, &mut injector);
-
         let mut request = self
             .sqs_client
             .send_message()
@@ -99,7 +93,14 @@ where
             .message_body(body)
             .message_group_id(message.message_group_id());
 
-        // Add trace context attributes (traceparent, tracestate)
+        // Inject current trace context into message attributes (if available)
+        // This enables distributed tracing across the SQS boundary
+        let propagator = TraceContextPropagator::new();
+        let mut injector = SqsMessageAttributeInjector::new();
+        let context = tracing::Span::current().context();
+        propagator.inject_context(&context, &mut injector);
+
+        // Add trace context attributes (traceparent, tracestate) if they were injected
         for (key, value) in injector.attributes {
             request = request.message_attributes(key, value);
         }

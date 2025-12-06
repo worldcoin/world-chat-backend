@@ -57,7 +57,7 @@ impl MessageProcessor {
                     match result {
                         Ok(message) => {
                             if let Err(e) = self.process_message(&message).await {
-                                error!("Failed to process message: {}", e);
+                                error!("Failed to process message: {:#?}", e);
                             }
                         }
                         Err(flume::RecvError::Disconnected) => {
