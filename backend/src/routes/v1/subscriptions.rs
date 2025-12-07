@@ -239,7 +239,7 @@ pub async fn unsubscribe(
 ///
 /// ## Efficiency
 ///
-/// This endpoint uses DynamoDB batch operations to minimize round trips:
+/// This endpoint uses `DynamoDB` batch operations to minimize round trips:
 /// 1. Batch fetch all subscriptions (chunks of 25)
 /// 2. Partition into deletions vs tombstones based on push ID match
 /// 3. Execute batch delete and parallel tombstone updates concurrently
@@ -326,7 +326,7 @@ pub async fn batch_unsubscribe(
         }
     };
 
-    let (delete_result, _) = tokio::join!(delete_future, tombstone_future);
+    let (delete_result, ()) = tokio::join!(delete_future, tombstone_future);
     delete_result?;
 
     Ok(StatusCode::NO_CONTENT)

@@ -18,7 +18,7 @@ use serde::{Deserialize, Serialize};
 pub use error::{PushSubscriptionStorageError, PushSubscriptionStorageResult};
 use strum::Display;
 
-/// A subscription key consisting of (topic, hmac_key)
+/// A subscription key consisting of (topic, `hmac_key`)
 pub type SubscriptionKey<'a> = (&'a str, &'a str);
 
 /// Attribute names for push subscription table
@@ -166,7 +166,7 @@ impl PushSubscriptionStorage {
             .transpose()
     }
 
-    /// Batch get multiple push subscriptions by their (topic, hmac_key) pairs
+    /// Batch get multiple push subscriptions by their (topic, `hmac_key`) pairs
     ///
     /// # Arguments
     ///
@@ -228,8 +228,8 @@ impl PushSubscriptionStorage {
             if let Some(table_responses) = response.responses() {
                 if let Some(items) = table_responses.get(&self.table_name) {
                     for item in items {
-                        let subscription: PushSubscription =
-                            serde_dynamo::from_item(item.clone()).map_err(|e| {
+                        let subscription: PushSubscription = serde_dynamo::from_item(item.clone())
+                            .map_err(|e| {
                                 PushSubscriptionStorageError::ParseSubscriptionError(e.to_string())
                             })?;
                         all_subscriptions.push(subscription);
