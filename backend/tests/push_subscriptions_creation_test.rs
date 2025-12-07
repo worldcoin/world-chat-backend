@@ -78,7 +78,7 @@ async fn test_subscribe_happy_path_batch_subscriptions() {
 }
 
 #[tokio::test]
-async fn test_subscribe_with_duplicate_subscriptions() {
+async fn test_subscribe_with_existing_push_id() {
     let context = TestSetup::default().await;
     let encrypted_push_id = format!("encrypted-push-{}", Uuid::new_v4());
 
@@ -118,9 +118,9 @@ async fn test_subscribe_with_duplicate_subscriptions() {
         .await
         .expect("Failed to send request");
 
-    // Should still return 201 CREATED even though the subscription already exists
+    // Should still return 201 CREATED and update the push id
     assert_eq!(response.status(), StatusCode::CREATED);
-    assert!(!subscription_exists(&context, &topic, &hmac_key, &other_encrypted_push_id).await);
+    assert!(subscription_exists(&context, &topic, &hmac_key, &other_encrypted_push_id).await);
 }
 
 #[tokio::test]
