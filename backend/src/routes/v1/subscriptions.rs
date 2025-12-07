@@ -5,13 +5,10 @@ use axum_valid::Valid;
 use futures::future::join_all;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use tracing::warn;
 use validator::Validate;
 
 use crate::{middleware::AuthenticatedUser, types::AppError};
-use backend_storage::push_subscription::{
-    PushSubscription, PushSubscriptionStorage, PushSubscriptionStorageError,
-};
+use backend_storage::push_subscription::{PushSubscription, PushSubscriptionStorage};
 
 /// In the context of XMTP hmac keys for a conversation are rotated every 30-day epoch cycle
 /// We set a maximum of 40 days to prevent bad actors subscribing to a topic for a longer period of time

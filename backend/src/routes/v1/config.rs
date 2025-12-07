@@ -26,6 +26,7 @@ pub struct Version {
 
 impl Version {
     /// Parse a version string like "1.2.3" or "1.2"
+    #[must_use]
     pub fn parse(version_str: &str) -> Option<Self> {
         let parts: Vec<&str> = version_str.split('.').collect();
         if parts.is_empty() || parts.len() > 3 {
@@ -44,7 +45,8 @@ impl Version {
     }
 
     /// Check if this version is at least the given version
-    pub fn is_at_least(&self, other: &Version) -> bool {
+    #[must_use]
+    pub fn is_at_least(&self, other: &Self) -> bool {
         match self.cmp(other) {
             Ordering::Greater | Ordering::Equal => true,
             Ordering::Less => false,
@@ -83,12 +85,13 @@ impl ClientInfo {
         let platform = headers
             .get("client-name")
             .and_then(|v| v.to_str().ok())
-            .map(|s| match s.to_lowercase().as_str() {
-                "ios" => ClientPlatform::Ios,
-                "android" => ClientPlatform::Android,
-                _ => ClientPlatform::Unknown,
-            })
-            .unwrap_or(ClientPlatform::Unknown);
+            .map_or(ClientPlatform::Unknown, |s| {
+                match s.to_lowercase().as_str() {
+                    "ios" => ClientPlatform::Ios,
+                    "android" => ClientPlatform::Android,
+                    _ => ClientPlatform::Unknown,
+                }
+            });
 
         let version = headers
             .get("client-version")
@@ -99,16 +102,15 @@ impl ClientInfo {
     }
 
     /// Check if client version is at least the specified version
+    #[must_use]
     pub fn version_is_at_least(&self, major: u32, minor: u32, patch: u32) -> bool {
-        self.version
-            .map(|v| {
-                v.is_at_least(&Version {
-                    major,
-                    minor,
-                    patch,
-                })
+        self.version.is_some_and(|v| {
+            v.is_at_least(&Version {
+                major,
+                minor,
+                patch,
             })
-            .unwrap_or(false)
+        })
     }
 }
 
