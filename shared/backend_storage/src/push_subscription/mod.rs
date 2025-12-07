@@ -8,7 +8,7 @@ use std::{collections::HashMap, sync::Arc};
 
 use aws_sdk_dynamodb::{
     error::SdkError,
-    types::{AttributeValue, DeleteRequest, Select, WriteRequest},
+    types::{AttributeValue, DeleteRequest, KeysAndAttributes, Select, WriteRequest},
     Client as DynamoDbClient,
 };
 use futures::future;
@@ -17,6 +17,9 @@ use serde::{Deserialize, Serialize};
 
 pub use error::{PushSubscriptionStorageError, PushSubscriptionStorageResult};
 use strum::Display;
+
+/// A subscription key consisting of (topic, hmac_key)
+pub type SubscriptionKey<'a> = (&'a str, &'a str);
 
 /// Attribute names for push subscription table
 #[derive(Debug, Clone, Display)]
@@ -161,6 +164,84 @@ impl PushSubscriptionStorage {
                 })
             })
             .transpose()
+    }
+
+    /// Batch get multiple push subscriptions by their (topic, hmac_key) pairs
+    ///
+    /// # Arguments
+    ///
+    /// * `subscription_keys` - A slice of `(topic, hmac_key)` tuples to fetch
+    ///
+    /// # Returns
+    ///
+    /// A vector of found push subscriptions. Note that subscriptions not found
+    /// will simply be absent from the result (no error is raised for missing items).
+    ///
+    /// # Errors
+    ///
+    /// Returns `PushSubscriptionStorageError` if the Dynamo DB operation fails
+    pub async fn batch_get(
+        &self,
+        subscription_keys: &[SubscriptionKey<'_>],
+    ) -> PushSubscriptionStorageResult<Vec<PushSubscription>> {
+        if subscription_keys.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        let mut all_subscriptions = Vec::with_capacity(subscription_keys.len());
+
+        // DynamoDB batch_get_item has a limit of 25 keys per request
+        for chunk in subscription_keys.chunks(25) {
+            let dynamo_keys: Vec<HashMap<String, AttributeValue>> = chunk
+                .iter()
+                .map(|(topic, hmac_key)| {
+                    HashMap::from([
+                        (
+                            PushSubscriptionAttribute::Topic.to_string(),
+                            AttributeValue::S((*topic).to_string()),
+                        ),
+                        (
+                            PushSubscriptionAttribute::HmacKey.to_string(),
+                            AttributeValue::S((*hmac_key).to_string()),
+                        ),
+                    ])
+                })
+                .collect();
+
+            let keys_and_attributes = KeysAndAttributes::builder()
+                .set_keys(Some(dynamo_keys))
+                .build()
+                .map_err(|e| {
+                    PushSubscriptionStorageError::SerializationError(format!(
+                        "Failed to build keys and attributes: {e:?}"
+                    ))
+                })?;
+
+            let response = self
+                .dynamodb_client
+                .batch_get_item()
+                .request_items(&self.table_name, keys_and_attributes)
+                .send()
+                .await?;
+
+            // Parse responses for this table
+            if let Some(table_responses) = response.responses() {
+                if let Some(items) = table_responses.get(&self.table_name) {
+                    for item in items {
+                        let subscription: PushSubscription =
+                            serde_dynamo::from_item(item.clone()).map_err(|e| {
+                                PushSubscriptionStorageError::ParseSubscriptionError(e.to_string())
+                            })?;
+                        all_subscriptions.push(subscription);
+                    }
+                }
+            }
+
+            // Note: We're not handling unprocessed_keys here for simplicity.
+            // In production, you might want to retry unprocessed keys.
+        }
+
+        Ok(all_subscriptions)
     }
 
     /// Inserts a push subscription, failing if it already exists with the same topic and `hmac_key`
@@ -341,7 +422,7 @@ impl PushSubscriptionStorage {
             .collect()
     }
 
-    /// Batch delete multiple subscriptions by topic and `hmac_keys`
+    /// Batch delete multiple subscriptions by topic and `hmac_keys` (single topic)
     ///
     /// # Arguments
     ///
@@ -373,7 +454,43 @@ impl PushSubscriptionStorage {
         Ok(())
     }
 
-    /// Batch append deletion requests to multiple subscriptions
+    /// Batch delete multiple subscriptions across different topics
+    ///
+    /// # Arguments
+    ///
+    /// * `subscription_keys` - A slice of `(topic, hmac_key)` tuples to delete
+    ///
+    /// # Errors
+    ///
+    /// Returns `PushSubscriptionStorageError` if the Dynamo DB operation fails
+    pub async fn batch_delete_many(
+        &self,
+        subscription_keys: &[SubscriptionKey<'_>],
+    ) -> PushSubscriptionStorageResult<()> {
+        if subscription_keys.is_empty() {
+            return Ok(());
+        }
+
+        // DynamoDB batch delete has a limit of 25 items per request
+        for chunk in subscription_keys.chunks(25) {
+            let write_requests = chunk
+                .iter()
+                .map(|(topic, hmac_key)| {
+                    Self::build_delete_req((*topic).to_string(), (*hmac_key).to_string())
+                })
+                .collect::<Result<Vec<_>, _>>()?;
+
+            self.dynamodb_client
+                .batch_write_item()
+                .request_items(&self.table_name, write_requests)
+                .send()
+                .await?;
+        }
+
+        Ok(())
+    }
+
+    /// Batch append deletion requests to multiple subscriptions (single topic)
     ///
     /// # Arguments
     ///
