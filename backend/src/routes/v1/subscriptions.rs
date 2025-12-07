@@ -131,23 +131,12 @@ pub async fn subscribe(
         .iter()
         .map(|subscription| push_storage.upsert(subscription));
 
-    // Run all insertions concurrently
+    // Run all upserts concurrently
     let results = join_all(db_operations).await;
 
     for result in results {
-        match result {
-            Ok(()) => {}
-            // We don't allow a user to update his encrypted push id, because we can't distinguish
-            // between a legitimate rotation and a security risk.
-            // If a user legitimately rotates his encrypted push id, it will be used in the
-            // next 30-day epoch cycle where he would resubscibe with the new hmac keys.
-            Err(PushSubscriptionStorageError::PushSubscriptionExists) => {
-                warn!("subscription already exists");
-            }
-            Err(other) => {
-                // Fail on any other error
-                return Err(AppError::from(other));
-            }
+        if let Err(e) = result {
+            return Err(AppError::from(e));
         }
     }
 
