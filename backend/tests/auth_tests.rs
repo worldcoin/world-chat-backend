@@ -451,9 +451,7 @@ async fn test_validate_rejects_payload_tamper() {
     assert!(result.is_err(), "payload tamper should be rejected");
 }
 
-/// TODO: TEMPORARY: Remove this once we finish mobile dev testing
 #[tokio::test]
-#[ignore]
 async fn test_protected_endpoint_rejects_jwt_with_different_signing_key() {
     // Test with auth enabled
     let context = TestSetup::new(None, false).await;
