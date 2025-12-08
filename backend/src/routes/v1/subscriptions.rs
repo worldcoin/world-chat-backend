@@ -28,7 +28,7 @@ pub struct CreateSubscriptionRequest {
     pub ttl: i64,
 }
 
-#[derive(Debug, Deserialize, JsonSchema)]
+#[derive(Debug, Deserialize, JsonSchema, Validate)]
 pub struct UnsubscribeQuery {
     /// HMAC key for subscription validation (42 bytes or 84 hex characters)
     #[validate(length(equal = 84))]
@@ -214,5 +214,106 @@ pub async fn unsubscribe(
     Ok(StatusCode::NO_CONTENT)
 }
 
-// The validate_subscribe_payload function has been removed since validation is now
-// handled by the validator crate and axum-valid extractor
+/// Batch unsubscribe from push notifications for multiple topics
+///
+/// Efficiently removes or marks for deletion multiple push notification subscriptions.
+/// The behavior for each subscription depends on whether the requesting user is the original subscriber:
+///
+/// - **If the user is the original subscriber**: The subscription is immediately deleted
+/// - **If the user is not the original subscriber**: The user's encrypted push ID is added to the `deletion_request` set,
+///   this acts as a tombstone for the subscription, and if the plaintext push ids are the same it's lazily deleted.
+///
+/// ## Efficiency
+///
+/// This endpoint uses `DynamoDB` batch operations to minimize round trips:
+/// 1. Batch fetch all subscriptions (chunks of 25)
+/// 2. Partition into deletions vs tombstones based on push ID match
+/// 3. Execute batch delete and parallel tombstone updates concurrently
+///
+/// # Arguments
+///
+/// * `user` - The authenticated user making the unsubscribe request
+/// * `push_storage` - `DynamoDB` storage handler for push subscriptions
+/// * `payload` - Array of unsubscribe requests, each containing topic and HMAC key
+///
+/// # Returns
+///
+/// Returns `204 NO_CONTENT` on successful batch unsubscription.
+/// Subscriptions that don't exist are silently skipped (idempotent behavior).
+///
+/// # Errors
+///
+/// Returns an error if:
+/// - `400 BAD_REQUEST` - Empty payload or invalid parameters
+/// - `401 UNAUTHORIZED` - Invalid or missing authentication
+/// - `500 INTERNAL_SERVER_ERROR` - Database operation failures
+pub async fn batch_unsubscribe(
+    user: AuthenticatedUser,
+    Extension(push_storage): Extension<Arc<PushSubscriptionStorage>>,
+    Valid(Json(payload)): Valid<Json<Vec<UnsubscribeQuery>>>,
+) -> Result<StatusCode, AppError> {
+    // Validate payload is not empty
+    if payload.is_empty() {
+        return Err(AppError::new(
+            StatusCode::BAD_REQUEST,
+            "empty_payload",
+            "Empty payload",
+            false,
+        ));
+    }
+
+    // Step 1: Batch fetch all subscriptions
+    let subscription_keys: Vec<(&str, &str)> = payload
+        .iter()
+        .map(|p| (p.topic.as_str(), p.hmac_key.as_str()))
+        .collect();
+
+    let subscriptions = push_storage.batch_get(&subscription_keys).await?;
+
+    // Step 2: Partition into delete vs tombstone based on push ID match
+    // Subscriptions not found are silently skipped (idempotent behavior)
+    let (to_delete, to_tombstone): (Vec<_>, Vec<_>) = subscriptions
+        .iter()
+        .partition(|s| s.encrypted_push_id == user.encrypted_push_id);
+
+    let to_delete: Vec<_> = to_delete
+        .iter()
+        .map(|s| (s.topic.as_str(), s.hmac_key.as_str()))
+        .collect();
+
+    // Step 3: Execute deletions and tombstones concurrently
+    let delete_future = push_storage.batch_delete_many(&to_delete);
+
+    let tombstone_future = async {
+        // Tombstones are best-effort - log errors but don't propagate
+        // DynamoDB has no batch update, so we run individual updates in parallel
+        let futures: Vec<_> = to_tombstone
+            .iter()
+            .map(|subscription| {
+                push_storage.append_delete_request(
+                    &subscription.topic,
+                    &subscription.hmac_key,
+                    &user.encrypted_push_id,
+                )
+            })
+            .collect();
+
+        let results = join_all(futures).await;
+        for (i, result) in results.into_iter().enumerate() {
+            if let Err(e) = result {
+                let subscription = to_tombstone[i];
+                tracing::error!(
+                    topic = subscription.topic,
+                    hmac_key = subscription.hmac_key,
+                    error = ?e,
+                    "Failed to tombstone subscription"
+                );
+            }
+        }
+    };
+
+    let (delete_result, ()) = tokio::join!(delete_future, tombstone_future);
+    delete_result?;
+
+    Ok(StatusCode::NO_CONTENT)
+}
