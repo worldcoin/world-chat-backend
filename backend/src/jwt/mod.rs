@@ -122,10 +122,18 @@ impl JwtManager {
 
     /// Validate a compact JWS (JWT) string and return parsed claims on success.
     ///
+    /// # Arguments
+    /// * `token_str` - The compact JWS token string to validate
+    /// * `issued_after` - Optional cutoff timestamp; reject tokens with `iat` before this time
+    ///
     /// # Errors
     /// Returns an error if parsing fails, header is unexpected, signature is invalid,
     /// or time-based claims fail validation.
-    pub fn validate(&self, token_str: &str) -> Result<JwsPayload, JwtError> {
+    pub fn validate(
+        &self,
+        token_str: &str,
+        issued_after: Option<i64>,
+    ) -> Result<JwsPayload, JwtError> {
         let parts = JwsTokenParts::try_from(token_str)?;
 
         // Header checks: enforce alg, typ, and kid to prevent alg confusion
@@ -141,6 +149,14 @@ impl JwtManager {
         let claims: JwsPayload = parts.payload;
         let now = chrono::Utc::now().timestamp();
         validate_claims(&claims, now, MAX_SKEW_SECS)?;
+
+        // Cutoff check: reject tokens issued before the cutoff timestamp
+        if let Some(cutoff) = issued_after {
+            if claims.issued_at < cutoff {
+                return Err(JwtError::InvalidToken);
+            }
+        }
+
         Ok(claims)
     }
 }
