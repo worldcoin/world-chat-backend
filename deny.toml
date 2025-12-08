@@ -60,6 +60,7 @@ license-files = [
 # Ignore unmaintained required crates warning
 [advisories]
 ignore = [
+    "RUSTSEC-2025-0134", # Unmaintained `rustls-pemfile` 
     "RUSTSEC-2024-0388",  # Unmaintained `derivative` (2024-11-22)
     "RUSTSEC-2024-0436", # Unmaintained `paste` (2025-04-04)
     "RUSTSEC-2025-0055", # Unmaintained peer dependency of `semaphore-rs` with minimal impact
