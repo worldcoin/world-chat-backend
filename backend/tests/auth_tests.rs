@@ -292,7 +292,9 @@ async fn test_authorize_jwt_is_validatable_by_manager() {
     let manager = backend::jwt::JwtManager::new(context.kms_client.clone(), &context.environment)
         .await
         .expect("failed to build JwtManager");
-    let claims = manager.validate(token).expect("token should validate");
+    let claims = manager
+        .validate(token, None)
+        .expect("token should validate");
     assert_eq!(claims.subject, encrypted_push_id);
     assert_eq!(claims.issuer, "chat.toolsforhumanity.com");
 }
@@ -343,7 +345,7 @@ async fn test_validate_rejects_wrong_alg() {
     let manager = backend::jwt::JwtManager::new(context.kms_client.clone(), &context.environment)
         .await
         .expect("failed to build JwtManager");
-    let result = manager.validate(&tampered);
+    let result = manager.validate(&tampered, None);
     assert!(result.is_err(), "wrong alg should be rejected");
 }
 
@@ -392,7 +394,7 @@ async fn test_validate_rejects_wrong_kid() {
     let manager = backend::jwt::JwtManager::new(context.kms_client.clone(), &context.environment)
         .await
         .expect("failed to build JwtManager");
-    let result = manager.validate(&tampered);
+    let result = manager.validate(&tampered, None);
     assert!(result.is_err(), "wrong kid should be rejected");
 }
 
@@ -445,7 +447,7 @@ async fn test_validate_rejects_payload_tamper() {
     let manager = backend::jwt::JwtManager::new(context.kms_client.clone(), &context.environment)
         .await
         .expect("failed to build JwtManager");
-    let result = manager.validate(&tampered);
+    let result = manager.validate(&tampered, None);
     assert!(result.is_err(), "payload tamper should be rejected");
 }
 
