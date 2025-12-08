@@ -131,7 +131,7 @@ impl From<PushSubscriptionStorageError> for AppError {
             | DynamoDbUpdateError(_)
             | DynamoDbBatchWriteError(_)
             | DynamoDbBatchGetError(_) => {
-                tracing::error!("DynamoDB error: {err}");
+                tracing::error!("DynamoDB error: {err:#?}");
                 Self::new(
                     StatusCode::SERVICE_UNAVAILABLE,
                     "database_error",
