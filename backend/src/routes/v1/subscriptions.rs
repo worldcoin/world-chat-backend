@@ -5,13 +5,10 @@ use axum_valid::Valid;
 use futures::future::join_all;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use tracing::warn;
 use validator::Validate;
 
 use crate::{middleware::AuthenticatedUser, types::AppError};
-use backend_storage::push_subscription::{
-    PushSubscription, PushSubscriptionStorage, PushSubscriptionStorageError,
-};
+use backend_storage::push_subscription::{PushSubscription, PushSubscriptionStorage};
 
 /// In the context of XMTP hmac keys for a conversation are rotated every 30-day epoch cycle
 /// We set a maximum of 40 days to prevent bad actors subscribing to a topic for a longer period of time
@@ -129,25 +126,14 @@ pub async fn subscribe(
 
     let db_operations = push_subscriptions
         .iter()
-        .map(|subscription| push_storage.insert(subscription));
+        .map(|subscription| push_storage.upsert(subscription));
 
-    // Run all insertions concurrently
+    // Run all upserts concurrently
     let results = join_all(db_operations).await;
 
     for result in results {
-        match result {
-            Ok(()) => {}
-            // We don't allow a user to update his encrypted push id, because we can't distinguish
-            // between a legitimate rotation and a security risk.
-            // If a user legitimately rotates his encrypted push id, it will be used in the
-            // next 30-day epoch cycle where he would resubscibe with the new hmac keys.
-            Err(PushSubscriptionStorageError::PushSubscriptionExists) => {
-                warn!("subscription already exists");
-            }
-            Err(other) => {
-                // Fail on any other error
-                return Err(AppError::from(other));
-            }
+        if let Err(e) = result {
+            return Err(AppError::from(e));
         }
     }
 

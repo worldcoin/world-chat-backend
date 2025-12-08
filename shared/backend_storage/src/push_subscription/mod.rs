@@ -301,6 +301,50 @@ impl PushSubscriptionStorage {
         Ok(())
     }
 
+    /// Inserts or updates a push subscription (upsert)
+    ///
+    /// Unlike `insert`, this method will succeed even if a subscription with the same
+    /// `topic` and `hmac_key` already exists - it will simply overwrite the existing record.
+    ///
+    /// # Arguments
+    ///
+    /// * `subscription` - The push subscription to insert or update
+    ///
+    /// # Errors
+    ///
+    /// Returns `PushSubscriptionStorageError` if the Dynamo DB operation fails
+    pub async fn upsert(
+        &self,
+        subscription: &PushSubscription,
+    ) -> PushSubscriptionStorageResult<()> {
+        // Add random offset: 1 minute to 24 hours (uniform distribution)
+        let random_offset = {
+            let mut rng = rand::thread_rng();
+            rng.gen_range(60..=86400) // 60 seconds to 24 hours
+        };
+        let distributed_ttl = subscription.ttl + random_offset;
+
+        // Create a modified subscription with distributed TTL
+        let subscription_to_store = PushSubscription {
+            ttl: distributed_ttl,
+            ..subscription.clone()
+        };
+
+        // Convert to DynamoDB item
+        let item = serde_dynamo::to_item(&subscription_to_store)
+            .map_err(|e| PushSubscriptionStorageError::SerializationError(e.to_string()))?;
+
+        // Put without condition - will overwrite if exists
+        self.dynamodb_client
+            .put_item()
+            .table_name(&self.table_name)
+            .set_item(Some(item))
+            .send()
+            .await?;
+
+        Ok(())
+    }
+
     /// Deletes a push subscription by topic and HMAC key
     ///
     /// # Arguments
