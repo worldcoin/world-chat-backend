@@ -11,7 +11,6 @@ use aws_sdk_dynamodb::{
     types::{AttributeValue, DeleteRequest, KeysAndAttributes, Select, WriteRequest},
     Client as DynamoDbClient,
 };
-use futures::future;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 
@@ -466,38 +465,6 @@ impl PushSubscriptionStorage {
             .collect()
     }
 
-    /// Batch delete multiple subscriptions by topic and `hmac_keys` (single topic)
-    ///
-    /// # Arguments
-    ///
-    /// * `topic` - The topic of the subscriptions to delete
-    /// * `hmac_keys` - The HMAC keys of the subscriptions to delete
-    ///
-    /// # Errors
-    ///
-    /// Returns `PushSubscriptionStorageError` if the Dynamo DB operation fails
-    pub async fn batch_delete(
-        &self,
-        topic: &str,
-        hmac_keys: &[String],
-    ) -> PushSubscriptionStorageResult<()> {
-        // DynamoDB batch delete has a limit of 25 items per request
-        for chunk in hmac_keys.chunks(25) {
-            let write_requests = chunk
-                .iter()
-                .map(|hmac_key| Self::build_delete_req(topic.to_string(), hmac_key.to_string()))
-                .collect::<Result<Vec<_>, _>>()?;
-
-            self.dynamodb_client
-                .batch_write_item()
-                .request_items(&self.table_name, write_requests)
-                .send()
-                .await?;
-        }
-
-        Ok(())
-    }
-
     /// Batch delete multiple subscriptions across different topics
     ///
     /// # Arguments
@@ -531,33 +498,6 @@ impl PushSubscriptionStorage {
                 .await?;
         }
 
-        Ok(())
-    }
-
-    /// Batch append deletion requests to multiple subscriptions (single topic)
-    ///
-    /// # Arguments
-    ///
-    /// * `topic` - The topic of the subscriptions
-    /// * `hmac_keys` - The HMAC keys of the subscriptions
-    /// * `encrypted_push_id` - The encrypted push ID to add to deletion requests
-    ///
-    /// # Errors
-    ///
-    /// Returns `PushSubscriptionStorageError` if the Dynamo DB operation fails
-    pub async fn batch_append_delete_requests(
-        &self,
-        topic: &str,
-        hmac_keys: &[String],
-        encrypted_push_id: &str,
-    ) -> PushSubscriptionStorageResult<()> {
-        // Use parallel update operations for efficiency
-        let futures: Vec<_> = hmac_keys
-            .iter()
-            .map(|hmac_key| self.append_delete_request(topic, hmac_key, encrypted_push_id))
-            .collect();
-
-        future::try_join_all(futures).await?;
         Ok(())
     }
 
