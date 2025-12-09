@@ -215,8 +215,8 @@ impl From<PushSubscriptionStorageError> for AppError {
     #[allow(clippy::cognitive_complexity)]
     fn from(err: PushSubscriptionStorageError) -> Self {
         use PushSubscriptionStorageError::{
-            DynamoDbBatchWriteError, DynamoDbDeleteError, DynamoDbGetError, DynamoDbPutError,
-            DynamoDbQueryError, DynamoDbUpdateError, ParseSubscriptionError,
+            DynamoDbBatchGetError, DynamoDbBatchWriteError, DynamoDbDeleteError, DynamoDbGetError,
+            DynamoDbPutError, DynamoDbQueryError, DynamoDbUpdateError, ParseSubscriptionError,
             PushSubscriptionExists, SerializationError,
         };
 
@@ -226,7 +226,8 @@ impl From<PushSubscriptionStorageError> for AppError {
             | DynamoDbGetError(_)
             | DynamoDbQueryError(_)
             | DynamoDbUpdateError(_)
-            | DynamoDbBatchWriteError(_) => {
+            | DynamoDbBatchWriteError(_)
+            | DynamoDbBatchGetError(_) => {
                 tracing::error!("DynamoDB error: {err}");
                 Self::new(
                     StatusCode::SERVICE_UNAVAILABLE,

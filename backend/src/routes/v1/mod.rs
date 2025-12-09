@@ -30,6 +30,10 @@ pub fn handler() -> ApiRouter {
             "/subscriptions",
             post(subscriptions::subscribe).delete(subscriptions::unsubscribe),
         )
+        .api_route(
+            "/subscriptions/delete",
+            post(subscriptions::batch_unsubscribe),
+        )
         .layer(middleware::from_fn(auth_middleware));
 
     public_routes.merge(protected_routes)
