@@ -33,6 +33,10 @@ impl SqsMessageAttributeInjector {
 
 impl Injector for SqsMessageAttributeInjector {
     fn set(&mut self, key: &str, value: String) {
+        // SQS does not allow empty string values for message attributes
+        if value.is_empty() {
+            return;
+        }
         if let Ok(attr) = MessageAttributeValue::builder()
             .data_type("String")
             .string_value(value)
