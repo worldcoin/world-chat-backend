@@ -1,21 +1,20 @@
 use axum::{extract::Request, middleware::Next, response::Response};
-use tracing::Span;
-use tracing_opentelemetry::OpenTelemetrySpanExt;
+use opentelemetry::trace::TraceContextExt;
+use opentelemetry::{Context, KeyValue};
 
 /// Adds privacy-preserving client metadata to the current trace span.
 ///
 /// Only non-identifying information is recorded (platform, app version, OS version).
 /// Future: oHTTP integration will further enhance privacy by hiding client IPs from the server.
 pub async fn add_client_info_to_span(request: Request, next: Next) -> Response {
-    let span = Span::current();
+    // Get the OpenTelemetry context directly (bypasses tracing's Span::current())
+    let cx = Context::current();
+    let span = cx.span();
 
-    for (header, key) in [
-        ("client-name", "client.platform"),
-        ("client-version", "client.version"),
-        ("client-os-version", "client.os_version"),
-    ] {
+    for header in ["client-name", "client-version", "client-os-version"] {
         if let Some(value) = request.headers().get(header).and_then(|v| v.to_str().ok()) {
-            span.set_attribute(key, value.to_owned());
+            let key = format!("http.request.headers.{header}");
+            span.set_attribute(KeyValue::new(key, value.to_owned()));
         }
     }
 
