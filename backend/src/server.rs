@@ -38,10 +38,10 @@ pub async fn start(
         .layer(Extension(enclave_worker_api))
         // Include trace context as header into the response
         .route_layer(OtelInResponseLayer)
-        // Add client info to trace span
-        .route_layer(axum::middleware::from_fn(add_client_info_to_span))
         // Start OpenTelemetry trace on incoming request
         .route_layer(OtelAxumLayer::default())
+        // Add client info to trace span (must be after OtelAxumLayer creates the span)
+        .route_layer(axum::middleware::from_fn(add_client_info_to_span))
         .layer(tower_http::timeout::TimeoutLayer::new(
             std::time::Duration::from_secs(5),
         ));
