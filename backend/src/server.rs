@@ -8,6 +8,7 @@ use datadog_tracing::axum::{shutdown_signal, OtelAxumLayer, OtelInResponseLayer}
 use tokio::net::TcpListener;
 
 use crate::enclave_worker_api::EnclaveWorkerApi;
+use crate::middleware::add_client_info_to_span;
 use crate::routes;
 use crate::{jwt::JwtManager, media_storage::MediaStorage, types::Environment};
 
@@ -37,6 +38,8 @@ pub async fn start(
         .layer(Extension(enclave_worker_api))
         // Include trace context as header into the response
         .route_layer(OtelInResponseLayer)
+        // Add client info to trace span
+        .route_layer(axum::middleware::from_fn(add_client_info_to_span))
         // Start OpenTelemetry trace on incoming request
         .route_layer(OtelAxumLayer::default())
         .layer(tower_http::timeout::TimeoutLayer::new(

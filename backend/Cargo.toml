@@ -30,6 +30,7 @@ tracing-subscriber = { workspace = true }
 
 # Datadog tracing
 datadog-tracing = { workspace = true }
+tracing-opentelemetry = "0.32"
 
 # Error handling
 anyhow = { workspace = true }
