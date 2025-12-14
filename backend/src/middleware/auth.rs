@@ -121,10 +121,31 @@ pub async fn auth_middleware(
         )
     })?;
 
+    // Log client info for debugging
+    let client_name = request
+        .headers()
+        .get("client-name")
+        .and_then(|v| v.to_str().ok());
+    let client_version = request
+        .headers()
+        .get("client-version")
+        .and_then(|v| v.to_str().ok());
+    let client_os_version = request
+        .headers()
+        .get("client-os-version")
+        .and_then(|v| v.to_str().ok());
+
     // Validate JWT
     let claims = jwt_manager
         .validate(token, parse_cutoff_timestamp())
-        .map_err(|_| {
+        .map_err(|e| {
+            tracing::warn!(
+                client_name,
+                client_version,
+                client_os_version,
+                "failed to authenticate request {e:#?}",
+            );
+
             AppError::new(
                 StatusCode::UNAUTHORIZED,
                 "invalid_token",
