@@ -93,15 +93,15 @@ impl<'a> TryFrom<&'a str> for JwsTokenParts<'a> {
         let mut parts = token.split('.');
         match (parts.next(), parts.next(), parts.next()) {
             (Some(h_b64), Some(p_b64), Some(s)) if parts.next().is_none() => {
-                let header_bytes = URL_SAFE_NO_PAD
-                    .decode(h_b64)
-                    .map_err(|_| JwtError::InvalidToken("header is not valid base64".to_string()))?;
+                let header_bytes = URL_SAFE_NO_PAD.decode(h_b64).map_err(|_| {
+                    JwtError::InvalidToken("header is not valid base64".to_string())
+                })?;
                 let header_decoded: JwsHeader = serde_json::from_slice(&header_bytes)
                     .map_err(|_| JwtError::InvalidToken("header is not valid JSON".to_string()))?;
 
-                let payload_bytes = URL_SAFE_NO_PAD
-                    .decode(p_b64)
-                    .map_err(|_| JwtError::InvalidToken("payload is not valid base64".to_string()))?;
+                let payload_bytes = URL_SAFE_NO_PAD.decode(p_b64).map_err(|_| {
+                    JwtError::InvalidToken("payload is not valid base64".to_string())
+                })?;
                 let payload_decoded: JwsPayload = serde_json::from_slice(&payload_bytes)
                     .map_err(|_| JwtError::InvalidToken("payload is not valid JSON".to_string()))?;
 

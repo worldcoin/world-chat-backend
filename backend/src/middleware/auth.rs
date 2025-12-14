@@ -112,15 +112,6 @@ pub async fn auth_middleware(
         return Ok(next.run(request).await);
     }
 
-    let token = stripped_auth_header.ok_or_else(|| {
-        AppError::new(
-            StatusCode::UNAUTHORIZED,
-            "missing_token",
-            "Authorization header must contain a valid Bearer token",
-            false,
-        )
-    })?;
-
     // Log client info for debugging
     let client_name = request
         .headers()
@@ -134,6 +125,22 @@ pub async fn auth_middleware(
         .headers()
         .get("client-os-version")
         .and_then(|v| v.to_str().ok());
+
+    let token = stripped_auth_header.ok_or_else(|| {
+        tracing::warn!(
+            client_name,
+            client_version,
+            client_os_version,
+            "missing auth token",
+        );
+
+        AppError::new(
+            StatusCode::UNAUTHORIZED,
+            "missing_token",
+            "Authorization header must contain a valid Bearer token",
+            false,
+        )
+    })?;
 
     // Validate JWT
     let claims = jwt_manager
