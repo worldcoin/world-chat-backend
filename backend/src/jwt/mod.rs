@@ -139,7 +139,7 @@ impl JwtManager {
         // Header checks: enforce alg, typ, and kid to prevent alg confusion
         let header: &JwsHeader = &parts.header;
         if header.alg != ALG_ES256 || header.typ != TYP_JWT || header.kid != self.kid {
-            return Err(JwtError::InvalidToken);
+            return Err(JwtError::InvalidToken("invalid header fields".to_string()));
         }
 
         // Signature verification
@@ -153,7 +153,9 @@ impl JwtManager {
         // Cutoff check: reject tokens issued before the cutoff timestamp
         if let Some(cutoff) = issued_after {
             if claims.issued_at < cutoff {
-                return Err(JwtError::InvalidToken);
+                return Err(JwtError::InvalidToken(
+                    "token issued before allowed cutoff".to_string(),
+                ));
             }
         }
 
@@ -175,7 +177,7 @@ pub(crate) fn verify_signature_with_key(
 
     let sig_bytes = URL_SAFE_NO_PAD
         .decode(parts.signature)
-        .map_err(|_| JwtError::InvalidToken)?;
+        .map_err(|_| JwtError::InvalidToken("signature is not valid base64".to_string()))?;
     let sig = Signature::try_from(sig_bytes.as_slice()).map_err(|_| JwtError::InvalidSignature)?;
     verifying_key
         .verify_digest(digest, &sig)
@@ -186,17 +188,24 @@ pub(crate) fn verify_signature_with_key(
 pub(crate) fn validate_claims(claims: &JwsPayload, now: i64, skew: i64) -> Result<(), JwtError> {
     // Enforce known issuer
     if claims.issuer != ISSUER {
-        return Err(JwtError::InvalidToken);
+        return Err(JwtError::InvalidToken(format!(
+            "invalid issuer: expected {ISSUER}, got {}",
+            claims.issuer
+        )));
     }
     if now + skew < claims.not_before {
-        return Err(JwtError::InvalidToken);
+        return Err(JwtError::InvalidToken(
+            "token not yet valid (nbf)".to_string(),
+        ));
     }
     if now - skew >= claims.expires_at {
-        return Err(JwtError::InvalidToken);
+        return Err(JwtError::InvalidToken("token has expired".to_string()));
     }
     // Follow josekit validator practice: iat must not be in the future.
     if claims.issued_at > now + skew {
-        return Err(JwtError::InvalidToken);
+        return Err(JwtError::InvalidToken(
+            "token issued in the future".to_string(),
+        ));
     }
     Ok(())
 }

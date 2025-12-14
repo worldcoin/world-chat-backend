@@ -85,7 +85,7 @@ mod token_parsing {
     fn test_invalid_base64_in_header() {
         let token = "not!valid!base64.eyJzdWIiOiJ0ZXN0In0.signature";
         let result = JwsTokenParts::try_from(token);
-        assert!(matches!(result, Err(JwtError::InvalidToken)));
+        assert!(matches!(result, Err(JwtError::InvalidToken(_))));
     }
 
     #[test]
@@ -93,7 +93,7 @@ mod token_parsing {
         let token =
             "eyJhbGciOiJFUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6InRlc3QifQ.not!valid!base64.signature";
         let result = JwsTokenParts::try_from(token);
-        assert!(matches!(result, Err(JwtError::InvalidToken)));
+        assert!(matches!(result, Err(JwtError::InvalidToken(_))));
     }
 
     #[test]
@@ -104,7 +104,7 @@ mod token_parsing {
         let token = format!("{invalid_json}.{valid_payload}.signature");
 
         let result = JwsTokenParts::try_from(token.as_str());
-        assert!(matches!(result, Err(JwtError::InvalidToken)));
+        assert!(matches!(result, Err(JwtError::InvalidToken(_))));
 
         // Valid base64 but invalid JSON in payload
         let valid_header =
@@ -113,7 +113,7 @@ mod token_parsing {
         let token = format!("{valid_header}.{invalid_json}.signature");
 
         let result = JwsTokenParts::try_from(token.as_str());
-        assert!(matches!(result, Err(JwtError::InvalidToken)));
+        assert!(matches!(result, Err(JwtError::InvalidToken(_))));
     }
 }
 
@@ -184,7 +184,7 @@ mod header_validation {
         let token = format!("{header_b64}.{payload_b64}.signature");
 
         let result = JwsTokenParts::try_from(token.as_str());
-        assert!(matches!(result, Err(JwtError::InvalidToken)));
+        assert!(matches!(result, Err(JwtError::InvalidToken(_))));
     }
 
     #[test]
@@ -381,7 +381,7 @@ mod claims_validation {
         // validate_claims enforces issuer now
         assert!(matches!(
             validate_claims(&claims, now, 60),
-            Err(JwtError::InvalidToken)
+            Err(JwtError::InvalidToken(_))
         ));
     }
 }
@@ -472,7 +472,7 @@ mod signature_format {
         // The error occurs during verify_signature_with_key when it tries to decode
         let parts_invalid = JwsTokenParts::try_from(token_invalid_chars.as_str()).unwrap();
         let result = verify_signature_with_key(&parts_invalid, &verifying_key);
-        assert!(matches!(result, Err(JwtError::InvalidToken)));
+        assert!(matches!(result, Err(JwtError::InvalidToken(_))));
 
         // Test 2: Valid base64 but wrong length for ES256 signature
         let wrong_sig = URL_SAFE_NO_PAD.encode(b"not a valid signature");

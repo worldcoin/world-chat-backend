@@ -7,8 +7,8 @@ use thiserror::Error;
 
 #[derive(Error, Debug)]
 pub enum JwtError {
-    #[error("Invalid or malformed token")]
-    InvalidToken,
+    #[error("Invalid token: {0}")]
+    InvalidToken(String),
 
     #[error("Invalid signature")]
     InvalidSignature,

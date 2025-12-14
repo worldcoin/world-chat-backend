@@ -343,12 +343,15 @@ impl From<JwtError> for AppError {
         use JwtError::{InvalidSignature, InvalidToken, Kms, Other, SigningInput};
 
         match &err {
-            InvalidToken => Self::new(
-                StatusCode::UNAUTHORIZED,
-                "invalid_token",
-                "Invalid or malformed token",
-                false,
-            ),
+            InvalidToken(reason) => {
+                tracing::warn!("Invalid token: {reason}");
+                Self::new(
+                    StatusCode::UNAUTHORIZED,
+                    "invalid_token",
+                    "Invalid or malformed token",
+                    false,
+                )
+            }
             Kms(e) => {
                 tracing::error!("KMS error: {e}");
                 Self::new(
