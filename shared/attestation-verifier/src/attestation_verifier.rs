@@ -121,6 +121,14 @@ impl EnclaveAttestationVerifier {
         })
     }
 
+    /// Verifies the attestation document without checking PCR values.
+    ///
+    /// This is useful for verifying attestation documents when PCR values
+    /// are not known or not relevant (e.g., checking certificate validity).
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the attestation document verification fails.
     pub fn verify_attestation_document_without_pcr_check(
         &self,
         attestation_doc_bytes: &[u8],
@@ -150,7 +158,7 @@ impl EnclaveAttestationVerifier {
         // 3. Cryptographic validation
         Self::verify_cose_signature(&cose_sign1, &leaf_cert)?;
         self.check_attestation_freshness(&attestation)?;
-        if (with_pcr_check) {
+        if with_pcr_check {
             self.validate_pcr_values(&attestation)?;
         }
         let public_key = Self::extract_public_key(&attestation)?;

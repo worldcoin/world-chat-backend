@@ -23,7 +23,7 @@ pub async fn handler(
             MAX_TTL_SECS,
             move || async move {
                 let attestation_document =
-                    fetch_attestation_document(pontifex_connection_details.clone()).await?;
+                    fetch_attestation_document(pontifex_connection_details).await?;
 
                 info!(attestation = %STANDARD.encode(attestation_document.clone()), "Refreshed attestation document");
 
@@ -44,7 +44,7 @@ pub async fn handler(
             Err(e) => {
                 error!("Attestation document verification failed: {e:?}");
 
-                let fresh = fetch_attestation_document(pontifex_connection_details.clone())
+                let fresh = fetch_attestation_document(pontifex_connection_details)
                     .await
                     .map_err(|e| {
                         error!("Failed to get attestation document: {e:?}");
@@ -64,9 +64,9 @@ pub async fn handler(
             }
         };
 
-    return Ok(Json(AttestationDocumentResponse {
+    Ok(Json(AttestationDocumentResponse {
         attestation_doc_base64: STANDARD.encode(attestation_doc),
-    }));
+    }))
 }
 
 async fn fetch_attestation_document(

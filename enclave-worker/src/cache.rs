@@ -45,7 +45,7 @@ impl CacheManager {
         Ok(data)
     }
 
-    pub async fn set_with_ttl_safely(&self, key: &str, data: &[u8], ttl_secs: u64) -> () {
+    pub async fn set_with_ttl_safely(&self, key: &str, data: &[u8], ttl_secs: u64) {
         if let Err(e) = self.set_with_ttl(key, data, ttl_secs).await {
             tracing::error!("Failed to set cache key {key}: {e:?}");
         }
