@@ -36,34 +36,37 @@ pub async fn handler(
             AppError::internal_server_error()
         })?;
 
-    // If the attestation document fails verification
-    // - Fetch a fresh one and update cache
-    let attestation_verifier = EnclaveAttestationVerifier::new(vec![]);
-    if let Err(e) =
-        attestation_verifier.verify_attestation_document_without_pcr_check(&attestation_doc)
-    {
-        error!("Attestation document verification failed: {e:?}");
+    // If verification fails, fetch a fresh one and update the cache, otherwise use cached doc.
+    let verifier = EnclaveAttestationVerifier::new(vec![]);
+    let attestation_doc =
+        match verifier.verify_attestation_document_without_pcr_check(&attestation_doc) {
+            Ok(()) => attestation_doc,
+            Err(e) => {
+                error!("Attestation document verification failed: {e:?}");
 
-        let attestation_doc = fetch_attestation_document(pontifex_connection_details.clone())
-            .await
-            .map_err(|e| {
-                error!("Failed to get attestation document: {e:?}");
-                AppError::internal_server_error()
-            })?;
-        cache_manager
-            .set_with_ttl_safely(CACHE_KEY, &attestation_doc, MAX_TTL_SECS)
-            .await;
+                let fresh = fetch_attestation_document(pontifex_connection_details.clone())
+                    .await
+                    .map_err(|e| {
+                        error!("Failed to get attestation document: {e:?}");
+                        AppError::internal_server_error()
+                    })?;
 
-        info!(attestation = %STANDARD.encode(attestation_doc.clone()), "Refreshed attestation document after failed verification");
+                cache_manager
+                    .set_with_ttl_safely(CACHE_KEY, &fresh, MAX_TTL_SECS)
+                    .await;
 
-        return Ok(Json(AttestationDocumentResponse {
-            attestation_doc_base64: STANDARD.encode(attestation_doc),
-        }));
-    } else {
-        return Ok(Json(AttestationDocumentResponse {
-            attestation_doc_base64: STANDARD.encode(attestation_doc),
-        }));
-    }
+                info!(
+                    attestation = %STANDARD.encode(&fresh),
+                    "Refreshed attestation document after failed verification"
+                );
+
+                fresh
+            }
+        };
+
+    return Ok(Json(AttestationDocumentResponse {
+        attestation_doc_base64: STANDARD.encode(attestation_doc),
+    }));
 }
 
 async fn fetch_attestation_document(
