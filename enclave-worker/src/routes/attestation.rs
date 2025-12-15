@@ -1,16 +1,16 @@
 use anyhow::Context;
+use attestation_verifier::EnclaveAttestationVerifier;
 use axum::{Extension, Json};
 use base64::engine::general_purpose::STANDARD;
 use base64::Engine;
 use common_types::AttestationDocumentResponse;
 use enclave_types::EnclaveAttestationDocRequest;
-use tracing::info;
+use tracing::{error, info};
 
 use crate::cache::CacheManager;
 use crate::types::AppError;
 
-const EXPIRATION_TIME_SECS: u64 = 60 * 60 * 3; // 3 hours
-const REFRESH_THRESHOLD_SECS: u64 = 60 * 30; // 30 minutes before expiration
+const MAX_TTL_SECS: u64 = 60 * 60 * 3; // 3 hours
 const CACHE_KEY: &str = "enclave-worker:attestation-document";
 
 pub async fn handler(
@@ -20,30 +20,63 @@ pub async fn handler(
     let attestation_doc = cache_manager
         .cache_with_refresh(
             CACHE_KEY,
-            EXPIRATION_TIME_SECS,
-            REFRESH_THRESHOLD_SECS,
+            MAX_TTL_SECS,
             move || async move {
-                let request = EnclaveAttestationDocRequest {};
-                let response = pontifex::client::send::<EnclaveAttestationDocRequest>(
-                    pontifex_connection_details,
-                    &request,
-                )
-                .await
-                .context("Pontifex error")?
-                .context("Failed to fetch attestation document")?;
+                let attestation_document =
+                    fetch_attestation_document(pontifex_connection_details.clone()).await?;
 
-                info!(attestation = %STANDARD.encode(response.attestation.clone()), "Refreshed attestation document");
+                info!(attestation = %STANDARD.encode(attestation_document.clone()), "Refreshed attestation document");
 
-                Ok(response.attestation)
+                Ok(attestation_document)
             },
         )
         .await
         .map_err(|e| {
-            tracing::error!("Failed to get attestation document: {e:?}");
+            error!("Failed to get attestation document: {e:?}");
             AppError::internal_server_error()
         })?;
 
-    Ok(Json(AttestationDocumentResponse {
-        attestation_doc_base64: STANDARD.encode(attestation_doc),
-    }))
+    // If the attestation document fails verification
+    // - Fetch a fresh one and update cache
+    let attestation_verifier = EnclaveAttestationVerifier::new(vec![]);
+    if let Err(e) =
+        attestation_verifier.verify_attestation_document_without_pcr_check(&attestation_doc)
+    {
+        error!("Attestation document verification failed: {e:?}");
+
+        let attestation_doc = fetch_attestation_document(pontifex_connection_details.clone())
+            .await
+            .map_err(|e| {
+                error!("Failed to get attestation document: {e:?}");
+                AppError::internal_server_error()
+            })?;
+        cache_manager
+            .set_with_ttl_safely(CACHE_KEY, &attestation_doc, MAX_TTL_SECS)
+            .await;
+
+        info!(attestation = %STANDARD.encode(attestation_doc.clone()), "Refreshed attestation document after failed verification");
+
+        return Ok(Json(AttestationDocumentResponse {
+            attestation_doc_base64: STANDARD.encode(attestation_doc),
+        }));
+    } else {
+        return Ok(Json(AttestationDocumentResponse {
+            attestation_doc_base64: STANDARD.encode(attestation_doc),
+        }));
+    }
+}
+
+async fn fetch_attestation_document(
+    pontifex_connection_details: pontifex::client::ConnectionDetails,
+) -> anyhow::Result<Vec<u8>> {
+    let request: EnclaveAttestationDocRequest = EnclaveAttestationDocRequest {};
+    let response = pontifex::client::send::<EnclaveAttestationDocRequest>(
+        pontifex_connection_details,
+        &request,
+    )
+    .await
+    .context("Pontifex error")?
+    .context("Failed to fetch attestation document")?;
+
+    Ok(response.attestation)
 }

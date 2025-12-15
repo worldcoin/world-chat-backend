@@ -94,7 +94,7 @@ impl EnclaveAttestationVerifier {
         attestation_doc: &[u8],
         plaintext: &[u8],
     ) -> EnclaveAttestationResult<VerifiedAttestationWithCiphertext> {
-        let verified_attestation = self.verify_attestation_document(attestation_doc)?;
+        let verified_attestation = self.verify_attestation_document(attestation_doc, true)?;
 
         let public_key = {
             let pk_bytes = STANDARD
@@ -120,6 +120,14 @@ impl EnclaveAttestationVerifier {
             ciphertext,
         })
     }
+
+    pub fn verify_attestation_document_without_pcr_check(
+        &self,
+        attestation_doc_bytes: &[u8],
+    ) -> EnclaveAttestationResult<()> {
+        self.verify_attestation_document(attestation_doc_bytes, false)?;
+        Ok(())
+    }
 }
 
 impl EnclaveAttestationVerifier {
@@ -130,6 +138,7 @@ impl EnclaveAttestationVerifier {
     fn verify_attestation_document(
         &self,
         attestation_doc_bytes: &[u8],
+        with_pcr_check: bool,
     ) -> EnclaveAttestationResult<VerifiedAttestation> {
         // 1. Syntactical validation
         let cose_sign1 = Self::parse_cose_sign1(attestation_doc_bytes)?;
@@ -140,8 +149,10 @@ impl EnclaveAttestationVerifier {
 
         // 3. Cryptographic validation
         Self::verify_cose_signature(&cose_sign1, &leaf_cert)?;
-        self.validate_pcr_values(&attestation)?;
         self.check_attestation_freshness(&attestation)?;
+        if (with_pcr_check) {
+            self.validate_pcr_values(&attestation)?;
+        }
         let public_key = Self::extract_public_key(&attestation)?;
 
         Ok(VerifiedAttestation::new(
