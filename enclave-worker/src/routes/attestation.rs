@@ -9,8 +9,8 @@ use tracing::info;
 use crate::cache::CacheManager;
 use crate::types::AppError;
 
-const EXPIRATION_TIME_SECS: u64 = 60 * 60 * 3; // 3 hours
-const REFRESH_THRESHOLD_SECS: u64 = 60 * 30; // 30 minutes before expiration
+const MAX_TTL_SECS: u64 = 60 * 2; // 2 minutes
+const REFRESH_THRESHOLD_SECS: u64 = 20; // 20 seconds before expiration
 const CACHE_KEY: &str = "enclave-worker:attestation-document";
 
 pub async fn handler(
@@ -20,7 +20,7 @@ pub async fn handler(
     let attestation_doc = cache_manager
         .cache_with_refresh(
             CACHE_KEY,
-            EXPIRATION_TIME_SECS,
+            MAX_TTL_SECS,
             REFRESH_THRESHOLD_SECS,
             move || async move {
                 let request = EnclaveAttestationDocRequest {};
