@@ -1,4 +1,4 @@
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use aws_nitro_enclaves_nsm_api::api::AttestationDoc;
 use base64::engine::general_purpose::STANDARD;
@@ -8,6 +8,55 @@ use crypto_box::{aead::OsRng, PublicKey};
 use p384::ecdsa::{signature::Verifier as _, Signature, VerifyingKey};
 use webpki::{EndEntityCert, TrustAnchor};
 use x509_cert::{der::Decode, Certificate};
+
+/// Certificate validity information extracted from an attestation document
+#[derive(Debug, Clone)]
+pub struct CertificateValidity {
+    /// Certificate `not_before` as unix timestamp (seconds)
+    pub not_before_secs: u64,
+    /// Certificate `not_after` as unix timestamp (seconds)
+    pub not_after_secs: u64,
+}
+
+impl CertificateValidity {
+    /// Returns the remaining validity in seconds from now, or 0 if already expired
+    #[must_use]
+    pub fn remaining_validity_secs(&self) -> u64 {
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or(Duration::ZERO)
+            .as_secs();
+        self.not_after_secs.saturating_sub(now)
+    }
+}
+
+/// Extract certificate validity information from an attestation document.
+///
+/// This is useful for logging and debugging certificate expiration issues.
+///
+/// # Errors
+/// Returns an error if the attestation document cannot be parsed.
+pub fn extract_certificate_validity(
+    attestation_doc_bytes: &[u8],
+) -> EnclaveAttestationResult<CertificateValidity> {
+    let cose_sign1 = EnclaveAttestationVerifier::parse_cose_sign1(attestation_doc_bytes)?;
+    let attestation = EnclaveAttestationVerifier::parse_cbor_payload(&cose_sign1)?;
+
+    let cert = Certificate::from_der(&attestation.certificate).map_err(|e| {
+        EnclaveAttestationError::AttestationChainInvalid(format!(
+            "Failed to parse leaf certificate: {e}"
+        ))
+    })?;
+
+    let validity = &cert.tbs_certificate.validity;
+    let not_before_secs = validity.not_before.to_unix_duration().as_secs();
+    let not_after_secs = validity.not_after.to_unix_duration().as_secs();
+
+    Ok(CertificateValidity {
+        not_before_secs,
+        not_after_secs,
+    })
+}
 
 pub use crate::types::{
     EnclaveAttestationError, EnclaveAttestationResult, VerifiedAttestation,

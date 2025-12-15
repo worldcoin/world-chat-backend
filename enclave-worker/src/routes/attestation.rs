@@ -1,10 +1,11 @@
 use anyhow::Context;
+use attestation_verifier::extract_certificate_validity;
 use axum::{Extension, Json};
 use base64::engine::general_purpose::STANDARD;
 use base64::Engine;
 use common_types::AttestationDocumentResponse;
 use enclave_types::EnclaveAttestationDocRequest;
-use tracing::info;
+use tracing::{info, warn};
 
 use crate::cache::CacheManager;
 use crate::types::AppError;
@@ -32,7 +33,20 @@ pub async fn handler(
                 .context("Pontifex error")?
                 .context("Failed to fetch attestation document")?;
 
-                info!(attestation = %STANDARD.encode(response.attestation.clone()), "Refreshed attestation document");
+                // Log certificate validity for debugging
+                match extract_certificate_validity(&response.attestation) {
+                    Ok(validity) => {
+                        info!(
+                            cert_not_before = validity.not_before_secs,
+                            cert_not_after = validity.not_after_secs,
+                            remaining_validity_secs = validity.remaining_validity_secs(),
+                            "Refreshed attestation document"
+                        );
+                    }
+                    Err(e) => {
+                        warn!("Failed to extract certificate validity: {e:?}");
+                    }
+                }
 
                 Ok(response.attestation)
             },

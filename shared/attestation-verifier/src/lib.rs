@@ -4,5 +4,7 @@ pub mod attestation_verifier;
 pub mod constants;
 pub mod types;
 
-pub use attestation_verifier::EnclaveAttestationVerifier;
+pub use attestation_verifier::{
+    extract_certificate_validity, CertificateValidity, EnclaveAttestationVerifier,
+};
 pub use types::*;
