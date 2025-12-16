@@ -136,7 +136,7 @@ pub async fn get_config(
     let client = ClientInfo::from_headers(&headers);
 
     let notification_server_version = if client.version_is_at_least(4, 0, 0) {
-        "v5"
+        "v4"
     } else {
         "v1"
     }
