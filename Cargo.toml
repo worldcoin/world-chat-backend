@@ -60,7 +60,7 @@ tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 chrono = { version = "0.4", features = ["serde"] }
 
 # HTTP
-http = "1.1"
+http = "1.4"
 
 # AWS SDK
 aws-config = "1.8"
