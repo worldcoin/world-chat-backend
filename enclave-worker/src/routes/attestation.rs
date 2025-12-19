@@ -38,31 +38,30 @@ pub async fn handler(
 
     // If verification fails, fetch a fresh one and update the cache, otherwise use cached doc.
     let verifier = EnclaveAttestationVerifier::new(vec![]);
-    let attestation_doc =
-        match verifier.verify_attestation_document_without_pcr_check(&attestation_doc) {
-            Ok(()) => attestation_doc,
-            Err(e) => {
-                error!("Attestation document verification failed: {e:?}");
+    let attestation_doc = match verifier.verify_certificate_and_freshness(&attestation_doc) {
+        Ok(()) => attestation_doc,
+        Err(e) => {
+            error!("Attestation document verification failed: {e:?}");
 
-                let fresh = fetch_attestation_document(pontifex_connection_details)
-                    .await
-                    .map_err(|e| {
-                        error!("Failed to get attestation document: {e:?}");
-                        AppError::internal_server_error()
-                    })?;
+            let fresh = fetch_attestation_document(pontifex_connection_details)
+                .await
+                .map_err(|e| {
+                    error!("Failed to get attestation document: {e:?}");
+                    AppError::internal_server_error()
+                })?;
 
-                cache_manager
-                    .set_with_ttl_safely(CACHE_KEY, &fresh, MAX_TTL_SECS)
-                    .await;
+            cache_manager
+                .set_with_ttl_safely(CACHE_KEY, &fresh, MAX_TTL_SECS)
+                .await;
 
-                info!(
-                    attestation = %STANDARD.encode(&fresh),
-                    "Refreshed attestation document after failed verification"
-                );
+            info!(
+                attestation = %STANDARD.encode(&fresh),
+                "Refreshed attestation document after failed verification"
+            );
 
-                fresh
-            }
-        };
+            fresh
+        }
+    };
 
     Ok(Json(AttestationDocumentResponse {
         attestation_doc_base64: STANDARD.encode(attestation_doc),
