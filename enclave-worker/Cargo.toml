@@ -48,7 +48,6 @@ pontifex = { workspace = true, features = ["client"] }
 
 enclave-types = { workspace = true }
 common-types = { workspace = true }
-attestation-verifier = { path = "../shared/attestation-verifier" }
 
 base64 = { workspace = true }
 hex = { workspace = true }
