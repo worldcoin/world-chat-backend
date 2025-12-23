@@ -169,6 +169,30 @@ impl EnclaveAttestationVerifier {
             ciphertext,
         })
     }
+
+    /// Verifies the certificate and freshness of an attestation document
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the attestation document verification fails.
+    pub fn verify_certificate_and_freshness(
+        &self,
+        attestation_doc_bytes: &[u8],
+    ) -> EnclaveAttestationResult<()> {
+        // 1. Syntactical validation
+        let cose_sign1 = Self::parse_cose_sign1(attestation_doc_bytes)?;
+        let attestation = Self::parse_cbor_payload(&cose_sign1)?;
+
+        // 2. Semantic validation
+        let leaf_cert = self.verify_certificate_chain(&attestation)?;
+
+        // 3. Cryptographic validation
+        Self::verify_cose_signature(&cose_sign1, &leaf_cert)?;
+        self.check_attestation_freshness(&attestation)?;
+        self.validate_pcr_values(&attestation)?;
+
+        Ok(())
+    }
 }
 
 impl EnclaveAttestationVerifier {
@@ -189,8 +213,8 @@ impl EnclaveAttestationVerifier {
 
         // 3. Cryptographic validation
         Self::verify_cose_signature(&cose_sign1, &leaf_cert)?;
-        self.validate_pcr_values(&attestation)?;
         self.check_attestation_freshness(&attestation)?;
+        self.validate_pcr_values(&attestation)?;
         let public_key = Self::extract_public_key(&attestation)?;
 
         Ok(VerifiedAttestation::new(
