@@ -54,6 +54,8 @@ hex = { workspace = true }
 
 redis = { workspace = true, features = ["tokio-comp", "aio", "connection-manager"]}
 
+attestation-verifier = { workspace = true }
+
 [dev-dependencies]
 uuid = { workspace = true }
 dotenvy = { workspace = true }
