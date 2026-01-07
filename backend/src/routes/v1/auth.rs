@@ -59,14 +59,16 @@ pub async fn authorize_handler(
     Extension(enclave_worker_api): Extension<Arc<dyn EnclaveWorkerApi>>,
     Json(request): Json<AuthRequest>,
 ) -> Result<Json<AuthResponse>, AppError> {
-    // 1. Verify World ID proof
+    // 1. Validate inputs
     let signal = validate_and_craft_signal(&request.encrypted_push_id, request.timestamp)?;
+    let nullifier_hash = validate_and_normalize_nullifier_hash(&request.nullifier_hash)?;
 
+    // 2. Verify World ID proof
     verify_world_id_proof(
         &environment.world_id_app_id(),
         &environment.world_id_action(),
         &request.proof,
-        &request.nullifier_hash,
+        &nullifier_hash,
         &request.merkle_root,
         request.credential_type,
         &signal,
@@ -74,15 +76,15 @@ pub async fn authorize_handler(
     )
     .await?;
 
-    // 2. Fetch or create the auth-proof record
+    // 3. Fetch or create the auth-proof record
     let auth_proof = auth_proof_storage
         .get_or_insert(AuthProofInsertRequest {
-            nullifier: request.nullifier_hash.clone(),
+            nullifier: nullifier_hash,
             encrypted_push_id: request.encrypted_push_id.clone(),
         })
         .await?;
 
-    // 3. Decide the push id action
+    // 4. Decide the push id action
     // - If the push ids match, issue a JWT token with the stored encrypted push id
     // - If the push ids don't match, but the push id rotation is within the threshold, reject the rotation
     // - Otherwise, rotate the push id and issue a JWT token with the new encrypted push id
@@ -150,6 +152,43 @@ fn validate_and_craft_signal(
     Ok(format!("{encrypted_push_id}:{timestamp}"))
 }
 
+/// Validates and normalizes a nullifier hash.
+///
+/// Ensures the nullifier hash:
+/// - Starts with '0x'
+/// - Is exactly 66 characters long (0x + 64 hex chars)
+/// - Contains only hexadecimal characters after the prefix
+///
+/// Returns the lowercase normalized nullifier hash on success.
+///
+/// # Errors
+/// - `WorldIdError::InvalidProofData` - If the nullifier hash format is invalid
+fn validate_and_normalize_nullifier_hash(nullifier_hash: &str) -> Result<String, WorldIdError> {
+    let lowercased = nullifier_hash.to_lowercase();
+
+    if !lowercased.starts_with("0x") {
+        return Err(WorldIdError::InvalidProofData(
+            "Nullifier hash must start with 0x".to_string(),
+        ));
+    }
+
+    if lowercased.len() != 66 {
+        return Err(WorldIdError::InvalidProofData(
+            "Nullifier hash must be 66 characters long".to_string(),
+        ));
+    }
+
+    // Check that all characters after "0x" are valid hex digits
+    if !lowercased[2..].chars().all(|c| c.is_ascii_hexdigit()) {
+        return Err(WorldIdError::InvalidProofData(
+            "Nullifier hash must start with 0x and contain only hexadecimal characters"
+                .to_string(),
+        ));
+    }
+
+    Ok(lowercased)
+}
+
 /// Enum with possible push id action states
 enum PushIdAction {
     IssueStored(String),
@@ -169,4 +208,87 @@ async fn issue_jwt_token(
         access_token,
         expires_at: jws_payload.expires_at,
     }))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_validate_nullifier_hash_valid() {
+        let result = validate_and_normalize_nullifier_hash(
+            "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+        );
+        assert!(result.is_ok());
+        assert_eq!(
+            result.unwrap(),
+            "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"
+        );
+    }
+
+    #[test]
+    fn test_validate_nullifier_hash_normalizes_to_lowercase() {
+        let result = validate_and_normalize_nullifier_hash(
+            "0xABCDEF1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF1234567890",
+        );
+        assert!(result.is_ok());
+        assert_eq!(
+            result.unwrap(),
+            "0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890"
+        );
+    }
+
+    #[test]
+    fn test_validate_nullifier_hash_missing_prefix() {
+        let result = validate_and_normalize_nullifier_hash(
+            "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+        );
+        assert!(result.is_err());
+        match result {
+            Err(WorldIdError::InvalidProofData(msg)) => {
+                assert!(msg.contains("must start with 0x"));
+            }
+            _ => panic!("Expected InvalidProofData error"),
+        }
+    }
+
+    #[test]
+    fn test_validate_nullifier_hash_too_short() {
+        let result = validate_and_normalize_nullifier_hash("0x1234567890abcdef");
+        assert!(result.is_err());
+        match result {
+            Err(WorldIdError::InvalidProofData(msg)) => {
+                assert!(msg.contains("66 characters"));
+            }
+            _ => panic!("Expected InvalidProofData error"),
+        }
+    }
+
+    #[test]
+    fn test_validate_nullifier_hash_too_long() {
+        let result = validate_and_normalize_nullifier_hash(
+            "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef00",
+        );
+        assert!(result.is_err());
+        match result {
+            Err(WorldIdError::InvalidProofData(msg)) => {
+                assert!(msg.contains("66 characters"));
+            }
+            _ => panic!("Expected InvalidProofData error"),
+        }
+    }
+
+    #[test]
+    fn test_validate_nullifier_hash_invalid_hex_chars() {
+        let result = validate_and_normalize_nullifier_hash(
+            "0xg234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+        );
+        assert!(result.is_err());
+        match result {
+            Err(WorldIdError::InvalidProofData(msg)) => {
+                assert!(msg.contains("hexadecimal characters"));
+            }
+            _ => panic!("Expected InvalidProofData error"),
+        }
+    }
 }
