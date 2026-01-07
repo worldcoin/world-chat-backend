@@ -181,8 +181,7 @@ fn validate_and_normalize_nullifier_hash(nullifier_hash: &str) -> Result<String,
     // Check that all characters after "0x" are valid hex digits
     if !lowercased[2..].chars().all(|c| c.is_ascii_hexdigit()) {
         return Err(WorldIdError::InvalidProofData(
-            "Nullifier hash must start with 0x and contain only hexadecimal characters"
-                .to_string(),
+            "Nullifier hash must start with 0x and contain only hexadecimal characters".to_string(),
         ));
     }
 
