@@ -321,10 +321,12 @@ impl Environment {
     /// - Production: `chat.toolsforhumanity.com`
     /// - Staging/Development: `chat-staging.toolsforhumanity.com`
     #[must_use]
-    pub const fn jwt_issuer_url(&self) -> &'static str {
+    pub fn jwt_issuer_url(&self) -> String {
         match self {
-            Self::Production => "chat.toolsforhumanity.com",
-            Self::Staging | Self::Development { .. } => "chat-staging.toolsforhumanity.com",
+            Self::Production => "chat.toolsforhumanity.com".to_string(),
+            Self::Staging | Self::Development { .. } => {
+                "chat-staging.toolsforhumanity.com".to_string()
+            }
         }
     }
 }

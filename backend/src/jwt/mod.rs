@@ -49,7 +49,7 @@ pub struct JwtManager {
     kid: String,
     kms_client: Arc<KmsClient>,
     key_arn: String,
-    issuer: String,
+    pub issuer: String,
 }
 
 impl JwtManager {
@@ -80,15 +80,8 @@ impl JwtManager {
             kid: key.id,
             kms_client,
             key_arn: key.arn,
-            issuer: environment.jwt_issuer_url().to_owned(),
+            issuer: environment.jwt_issuer_url(),
         })
-    }
-
-    /// Returns the issuer (chat URL) used for JWT tokens
-    #[must_use]
-    #[allow(clippy::missing_const_for_fn)] // String deref to &str is not const
-    pub fn issuer(&self) -> &str {
-        &self.issuer
     }
 
     /// Issue a compact JWS (JWT) string using ES256 via AWS KMS.
