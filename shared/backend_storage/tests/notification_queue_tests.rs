@@ -27,6 +27,7 @@ async fn test_send_consume_ack_happy_path() {
             "encrypted_push_id_2".to_string(),
         ],
         encrypted_message_base64: "eyJ0aXRsZSI6IkJyZWFraW5nIE5ld3MiLCJjb250ZW50IjoiSW1wb3J0YW50IHVwZGF0ZSIsInRpbWVzdGFtcCI6IjIwMjQtMDEtMDFUMTI6MDA6MDBaIn0=".to_string(),
+        created_at_ms: None,
     };
 
     // Send message
@@ -82,18 +83,21 @@ async fn test_fifo_topic_based_grouping() {
         topic: "news".to_string(),
         subscribed_encrypted_push_ids: vec!["enc_push_news_1".to_string()],
         encrypted_message_base64: "encoded_news_1_base64".to_string(),
+        created_at_ms: None,
     };
 
     let alert1 = Notification {
         topic: "alerts".to_string(),
         subscribed_encrypted_push_ids: vec!["enc_push_alert_1".to_string()],
         encrypted_message_base64: "encoded_alert_1_base64".to_string(),
+        created_at_ms: None,
     };
 
     let news2 = Notification {
         topic: "news".to_string(),
         subscribed_encrypted_push_ids: vec!["enc_push_news_2".to_string()],
         encrypted_message_base64: "encoded_news_2_base64".to_string(),
+        created_at_ms: None,
     };
 
     // Send messages
@@ -145,12 +149,14 @@ async fn test_fifo_topic_based_grouping() {
         topic: "news".to_string(),
         subscribed_encrypted_push_ids: vec!["enc_push_news_3".to_string()],
         encrypted_message_base64: "encoded_news_3_base64".to_string(),
+        created_at_ms: None,
     };
 
     let news4 = Notification {
         topic: "news".to_string(),
         subscribed_encrypted_push_ids: vec!["enc_push_news_4".to_string()],
         encrypted_message_base64: "encoded_news_4_base64".to_string(),
+        created_at_ms: None,
     };
 
     queue

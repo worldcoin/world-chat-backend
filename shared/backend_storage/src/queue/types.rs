@@ -39,6 +39,10 @@ pub struct Notification {
     pub subscribed_encrypted_push_ids: Vec<String>,
     /// Encrypted Message Base64 encoded
     pub encrypted_message_base64: String,
+    /// Timestamp when the original message was created (milliseconds since Unix epoch)
+    /// Used to calculate end-to-end latency from message creation to delivery
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub created_at_ms: Option<i64>,
 }
 
 /// Notification recipient
@@ -61,6 +65,9 @@ pub struct QueueMessage<T> {
     pub message_id: String,
     /// W3C trace context (traceparent, tracestate) for distributed tracing
     pub trace_context: HashMap<String, String>,
+    /// Timestamp when the message was sent to the queue (milliseconds since Unix epoch)
+    /// Used to calculate queue wait time for latency monitoring
+    pub sent_timestamp_ms: Option<i64>,
 }
 
 /// Configuration for queue operations

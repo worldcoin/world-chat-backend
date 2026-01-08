@@ -6,7 +6,7 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use aws_sdk_sqs::types::MessageAttributeValue;
+use aws_sdk_sqs::types::{MessageAttributeValue, MessageSystemAttributeName};
 use aws_sdk_sqs::Client as SqsClient;
 use opentelemetry::propagation::{Injector, TextMapPropagator};
 use opentelemetry_sdk::propagation::TraceContextPropagator;
@@ -127,7 +127,7 @@ where
     ///
     /// Returns `QueueError` if the poll operation fails
     pub async fn poll_messages(&self) -> QueueResult<Vec<QueueMessage<T>>> {
-        // Receive messages from SQS, including trace context attributes
+        // Receive messages from SQS, including trace context and system attributes
         let result = self
             .sqs_client
             .receive_message()
@@ -137,6 +137,8 @@ where
             .wait_time_seconds(self.config.default_wait_time_seconds)
             .message_attribute_names("traceparent")
             .message_attribute_names("tracestate")
+            // Request SentTimestamp system attribute for queue latency calculation
+            .message_system_attribute_names(MessageSystemAttributeName::SentTimestamp)
             .send()
             .await?;
 
@@ -162,12 +164,19 @@ where
                     })
                     .unwrap_or_default();
 
+                // Extract SentTimestamp system attribute for queue latency calculation
+                let sent_timestamp_ms = msg
+                    .attributes()
+                    .and_then(|attrs| attrs.get(&MessageSystemAttributeName::SentTimestamp))
+                    .and_then(|ts| ts.parse::<i64>().ok());
+
                 match serde_json::from_str::<T>(body) {
                     Ok(parsed) => Some(QueueMessage {
                         body: parsed,
                         receipt_handle,
                         message_id,
                         trace_context,
+                        sent_timestamp_ms,
                     }),
                     Err(e) => {
                         tracing::error!("Failed to deserialize message: {}", e);

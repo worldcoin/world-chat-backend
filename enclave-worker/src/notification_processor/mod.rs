@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::sync::Arc;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use anyhow::Context;
 use backend_storage::{
@@ -8,25 +9,25 @@ use backend_storage::{
 };
 use enclave_types::EnclaveNotificationRequest;
 use futures::future::join_all;
-use metrics::counter;
+use metrics::{counter, histogram};
 use opentelemetry::propagation::{Extractor, TextMapPropagator};
 use opentelemetry_sdk::propagation::TraceContextPropagator;
 use tokio_util::sync::CancellationToken;
 use tracing::{error, info, instrument, warn};
 use tracing_opentelemetry::OpenTelemetrySpanExt;
 
-/// Extractor for trace context from a HashMap
+/// Extractor for trace context from a `HashMap`
 struct HashMapExtractor<'a> {
     map: &'a HashMap<String, String>,
 }
 
 impl Extractor for HashMapExtractor<'_> {
     fn get(&self, key: &str) -> Option<&str> {
-        self.map.get(key).map(|s| s.as_str())
+        self.map.get(key).map(String::as_str)
     }
 
     fn keys(&self) -> Vec<&str> {
-        self.map.keys().map(|s| s.as_str()).collect()
+        self.map.keys().map(String::as_str).collect()
     }
 }
 
@@ -101,7 +102,11 @@ impl NotificationProcessor {
         Ok(())
     }
 
-    #[instrument(skip(self, message), fields(message_id = %message.message_id))]
+    #[instrument(skip(self, message), fields(
+        message_id = %message.message_id,
+        queue_wait_ms = tracing::field::Empty,
+        e2e_latency_ms = tracing::field::Empty
+    ))]
     async fn process_and_ack(&self, message: QueueMessage<Notification>) -> anyhow::Result<()> {
         // Extract and set parent context from upstream trace for distributed tracing
         if !message.trace_context.is_empty() {
@@ -111,6 +116,40 @@ impl NotificationProcessor {
             };
             let parent_context = propagator.extract(&extractor);
             tracing::Span::current().set_parent(parent_context);
+        }
+
+        // Get current time once for all latency calculations
+        // Truncation is safe: milliseconds since epoch fits in i64 for ~292 million years
+        #[allow(clippy::cast_possible_truncation)]
+        let now_ms = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map(|d| d.as_millis() as i64)
+            .ok();
+
+        // Calculate and record queue wait time for latency monitoring
+        if let (Some(sent_ts), Some(now)) = (message.sent_timestamp_ms, now_ms) {
+            let queue_wait_ms = now.saturating_sub(sent_ts);
+
+            // Record as span attribute for trace correlation
+            tracing::Span::current().record("queue_wait_ms", queue_wait_ms);
+
+            // Emit histogram metric for dashboarding and alerting
+            // Precision loss is acceptable for latency metrics (ms resolution)
+            #[allow(clippy::cast_precision_loss)]
+            histogram!("notification_queue_wait_ms").record(queue_wait_ms as f64);
+        }
+
+        // Calculate and record E2E latency (from message creation to now)
+        if let (Some(created_at), Some(now)) = (message.body.created_at_ms, now_ms) {
+            let e2e_latency_ms = now.saturating_sub(created_at);
+
+            // Record as span attribute for trace correlation
+            tracing::Span::current().record("e2e_latency_ms", e2e_latency_ms);
+
+            // Emit histogram metric for E2E latency monitoring
+            // Precision loss is acceptable for latency metrics (ms resolution)
+            #[allow(clippy::cast_precision_loss)]
+            histogram!("notification_e2e_latency_ms").record(e2e_latency_ms as f64);
         }
 
         let notification = message.body;
