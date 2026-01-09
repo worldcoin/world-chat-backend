@@ -1396,6 +1396,7 @@ dependencies = [
  "aws-sdk-dynamodb",
  "aws-sdk-sqs",
  "chrono",
+ "common-types",
  "futures",
  "pretty_assertions",
  "rand 0.8.5",
@@ -1828,6 +1829,7 @@ version = "0.1.0"
 dependencies = [
  "schemars 0.9.0",
  "serde",
+ "strum",
  "thiserror 2.0.17",
 ]
 
@@ -3772,6 +3774,7 @@ dependencies = [
  "base64 0.22.1",
  "chrono",
  "clap",
+ "common-types",
  "datadog-tracing",
  "dotenvy",
  "flume",

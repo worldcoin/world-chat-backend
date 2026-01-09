@@ -4,6 +4,7 @@ mod utils;
 use anyhow::Context;
 use anyhow::Result;
 use backend_storage::push_subscription::PushSubscription;
+use common_types::EnclaveTrack;
 use notification_worker::xmtp::message_api::v1::Envelope;
 use notification_worker::xmtp::mls::api::v1::{group_message, GroupMessage};
 use pretty_assertions::assert_eq;
@@ -49,6 +50,7 @@ async fn setup_test_subscriptions(ctx: &TestContext) -> Result<TestSubscriptions
         ttl: now + 86400, // Valid for 1 day
         encrypted_push_id: "push_id_x".to_string(),
         deletion_request: None,
+        enclave_track: EnclaveTrack::default(),
     };
 
     // Topic B with multiple subscribers
@@ -58,6 +60,7 @@ async fn setup_test_subscriptions(ctx: &TestContext) -> Result<TestSubscriptions
         ttl: now + 86400,
         encrypted_push_id: "push_id_x".to_string(),
         deletion_request: None,
+        enclave_track: EnclaveTrack::default(),
     };
 
     let sub_b_y1 = PushSubscription {
@@ -66,6 +69,7 @@ async fn setup_test_subscriptions(ctx: &TestContext) -> Result<TestSubscriptions
         ttl: now + 86400,
         encrypted_push_id: "push_id_y".to_string(),
         deletion_request: None,
+        enclave_track: EnclaveTrack::default(),
     };
 
     // Same push_id as y1 (same device, different installation)
@@ -75,6 +79,7 @@ async fn setup_test_subscriptions(ctx: &TestContext) -> Result<TestSubscriptions
         ttl: now + 86400,
         encrypted_push_id: "push_id_y".to_string(),
         deletion_request: None,
+        enclave_track: EnclaveTrack::default(),
     };
 
     // Insert all subscriptions
@@ -357,6 +362,7 @@ async fn test_welcome_messages() -> Result<()> {
         ttl: chrono::Utc::now().timestamp() + 86400,
         encrypted_push_id: "welcome_push_id".to_string(),
         deletion_request: None,
+        enclave_track: EnclaveTrack::default(),
     };
     ctx.subscription_storage.insert(&subscription).await?;
 
@@ -385,6 +391,7 @@ async fn test_ignores_non_v3_topics() -> Result<()> {
         ttl: chrono::Utc::now().timestamp() + 86400,
         encrypted_push_id: "legacy_push_id".to_string(),
         deletion_request: None,
+        enclave_track: EnclaveTrack::default(),
     };
     ctx.subscription_storage.insert(&subscription).await?;
 
@@ -471,6 +478,7 @@ async fn test_duplicate_push_ids_deduplicated() -> Result<()> {
             ttl: now + 86400,
             encrypted_push_id: "duplicate_push_id".to_string(),
             deletion_request: None,
+            enclave_track: EnclaveTrack::default(),
         };
         ctx.subscription_storage.insert(&sub).await?;
     }
