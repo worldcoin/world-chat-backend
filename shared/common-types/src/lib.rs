@@ -1,5 +1,23 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+use strum::Display;
+
+/// Enclave track version identifier.
+///
+/// Each track has its own encryption keys and PCR values.
+/// This enables supporting multiple enclave versions simultaneously,
+/// allowing gradual app rollouts when enclave code changes.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Display, Default)]
+#[serde(rename_all = "lowercase")]
+#[strum(serialize_all = "lowercase")]
+pub enum EnclaveTrack {
+    /// Version 2 enclave track (initial production release)
+    #[default]
+    V2,
+    // TODO: V3 is a placeholder for the next enclave track
+    /// Version 3 enclave track (placeholder for future release)
+    V3,
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct PushIdChallengeRequest {

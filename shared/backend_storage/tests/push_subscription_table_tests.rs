@@ -12,6 +12,7 @@ use backend_storage::push_subscription::{
     PushSubscription, PushSubscriptionAttribute, PushSubscriptionStorage,
 };
 use chrono::Utc;
+use common_types::EnclaveTrack;
 use uuid::Uuid;
 
 /// Test configuration for LocalStack
@@ -133,6 +134,7 @@ fn create_test_subscription(topic: &str) -> PushSubscription {
         ttl: (Utc::now() + chrono::Duration::hours(24)).timestamp(),
         encrypted_push_id: format!("encrypted-{}", Uuid::new_v4()),
         deletion_request: None,
+        enclave_track: EnclaveTrack::default(),
     }
 }
 
@@ -152,6 +154,7 @@ fn create_test_subscription_with_deletion(
         ttl: (Utc::now() + chrono::Duration::hours(24)).timestamp(),
         encrypted_push_id: format!("encrypted-{}", Uuid::new_v4()),
         deletion_request: Some(deletion_set),
+        enclave_track: EnclaveTrack::default(),
     }
 }
 

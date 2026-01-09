@@ -1,5 +1,6 @@
 use super::TestSetup;
 use chrono::Utc;
+use common_types::EnclaveTrack;
 use rand::{distributions::Alphanumeric, Rng};
 
 pub fn generate_hmac_key() -> String {
@@ -39,6 +40,7 @@ pub async fn create_subscription(
         ttl: Utc::now().timestamp() + 3600,
         encrypted_push_id: encrypted_push_id.to_string(),
         deletion_request: None,
+        enclave_track: EnclaveTrack::default(),
     };
 
     context

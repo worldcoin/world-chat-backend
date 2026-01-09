@@ -12,3 +12,6 @@ thiserror = { workspace = true }
 serde = { workspace = true }
 
 schemars = { workspace = true }
+
+# Enum utilities
+strum = { workspace = true }

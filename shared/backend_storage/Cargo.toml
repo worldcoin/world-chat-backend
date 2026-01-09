@@ -10,6 +10,9 @@ aws-config = { workspace = true }
 aws-sdk-dynamodb = { workspace = true }
 aws-sdk-sqs = { workspace = true }
 
+# Common types
+common-types = { path = "../common-types" }
+
 # Async
 tokio = { workspace = true }
 
