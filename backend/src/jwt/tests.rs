@@ -3,6 +3,9 @@ use common_types::EnclaveTrack;
 use p256::ecdsa::SigningKey;
 use p256::SecretKey;
 
+/// Test issuer used in unit tests (matches staging/development environment)
+const TEST_ISSUER: &str = "chat-staging.toolsforhumanity.com";
+
 mod test_helpers {
     use super::*;
     use p256::ecdsa::signature::DigestSigner;
@@ -42,8 +45,11 @@ mod token_parsing {
     #[test]
     fn test_parse_valid_three_part_token() {
         let (signing_key, _) = generate_test_keypair();
-        let payload =
-            JwsPayload::from_encrypted_push_id("test-123".to_string(), EnclaveTrack::default());
+        let payload = JwsPayload::from_encrypted_push_id(
+            "test-123".to_string(),
+            TEST_ISSUER,
+            EnclaveTrack::default(),
+        );
         let token = create_test_token(&signing_key, "test-kid", &payload);
 
         let parts = JwsTokenParts::try_from(token.as_str()).unwrap();
@@ -217,8 +223,11 @@ mod header_validation {
     #[test]
     fn test_accept_valid_header() {
         let (signing_key, _) = generate_test_keypair();
-        let payload =
-            JwsPayload::from_encrypted_push_id("test-123".to_string(), EnclaveTrack::default());
+        let payload = JwsPayload::from_encrypted_push_id(
+            "test-123".to_string(),
+            TEST_ISSUER,
+            EnclaveTrack::default(),
+        );
         let token = create_test_token(&signing_key, "valid-kid", &payload);
 
         let parts = JwsTokenParts::try_from(token.as_str()).unwrap();
@@ -238,14 +247,14 @@ mod claims_validation {
         let past = now - 3600; // 1 hour ago
         let claims = JwsPayload {
             subject: "test".to_string(),
-            issuer: "chat.toolsforhumanity.com".to_string(),
+            issuer: TEST_ISSUER.to_string(),
             expires_at: past,
             not_before: now - 7200, // 2 hours ago
             issued_at: now - 7200,  // 2 hours ago
             enclave_track: EnclaveTrack::default(),
         };
 
-        let result = validate_claims(&claims, now, 60); // 60 second skew
+        let result = validate_claims(&claims, now, 60, TEST_ISSUER); // 60 second skew
         assert!(result.is_err());
     }
 
@@ -254,14 +263,14 @@ mod claims_validation {
         let now = Utc::now().timestamp();
         let claims = JwsPayload {
             subject: "test".to_string(),
-            issuer: "chat.toolsforhumanity.com".to_string(),
+            issuer: TEST_ISSUER.to_string(),
             expires_at: now - 30,   // Expired 30 seconds ago
             not_before: now - 3600, // Valid 1 hour ago
             issued_at: now - 3600,  // Issued 1 hour ago
             enclave_track: EnclaveTrack::default(),
         };
 
-        let result = validate_claims(&claims, now, 60); // 60 second skew - should accept
+        let result = validate_claims(&claims, now, 60, TEST_ISSUER); // 60 second skew - should accept
         assert!(result.is_ok());
     }
 
@@ -271,14 +280,14 @@ mod claims_validation {
         let future = now + 3600; // 1 hour in future
         let claims = JwsPayload {
             subject: "test".to_string(),
-            issuer: "chat.toolsforhumanity.com".to_string(),
+            issuer: TEST_ISSUER.to_string(),
             expires_at: now + 7200, // Expires 2 hours from now
             not_before: future,
             issued_at: now - 3600, // Issued 1 hour ago
             enclave_track: EnclaveTrack::default(),
         };
 
-        let result = validate_claims(&claims, now, 60);
+        let result = validate_claims(&claims, now, 60, TEST_ISSUER);
         assert!(result.is_err());
     }
 
@@ -287,14 +296,14 @@ mod claims_validation {
         let now = Utc::now().timestamp();
         let claims = JwsPayload {
             subject: "test".to_string(),
-            issuer: "chat.toolsforhumanity.com".to_string(),
+            issuer: TEST_ISSUER.to_string(),
             expires_at: now + 7200, // Expires 2 hours from now
             not_before: now + 30,   // Valid in 30 seconds
             issued_at: now - 3600,  // Issued 1 hour ago
             enclave_track: EnclaveTrack::default(),
         };
 
-        let result = validate_claims(&claims, now, 60); // 60 second skew - should accept
+        let result = validate_claims(&claims, now, 60, TEST_ISSUER); // 60 second skew - should accept
         assert!(result.is_ok());
     }
 
@@ -304,7 +313,7 @@ mod claims_validation {
         let now = Utc::now().timestamp();
         let claims = JwsPayload {
             subject: "test".to_string(),
-            issuer: "chat.toolsforhumanity.com".to_string(),
+            issuer: TEST_ISSUER.to_string(),
             expires_at: now,
             not_before: now - 3600, // Valid 1 hour ago
             issued_at: now - 3600,  // Issued 1 hour ago
@@ -312,11 +321,11 @@ mod claims_validation {
         };
 
         // Without skew - should fail (now >= exp)
-        let result = validate_claims(&claims, now, 0);
+        let result = validate_claims(&claims, now, 0, TEST_ISSUER);
         assert!(result.is_err());
 
         // With skew - should pass
-        let result = validate_claims(&claims, now, 1);
+        let result = validate_claims(&claims, now, 1, TEST_ISSUER);
         assert!(result.is_ok());
     }
 
@@ -327,7 +336,7 @@ mod claims_validation {
         // Token valid from now-30 to now+30
         let claims = JwsPayload {
             subject: "test".to_string(),
-            issuer: "chat.toolsforhumanity.com".to_string(),
+            issuer: TEST_ISSUER.to_string(),
             expires_at: now + 30,
             not_before: now - 30,
             issued_at: now - 30,
@@ -335,15 +344,15 @@ mod claims_validation {
         };
 
         // Should be valid
-        let result = validate_claims(&claims, now, 0);
+        let result = validate_claims(&claims, now, 0, TEST_ISSUER);
         assert!(result.is_ok());
 
         // Test future skew
-        let result = validate_claims(&claims, now + 29, 0);
+        let result = validate_claims(&claims, now + 29, 0, TEST_ISSUER);
         assert!(result.is_ok());
 
         // Test past skew
-        let result = validate_claims(&claims, now - 29, 0);
+        let result = validate_claims(&claims, now - 29, 0, TEST_ISSUER);
         assert!(result.is_ok());
     }
 
@@ -351,10 +360,11 @@ mod claims_validation {
     fn test_validate_issuer_and_subject() {
         let payload = JwsPayload::from_encrypted_push_id(
             "encrypted-123".to_string(),
+            TEST_ISSUER,
             EnclaveTrack::default(),
         );
         assert_eq!(payload.subject, "encrypted-123");
-        assert_eq!(payload.issuer, "chat.toolsforhumanity.com");
+        assert_eq!(payload.issuer, TEST_ISSUER);
 
         // Verify timestamps are set to reasonable values
         let now = Utc::now().timestamp();
@@ -368,7 +378,7 @@ mod claims_validation {
         let now = Utc::now().timestamp();
         let claims = JwsPayload {
             subject: "test".to_string(),
-            issuer: "chat.toolsforhumanity.com".to_string(),
+            issuer: TEST_ISSUER.to_string(),
             issued_at: now + 120, // 2 minutes in future
             expires_at: now + 3600,
             not_before: now - 60,
@@ -376,7 +386,7 @@ mod claims_validation {
         };
 
         // With 60s skew, iat is still in the future -> reject
-        let result = validate_claims(&claims, now, 60);
+        let result = validate_claims(&claims, now, 60, TEST_ISSUER);
         assert!(result.is_err());
     }
 
@@ -394,7 +404,7 @@ mod claims_validation {
 
         // validate_claims enforces issuer now
         assert!(matches!(
-            validate_claims(&claims, now, 60),
+            validate_claims(&claims, now, 60, TEST_ISSUER),
             Err(JwtError::InvalidToken)
         ));
     }
@@ -409,8 +419,11 @@ mod signature_format {
         // Test vector adapted from josekit-rs
         // DER format signature should be converted to raw 64-byte format
         let (signing_key, verifying_key) = generate_test_keypair();
-        let payload =
-            JwsPayload::from_encrypted_push_id("test".to_string(), EnclaveTrack::default());
+        let payload = JwsPayload::from_encrypted_push_id(
+            "test".to_string(),
+            TEST_ISSUER,
+            EnclaveTrack::default(),
+        );
         let token = create_test_token(&signing_key, "test", &payload);
 
         let parts = JwsTokenParts::try_from(token.as_str()).unwrap();
@@ -421,8 +434,11 @@ mod signature_format {
     #[test]
     fn test_signature_must_be_64_bytes() {
         let (signing_key, _) = generate_test_keypair();
-        let payload =
-            JwsPayload::from_encrypted_push_id("test".to_string(), EnclaveTrack::default());
+        let payload = JwsPayload::from_encrypted_push_id(
+            "test".to_string(),
+            TEST_ISSUER,
+            EnclaveTrack::default(),
+        );
         let token = create_test_token(&signing_key, "test", &payload);
 
         // Extract signature part
@@ -475,8 +491,11 @@ mod signature_format {
     fn test_malformed_signature_base64() {
         // Create a valid token first
         let (signing_key, verifying_key) = generate_test_keypair();
-        let payload =
-            JwsPayload::from_encrypted_push_id("test".to_string(), EnclaveTrack::default());
+        let payload = JwsPayload::from_encrypted_push_id(
+            "test".to_string(),
+            TEST_ISSUER,
+            EnclaveTrack::default(),
+        );
         let valid_token = create_test_token(&signing_key, "test", &payload);
 
         // Split the token and replace signature with invalid base64
@@ -503,8 +522,11 @@ mod signature_format {
     #[test]
     fn test_tampered_signature_detection() {
         let (signing_key, verifying_key) = generate_test_keypair();
-        let payload =
-            JwsPayload::from_encrypted_push_id("test".to_string(), EnclaveTrack::default());
+        let payload = JwsPayload::from_encrypted_push_id(
+            "test".to_string(),
+            TEST_ISSUER,
+            EnclaveTrack::default(),
+        );
         let token = create_test_token(&signing_key, "test", &payload);
 
         // Tamper with the signature
@@ -527,8 +549,11 @@ mod signature_format {
         let (_, verifying_key_correct) = generate_test_keypair();
 
         // Create and sign token with wrong key
-        let payload =
-            JwsPayload::from_encrypted_push_id("test-123".to_string(), EnclaveTrack::default());
+        let payload = JwsPayload::from_encrypted_push_id(
+            "test-123".to_string(),
+            TEST_ISSUER,
+            EnclaveTrack::default(),
+        );
         let token = create_test_token(&signing_key_wrong, "test-kid", &payload);
 
         // Try to verify with different key - should fail
@@ -544,8 +569,11 @@ mod signature_format {
             typ: TYP_JWT.to_string(),
             kid: "test-kid".to_string(),
         };
-        let payload =
-            JwsPayload::from_encrypted_push_id("test-123".to_string(), EnclaveTrack::default());
+        let payload = JwsPayload::from_encrypted_push_id(
+            "test-123".to_string(),
+            TEST_ISSUER,
+            EnclaveTrack::default(),
+        );
 
         // Create token with empty signature (header.payload.)
         let signing_input = craft_signing_input(&header, &payload).unwrap();
@@ -654,8 +682,11 @@ mod integration_helpers {
     #[test]
     fn test_full_token_roundtrip_without_kms() {
         let (signing_key, verifying_key) = generate_test_keypair();
-        let payload =
-            JwsPayload::from_encrypted_push_id("test-123".to_string(), EnclaveTrack::default());
+        let payload = JwsPayload::from_encrypted_push_id(
+            "test-123".to_string(),
+            TEST_ISSUER,
+            EnclaveTrack::default(),
+        );
         let token = create_test_token(&signing_key, "test-kid", &payload);
 
         // Parse and verify
@@ -664,10 +695,10 @@ mod integration_helpers {
 
         // Validate claims
         let now = chrono::Utc::now().timestamp();
-        assert!(validate_claims(&parts.payload, now, 60).is_ok());
+        assert!(validate_claims(&parts.payload, now, 60, TEST_ISSUER).is_ok());
 
         // Check payload
         assert_eq!(parts.payload.subject, "test-123");
-        assert_eq!(parts.payload.issuer, "chat.toolsforhumanity.com");
+        assert_eq!(parts.payload.issuer, TEST_ISSUER);
     }
 }

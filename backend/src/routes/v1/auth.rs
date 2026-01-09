@@ -201,8 +201,11 @@ async fn issue_jwt_token(
     jwt_manager: &JwtManager,
     encrypted_push_id: String,
 ) -> Result<Json<AuthResponse>, AppError> {
-    let jws_payload =
-        JwsPayload::from_encrypted_push_id(encrypted_push_id, EnclaveTrack::default());
+    let jws_payload = JwsPayload::from_encrypted_push_id(
+        encrypted_push_id,
+        &jwt_manager.issuer,
+        EnclaveTrack::default(),
+    );
     let access_token = jwt_manager.issue_token(&jws_payload).await?;
 
     Ok(Json(AuthResponse {

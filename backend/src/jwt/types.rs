@@ -45,12 +45,16 @@ pub struct JwsPayload {
 
 impl JwsPayload {
     #[must_use]
-    pub fn from_encrypted_push_id(encrypted_push_id: String, enclave_track: EnclaveTrack) -> Self {
+    pub fn from_encrypted_push_id(
+        encrypted_push_id: String,
+        issuer: &str,
+        enclave_track: EnclaveTrack,
+    ) -> Self {
         let now = Utc::now().timestamp();
         let exp = (Utc::now() + TOKEN_EXPIRATION).timestamp();
         Self {
             subject: encrypted_push_id,
-            issuer: "chat.toolsforhumanity.com".to_owned(),
+            issuer: issuer.to_owned(),
             issued_at: now,
             expires_at: exp,
             not_before: now,
