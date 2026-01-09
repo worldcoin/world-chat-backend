@@ -563,3 +563,36 @@ async fn test_append_delete_request_functionality() {
     assert!(deletion_requests.contains(first_request_id));
     assert!(deletion_requests.contains(second_request_id));
 }
+
+#[tokio::test]
+async fn test_enclave_track_defaults_when_missing_from_db() {
+    use aws_sdk_dynamodb::types::AttributeValue;
+
+    let context = setup_test().await;
+
+    // Insert row directly without enclave_track field (simulates legacy data)
+    context
+        .dynamodb_client
+        .put_item()
+        .table_name(&context.table_name)
+        .item("topic", AttributeValue::S("legacy-topic".to_string()))
+        .item("hmac_key", AttributeValue::S("legacy-hmac".to_string()))
+        .item("ttl", AttributeValue::N("9999999999".to_string()))
+        .item(
+            "encrypted_push_id",
+            AttributeValue::S("legacy-push-id".to_string()),
+        )
+        .send()
+        .await
+        .expect("Failed to insert legacy row");
+
+    // Fetch and verify enclave_track defaults to V2
+    let retrieved = context
+        .storage
+        .get_one("legacy-topic", "legacy-hmac")
+        .await
+        .expect("Failed to fetch")
+        .expect("Should exist");
+
+    assert_eq!(retrieved.enclave_track, EnclaveTrack::V2);
+}
