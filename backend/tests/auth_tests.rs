@@ -296,7 +296,7 @@ async fn test_authorize_jwt_is_validatable_by_manager() {
         .validate(token, None)
         .expect("token should validate");
     assert_eq!(claims.subject, encrypted_push_id);
-    assert_eq!(claims.issuer, "chat.toolsforhumanity.com");
+    assert_eq!(claims.issuer, context.environment.jwt_issuer_url());
 }
 
 #[tokio::test]
