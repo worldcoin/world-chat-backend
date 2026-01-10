@@ -1,10 +1,10 @@
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
 use chrono::{Duration, Utc};
+use common_types::EnclaveTrack;
 use serde::{Deserialize, Serialize};
 use sha2::Digest;
 
 use crate::jwt::error::JwtError;
-// no extra serde imports needed here
 
 /// Default access token lifetime.
 pub const TOKEN_EXPIRATION: Duration = Duration::days(7);
@@ -27,7 +27,6 @@ pub struct JwsHeader {
 ///
 /// Times are seconds since epoch. Optional to accommodate different flows.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
 pub struct JwsPayload {
     #[serde(rename = "sub")]
     pub subject: String,
@@ -39,11 +38,18 @@ pub struct JwsPayload {
     pub expires_at: i64,
     #[serde(rename = "nbf")]
     pub not_before: i64,
+    /// Enclave track used when generating the encrypted push ID
+    #[serde(default)]
+    pub enclave_track: EnclaveTrack,
 }
 
 impl JwsPayload {
     #[must_use]
-    pub fn from_encrypted_push_id(encrypted_push_id: String, issuer: &str) -> Self {
+    pub fn from_encrypted_push_id(
+        encrypted_push_id: String,
+        issuer: &str,
+        enclave_track: EnclaveTrack,
+    ) -> Self {
         let now = Utc::now().timestamp();
         let exp = (Utc::now() + TOKEN_EXPIRATION).timestamp();
         Self {
@@ -52,6 +58,7 @@ impl JwsPayload {
             issued_at: now,
             expires_at: exp,
             not_before: now,
+            enclave_track,
         }
     }
 }

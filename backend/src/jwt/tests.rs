@@ -1,4 +1,5 @@
 use super::*;
+use common_types::EnclaveTrack;
 use p256::ecdsa::SigningKey;
 use p256::SecretKey;
 
@@ -44,7 +45,11 @@ mod token_parsing {
     #[test]
     fn test_parse_valid_three_part_token() {
         let (signing_key, _) = generate_test_keypair();
-        let payload = JwsPayload::from_encrypted_push_id("test-123".to_string(), TEST_ISSUER);
+        let payload = JwsPayload::from_encrypted_push_id(
+            "test-123".to_string(),
+            TEST_ISSUER,
+            EnclaveTrack::default(),
+        );
         let token = create_test_token(&signing_key, "test-kid", &payload);
 
         let parts = JwsTokenParts::try_from(token.as_str()).unwrap();
@@ -218,7 +223,11 @@ mod header_validation {
     #[test]
     fn test_accept_valid_header() {
         let (signing_key, _) = generate_test_keypair();
-        let payload = JwsPayload::from_encrypted_push_id("test-123".to_string(), TEST_ISSUER);
+        let payload = JwsPayload::from_encrypted_push_id(
+            "test-123".to_string(),
+            TEST_ISSUER,
+            EnclaveTrack::default(),
+        );
         let token = create_test_token(&signing_key, "valid-kid", &payload);
 
         let parts = JwsTokenParts::try_from(token.as_str()).unwrap();
@@ -242,6 +251,7 @@ mod claims_validation {
             expires_at: past,
             not_before: now - 7200, // 2 hours ago
             issued_at: now - 7200,  // 2 hours ago
+            enclave_track: EnclaveTrack::default(),
         };
 
         let result = validate_claims(&claims, now, 60, TEST_ISSUER); // 60 second skew
@@ -257,6 +267,7 @@ mod claims_validation {
             expires_at: now - 30,   // Expired 30 seconds ago
             not_before: now - 3600, // Valid 1 hour ago
             issued_at: now - 3600,  // Issued 1 hour ago
+            enclave_track: EnclaveTrack::default(),
         };
 
         let result = validate_claims(&claims, now, 60, TEST_ISSUER); // 60 second skew - should accept
@@ -273,6 +284,7 @@ mod claims_validation {
             expires_at: now + 7200, // Expires 2 hours from now
             not_before: future,
             issued_at: now - 3600, // Issued 1 hour ago
+            enclave_track: EnclaveTrack::default(),
         };
 
         let result = validate_claims(&claims, now, 60, TEST_ISSUER);
@@ -288,6 +300,7 @@ mod claims_validation {
             expires_at: now + 7200, // Expires 2 hours from now
             not_before: now + 30,   // Valid in 30 seconds
             issued_at: now - 3600,  // Issued 1 hour ago
+            enclave_track: EnclaveTrack::default(),
         };
 
         let result = validate_claims(&claims, now, 60, TEST_ISSUER); // 60 second skew - should accept
@@ -304,6 +317,7 @@ mod claims_validation {
             expires_at: now,
             not_before: now - 3600, // Valid 1 hour ago
             issued_at: now - 3600,  // Issued 1 hour ago
+            enclave_track: EnclaveTrack::default(),
         };
 
         // Without skew - should fail (now >= exp)
@@ -326,6 +340,7 @@ mod claims_validation {
             expires_at: now + 30,
             not_before: now - 30,
             issued_at: now - 30,
+            enclave_track: EnclaveTrack::default(),
         };
 
         // Should be valid
@@ -343,7 +358,11 @@ mod claims_validation {
 
     #[test]
     fn test_validate_issuer_and_subject() {
-        let payload = JwsPayload::from_encrypted_push_id("encrypted-123".to_string(), TEST_ISSUER);
+        let payload = JwsPayload::from_encrypted_push_id(
+            "encrypted-123".to_string(),
+            TEST_ISSUER,
+            EnclaveTrack::default(),
+        );
         assert_eq!(payload.subject, "encrypted-123");
         assert_eq!(payload.issuer, TEST_ISSUER);
 
@@ -363,6 +382,7 @@ mod claims_validation {
             issued_at: now + 120, // 2 minutes in future
             expires_at: now + 3600,
             not_before: now - 60,
+            enclave_track: EnclaveTrack::default(),
         };
 
         // With 60s skew, iat is still in the future -> reject
@@ -379,6 +399,7 @@ mod claims_validation {
             issued_at: now,
             expires_at: now + 3600,
             not_before: now - 60,
+            enclave_track: EnclaveTrack::default(),
         };
 
         // validate_claims enforces issuer now
@@ -398,7 +419,11 @@ mod signature_format {
         // Test vector adapted from josekit-rs
         // DER format signature should be converted to raw 64-byte format
         let (signing_key, verifying_key) = generate_test_keypair();
-        let payload = JwsPayload::from_encrypted_push_id("test".to_string(), TEST_ISSUER);
+        let payload = JwsPayload::from_encrypted_push_id(
+            "test".to_string(),
+            TEST_ISSUER,
+            EnclaveTrack::default(),
+        );
         let token = create_test_token(&signing_key, "test", &payload);
 
         let parts = JwsTokenParts::try_from(token.as_str()).unwrap();
@@ -409,7 +434,11 @@ mod signature_format {
     #[test]
     fn test_signature_must_be_64_bytes() {
         let (signing_key, _) = generate_test_keypair();
-        let payload = JwsPayload::from_encrypted_push_id("test".to_string(), TEST_ISSUER);
+        let payload = JwsPayload::from_encrypted_push_id(
+            "test".to_string(),
+            TEST_ISSUER,
+            EnclaveTrack::default(),
+        );
         let token = create_test_token(&signing_key, "test", &payload);
 
         // Extract signature part
@@ -462,7 +491,11 @@ mod signature_format {
     fn test_malformed_signature_base64() {
         // Create a valid token first
         let (signing_key, verifying_key) = generate_test_keypair();
-        let payload = JwsPayload::from_encrypted_push_id("test".to_string(), TEST_ISSUER);
+        let payload = JwsPayload::from_encrypted_push_id(
+            "test".to_string(),
+            TEST_ISSUER,
+            EnclaveTrack::default(),
+        );
         let valid_token = create_test_token(&signing_key, "test", &payload);
 
         // Split the token and replace signature with invalid base64
@@ -489,7 +522,11 @@ mod signature_format {
     #[test]
     fn test_tampered_signature_detection() {
         let (signing_key, verifying_key) = generate_test_keypair();
-        let payload = JwsPayload::from_encrypted_push_id("test".to_string(), TEST_ISSUER);
+        let payload = JwsPayload::from_encrypted_push_id(
+            "test".to_string(),
+            TEST_ISSUER,
+            EnclaveTrack::default(),
+        );
         let token = create_test_token(&signing_key, "test", &payload);
 
         // Tamper with the signature
@@ -512,7 +549,11 @@ mod signature_format {
         let (_, verifying_key_correct) = generate_test_keypair();
 
         // Create and sign token with wrong key
-        let payload = JwsPayload::from_encrypted_push_id("test-123".to_string(), TEST_ISSUER);
+        let payload = JwsPayload::from_encrypted_push_id(
+            "test-123".to_string(),
+            TEST_ISSUER,
+            EnclaveTrack::default(),
+        );
         let token = create_test_token(&signing_key_wrong, "test-kid", &payload);
 
         // Try to verify with different key - should fail
@@ -528,7 +569,11 @@ mod signature_format {
             typ: TYP_JWT.to_string(),
             kid: "test-kid".to_string(),
         };
-        let payload = JwsPayload::from_encrypted_push_id("test-123".to_string(), TEST_ISSUER);
+        let payload = JwsPayload::from_encrypted_push_id(
+            "test-123".to_string(),
+            TEST_ISSUER,
+            EnclaveTrack::default(),
+        );
 
         // Create token with empty signature (header.payload.)
         let signing_input = craft_signing_input(&header, &payload).unwrap();
@@ -614,6 +659,7 @@ mod integration_helpers {
             expires_at: 1_234_567_890,
             not_before: 1_234_567_890,
             issued_at: 1_234_567_890,
+            enclave_track: EnclaveTrack::default(),
         };
 
         let result = craft_signing_input(&header, &payload).unwrap();
@@ -636,7 +682,11 @@ mod integration_helpers {
     #[test]
     fn test_full_token_roundtrip_without_kms() {
         let (signing_key, verifying_key) = generate_test_keypair();
-        let payload = JwsPayload::from_encrypted_push_id("test-123".to_string(), TEST_ISSUER);
+        let payload = JwsPayload::from_encrypted_push_id(
+            "test-123".to_string(),
+            TEST_ISSUER,
+            EnclaveTrack::default(),
+        );
         let token = create_test_token(&signing_key, "test-kid", &payload);
 
         // Parse and verify
