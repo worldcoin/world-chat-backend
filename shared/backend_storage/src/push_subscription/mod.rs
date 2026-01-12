@@ -11,6 +11,7 @@ use aws_sdk_dynamodb::{
     types::{AttributeValue, DeleteRequest, KeysAndAttributes, Select, WriteRequest},
     Client as DynamoDbClient,
 };
+use common_types::EnclaveTrack;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 
@@ -43,6 +44,8 @@ pub enum PushSubscriptionAttribute {
     EncryptedPushId,
     /// Optional set of deletion request strings
     DeletionRequest,
+    /// Enclave track version
+    EnclaveTrack,
 }
 
 /// Push subscription data structure
@@ -59,6 +62,9 @@ pub struct PushSubscription {
     /// Optional set of deletion request strings
     #[serde(skip_serializing_if = "Option::is_none")]
     pub deletion_request: Option<std::collections::HashSet<String>>,
+    /// Enclave track version used when creating the subscription
+    #[serde(default)]
+    pub enclave_track: EnclaveTrack,
 }
 
 /// Push notification storage client for Dynamo DB operations

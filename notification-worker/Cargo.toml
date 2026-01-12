@@ -55,6 +55,7 @@ metrics-exporter-dogstatsd = { workspace = true }
 serial_test = { workspace = true }
 dotenvy = { workspace = true }
 pretty_assertions = "1.4.1"
+common-types = { path = "../shared/common-types" }
 
 # Build dependencies
 [build-dependencies]
