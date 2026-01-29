@@ -1,0 +1,19 @@
+name: Daily job
+
+on:
+  schedule:
+    - cron: "0 3 * * *"
+  workflow_dispatch: {}
+
+jobs:
+  run:
+    runs-on:
+      group: arc-4xlarge-amd64-runner
+    steps:
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::535294144498:role/oidc/github-deploy-world-chat-backend
+          aws-region: eu-west-1
+      - name: Login to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v2
