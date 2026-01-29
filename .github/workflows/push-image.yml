@@ -11,6 +11,12 @@ on:
       - INFRA-5677/publish-docker-image
   workflow_dispatch: {}
 
+permissions:
+  id-token: write     # ✅ MUSI być
+  contents: read
+  packages: write
+
+
 jobs:
   run:
     runs-on:
