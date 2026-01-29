@@ -14,7 +14,7 @@ on:
 jobs:
   run:
     runs-on:
-      group: arc-large-amd64-runner
+      group: arc-public-large-amd64-runner
     steps:
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
