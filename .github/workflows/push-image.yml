@@ -13,8 +13,7 @@ on:
 
 jobs:
   run:
-    runs-on:
-      group: arc-4xlarge-amd64-runner
+    runs-on: ubuntu-latest
     steps:
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
