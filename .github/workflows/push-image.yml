@@ -5,6 +5,12 @@ name: Daily job
 #    - cron: "0 3 * * *"
 #  workflow_dispatch: {}
 
+on:
+  push:
+    branches:
+      - INFRA-5677/publish-docker-image
+  workflow_dispatch: {}
+
 jobs:
   run:
     runs-on:
