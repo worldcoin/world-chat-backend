@@ -36,5 +36,5 @@ jobs:
           docker images | head
       - name: Push to GHCR
         run: |
-          docker tag 507152310572.dkr.ecr.eu-central-1.amazonaws.com/world-chat-secure-enclave-signed-dev:${{ needs.build-and-push.outputs.image_tag }} ${{ env.GHCR }}/worldcoin/world-chat-secure-enclave-signed:latest
-          docker push ${{ env.GHCR }}/worldcoin/world-chat-secure-enclave-signed:latest
+          docker tag ghcr.io/worldcoin/world-chat-secure-enclave-signed-dev:secure-enclave-v2-6d989e651a6e7d3a72e107eb4c0e151ebd13ff44-5a54dafdbdd8fbb90778f3df272207b910989438 ghcr.io/worldcoin/world-chat-secure-enclave-signed:latest
+          docker push ghcr.io/worldcoin/world-chat-secure-enclave-signed:latest
