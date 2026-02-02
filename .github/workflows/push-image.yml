@@ -12,7 +12,7 @@ on:
   workflow_dispatch: {}
 
 permissions:
-  id-token: write     # ✅ MUSI być
+  id-token: write
   contents: read
   packages: write
 
@@ -21,11 +21,15 @@ jobs:
   run:
     runs-on:
       group: arc-public-large-amd64-runner
+#    environment: prod
     steps:
-      - name: Configure AWS credentials (OIDC)
-        uses: aws-actions/configure-aws-credentials@v4
+      - name: Login to GHCR
+        uses: docker/login-action@v3
         with:
-          role-to-assume: arn:aws:iam::535294144498:role/oidc/github-deploy-world-chat-backend
-          aws-region: eu-west-1
-      - name: Login to Amazon ECR
-        uses: aws-actions/amazon-ecr-login@v2
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Pull image
+        run: |
+          docker pull ghcr.io/worldcoin/world-chat-secure-enclave-signed-dev:secure-enclave-v2-6d989e651a6e7d3a72e107eb4c0e151ebd13ff44-5a54dafdbdd8fbb90778f3df272207b910989438
+          docker images | head
