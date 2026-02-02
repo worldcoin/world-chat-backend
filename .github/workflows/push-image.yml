@@ -28,8 +28,8 @@ jobs:
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
-          username: ${{ github.repository_owner }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          username: "wc-cicd"
+          password: ${{ secrets.GH_PAT }}
       - name: Pull image
         run: |
           docker pull ghcr.io/worldcoin/world-chat-secure-enclave-signed-dev:secure-enclave-v2-6d989e651a6e7d3a72e107eb4c0e151ebd13ff44-5a54dafdbdd8fbb90778f3df272207b910989438
