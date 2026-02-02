@@ -39,7 +39,6 @@ use crate::{
 
 const ALG_ES256: &str = "ES256";
 const TYP_JWT: &str = "JWT";
-const ISSUER: &str = "chat.toolsforhumanity.com";
 const MAX_SKEW_SECS: i64 = 60;
 
 // removed helper: decoding now lives on `JwsTokenParts`
@@ -50,6 +49,7 @@ pub struct JwtManager {
     kid: String,
     kms_client: Arc<KmsClient>,
     key_arn: String,
+    pub issuer: String,
 }
 
 impl JwtManager {
@@ -80,6 +80,7 @@ impl JwtManager {
             kid: key.id,
             kms_client,
             key_arn: key.arn,
+            issuer: environment.jwt_issuer_url(),
         })
     }
 
@@ -148,7 +149,7 @@ impl JwtManager {
         // Claims + time validation with small skew
         let claims: JwsPayload = parts.payload;
         let now = chrono::Utc::now().timestamp();
-        validate_claims(&claims, now, MAX_SKEW_SECS)?;
+        validate_claims(&claims, now, MAX_SKEW_SECS, &self.issuer)?;
 
         // Cutoff check: reject tokens issued before the cutoff timestamp
         if let Some(cutoff) = issued_after {
@@ -183,9 +184,14 @@ pub(crate) fn verify_signature_with_key(
 }
 
 /// Validate issuer, `nbf`, `exp`, and `iat` with a small clock skew allowance.
-pub(crate) fn validate_claims(claims: &JwsPayload, now: i64, skew: i64) -> Result<(), JwtError> {
+pub(crate) fn validate_claims(
+    claims: &JwsPayload,
+    now: i64,
+    skew: i64,
+    expected_issuer: &str,
+) -> Result<(), JwtError> {
     // Enforce known issuer
-    if claims.issuer != ISSUER {
+    if claims.issuer != expected_issuer {
         return Err(JwtError::InvalidToken);
     }
     if now + skew < claims.not_before {

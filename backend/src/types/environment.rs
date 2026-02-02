@@ -315,6 +315,20 @@ impl Environment {
             Self::Development { .. } => "http://localhost:8002".to_string(),
         }
     }
+
+    /// Returns the JWT issuer URL used in JWT tokens
+    ///
+    /// - Production: `chat.toolsforhumanity.com`
+    /// - Staging/Development: `chat-staging.toolsforhumanity.com`
+    #[must_use]
+    pub fn jwt_issuer_url(&self) -> String {
+        match self {
+            Self::Production => "chat.toolsforhumanity.com".to_string(),
+            Self::Staging | Self::Development { .. } => {
+                "chat-staging.toolsforhumanity.com".to_string()
+            }
+        }
+    }
 }
 
 #[cfg(test)]
@@ -445,5 +459,23 @@ mod tests {
 
         let env = Environment::Staging;
         assert!(!env.disable_auth());
+    }
+
+    #[test]
+    fn test_jwt_issuer_url() {
+        // Production uses the production URL
+        let env = Environment::Production;
+        assert_eq!(env.jwt_issuer_url(), "chat.toolsforhumanity.com");
+
+        // Staging uses the staging URL
+        let env = Environment::Staging;
+        assert_eq!(env.jwt_issuer_url(), "chat-staging.toolsforhumanity.com");
+
+        // Development uses the staging URL
+        let env = Environment::Development {
+            presign_expiry_override: None,
+            disable_auth: false,
+        };
+        assert_eq!(env.jwt_issuer_url(), "chat-staging.toolsforhumanity.com");
     }
 }

@@ -65,4 +65,6 @@ ignore = [
     "RUSTSEC-2024-0436", # Unmaintained `paste` (2025-04-04)
     "RUSTSEC-2025-0055", # Unmaintained peer dependency of `semaphore-rs` with minimal impact
     "RUSTSEC-2021-0127", # serde_cbor is unmaintained. We use this in AWS NSM package but just for the AttestationDocument Type
+    "RUSTSEC-2025-0141", # Unmaintained `bincode` - transitive dep from `semaphore-rs`, authors consider v1.3.3 complete
+    "RUSTSEC-2026-0002", # Unsound `lru` - transitive dep from `aws-sdk-s3`, waiting on AWS SDK update
 ]
